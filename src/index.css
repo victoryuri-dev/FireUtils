@@ -465,7 +465,10 @@
 .pbf-negrito { font-weight: 700; }
 .pbf-justificado { text-align: justify; }
 .pbf-grupo { display: grid; grid-template-columns: 16pt 32% 1fr; }
-.pbf-grupo > div { padding: 1pt 4pt; }
+.pbf-grupo > div { padding: 0 4pt; }
+.print-area-memorial .pbf .pbf-grupo * { line-height: 1.15; }
+.pbf-continua { break-before: page; }
+.pbf-continuacao { background: #c55a11; color: #fff; text-align: left; font-weight: 700; padding: 2pt 4pt !important; }
 .pbf-grupo-nome { border-left: 1px solid #000; border-right: 1px solid #000; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 700; text-decoration: underline; }
 .pbf-grupo .pbf-grupo-x { padding: 1pt 0; text-align: center; font-weight: 700; }
 .pbf-anexo { text-align: center; margin-top: 14pt; }

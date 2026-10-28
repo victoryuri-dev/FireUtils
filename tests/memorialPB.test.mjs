@@ -714,3 +714,11 @@ test('Word (.docx) do formulário: pacote com documento, rodapé com Rubrica e u
   assert.ok((texto.match(/<w:tbl>/g) || []).length >= formulario.secoes.length + 1)   // seções + quadro da rubrica (+ tabelas dos dimensionamentos)
   assert.ok(texto.includes('1. IDENTIFICAÇÃO DA EDIFICAÇÃO'))
 })
+
+test('3.1: como no modelo, a natureza da ocupação continua em folha nova a partir do grupo G', () => {
+  const s = secao(gerar(projeto()), '3.')
+  const i = s.linhas.findIndex(l => l.tipo === 'continuacao')
+  assert.equal(s.linhas[i].titulo, 'Continuação: natureza de ocupação')
+  assert.ok(s.linhas[i - 1].itens.some(it => it.label.startsWith('F-11')))
+  assert.ok(s.linhas[i + 1].itens[0].label.startsWith('G-1'))
+})

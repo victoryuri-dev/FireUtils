@@ -109,18 +109,33 @@ function Linha({ linha }) {
   }
 }
 
+// Linha `continuacao` (3.1, como no modelo): fecha a tabela e abre outra em
+// folha nova, encabeçada pela faixa de continuação.
+function partes(linhas) {
+  const out = [{ titulo: null, linhas: [] }]
+  for (const l of linhas) {
+    if (l.tipo === 'continuacao') out.push({ titulo: l.titulo, linhas: [] })
+    else out[out.length - 1].linhas.push(l)
+  }
+  return out
+}
+
 export function Secao({ secao }) {
-  return (
-    <table className="pbf-tabela">
+  return partes(secao.linhas).map((parte, k) => (
+    <table key={k} className={`pbf-tabela ${k > 0 ? 'pbf-continua' : ''}`}>
       <tbody>
-        {secao.faixa && <tr><th className="pbf-faixa">{secao.faixa}</th></tr>}
-        <tr>
-          <th className="pbf-secao">
-            {secao.titulo}{secao.nota ? <> <span className="pbf-nota">{secao.nota}</span></> : null}
-          </th>
-        </tr>
-        {secao.linhas.map((l, i) => <Linha key={i} linha={l}/>)}
+        {k === 0 && secao.faixa && <tr><th className="pbf-faixa">{secao.faixa}</th></tr>}
+        {k === 0 ? (
+          <tr>
+            <th className="pbf-secao">
+              {secao.titulo}{secao.nota ? <> <span className="pbf-nota">{secao.nota}</span></> : null}
+            </th>
+          </tr>
+        ) : (
+          <tr><th className="pbf-continuacao">{parte.titulo}</th></tr>
+        )}
+        {parte.linhas.map((l, i) => <Linha key={i} linha={l}/>)}
       </tbody>
     </table>
-  )
+  ))
 }

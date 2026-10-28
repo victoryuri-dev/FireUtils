@@ -42,6 +42,7 @@ const CSS_BASE = `
 }
 tr { break-inside: avoid; }
 .pbf-anexo-bloco { break-before: page; }
+.pbf-continua { break-before: page; }
 `
 
 // Com rubrica no perfil, o quadro de cada folha leva a imagem no lugar do texto.

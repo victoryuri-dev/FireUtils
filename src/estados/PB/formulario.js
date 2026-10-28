@@ -164,10 +164,13 @@ function secaoParametros(state, F, ctx) {
   const ocupacoes = getOcupacoes(state.uf)
   const fora = new Set(F.DIVISOES_FORA_DO_FORMULARIO || [])
   linhas.push(sub('3.1 Natureza da Ocupação'))
-  Object.values(ocupacoes).forEach(g => {
+  Object.entries(ocupacoes).forEach(([letra, g]) => {
     const itens = Object.entries(g.divisoes || {})
       .filter(([cod]) => !fora.has(cod))
       .map(([cod, nome]) => ({ x: ctx.divisoes.has(cod), label: `${cod} - ${nome}` }))
+    // Como no modelo do CBMPB: a 1ª folha vai até o grupo F e a tabela
+    // continua na folha seguinte, a partir do G, com a faixa de continuação.
+    if (letra === 'G') linhas.push({ tipo: 'continuacao', titulo: 'Continuação: natureza de ocupação' })
     if (itens.length) linhas.push({ tipo: 'grupo', titulo: g.descricao, itens })
   })
   const naoListadas = [...ctx.divisoes].filter(d => fora.has(d)).sort()

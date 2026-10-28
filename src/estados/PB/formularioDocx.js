@@ -108,9 +108,14 @@ function secaoOoxml(secao) {
   const linhas = []
   if (secao.faixa) linhas.push(faixaCheia(p(t(secao.faixa, { cor: 'FFFFFF' })), CINZA))
   linhas.push(faixaCheia(p(t(secao.titulo, { cor: 'FFFFFF' }) + (secao.nota ? t(` ${secao.nota}`, { cor: 'FFFFFF' }) : '')), VERMELHO))
-  for (const l of secao.linhas) linhas.push(...linhasDe(l))
-  // Faixas de título não ficam sozinhas no pé da folha.
-  return tabelaGrade(linhas, { largura: LARGURA }) + p('', { depois: 9 })
+  // `continuacao` (3.1): fecha a tabela e abre outra em folha nova, com a
+  // faixa de continuação (quebra de página no 1º parágrafo da tabela nova).
+  const tabelas = [linhas]
+  for (const l of secao.linhas) {
+    if (l.tipo === 'continuacao') tabelas.push([faixaCheia(p(t(l.titulo, { cor: 'FFFFFF', b: true }), { quebraAntes: true }), LARANJA)])
+    else tabelas[tabelas.length - 1].push(...linhasDe(l))
+  }
+  return tabelas.map(ls => tabelaGrade(ls, { largura: LARGURA })).join(p('', { linha: 20 })) + p('', { depois: 9 })
 }
 
 // Brasão do CBMPB no topo, como no modelo (26 mm).
