@@ -686,6 +686,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
   // depende dos limiares do estado); a chave remonta os cards quando chegam.
   const [normasVersao, setNormasVersao] = useState(0)
   const ufsDaLista = [...new Set(allProjects.map(p => p.uf).filter(Boolean))].sort().join(',')
+  const [ufsComNormas, setUfsComNormas] = useState(null)   // UFs da lista já com normas carregadas
   useEffect(() => {
     if (!ufsDaLista) return
     let cancelado = false
@@ -693,9 +694,15 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
       if (cancelado) return
       versaoNormasLista += 1   // cards remontados (key) recalculam a completude
       setNormasVersao(v => v + 1)
+      setUfsComNormas(ufsDaLista)
     })
     return () => { cancelado = true }
   }, [ufsDaLista])
+
+  // Os cards só aparecem com tudo pronto — lista, fixados (perfil) e normas
+  // das UFs (completude/tipo do card). Antes os fixados chegavam depois e
+  // remontavam os cards em outro grupo, pulando a animação de entrada.
+  const carregando = loading || perfil === null || (!!ufsDaLista && ufsComNormas !== ufsDaLista)
 
   const handleDeleteConfirm = async () => {
     if (!toDelete) return
@@ -785,7 +792,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
     return [{ chave: 'fixados', titulo: 'Fixados', lista }, ...(demais.length ? [{ chave: 'demais', titulo: 'Outros projetos', lista: demais }] : [])]
   }, [filtered, fixados])
 
-  useEntradaEmLote(gridRef, '.card-projeto', `${loading}|${view}|${filtered.map(p => p.id).join(',')}`)
+  useEntradaEmLote(gridRef, '.card-projeto', `${carregando}|${view}|${filtered.map(p => p.id).join(',')}`)
   const hasFilter = !!(search || filterUF || filterGrupo || filterStatus.length)
 
   const toggleFilterStatus = key =>
@@ -909,7 +916,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
           </div>
 
           {/* ── Conteúdo ── */}
-          {loading ? (
+          {carregando ? (
             <div className="py-16 flex justify-center"><Loader size={40}/></div>
           ) : filtered.length === 0 ? (
             <EmptyState hasFilter={hasFilter} onNew={() => pedirEstado('completo')}/>
