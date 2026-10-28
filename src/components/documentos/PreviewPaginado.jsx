@@ -32,12 +32,24 @@ function empurrarAssinaturasProFim(palco) {
   })
 }
 
+// Paged.js carregado uma vez; se o carregamento falhar (ex.: arquivo de um
+// deploy anterior que não existe mais), a próxima tentativa busca de novo.
+let moduloPaged = null
+function carregarPaged() {
+  if (!moduloPaged) moduloPaged = import('pagedjs').catch(erro => { moduloPaged = null; throw erro })
+  return moduloPaged
+}
+
+// Falhou: tenta de novo sozinho algumas vezes antes de mostrar o aviso.
+const TENTATIVAS = 3
+
 export default function PreviewPaginado({ children, css, prepararConteudo, aposPaginar }) {
   const fonteRef = useRef(null)
   const destinoRef = useRef(null)
   const avisoRef = useRef(null)
+  const erroRef = useRef(null)
   const propsRef = useRef({ css, prepararConteudo, aposPaginar })
-  const estado = useRef({ ativo: true, rodando: false, pendente: false, timer: null, previewer: null, palco: null, ultimoHtml: null })
+  const estado = useRef({ ativo: true, rodando: false, pendente: false, timer: null, previewer: null, palco: null, ultimoHtml: null, falhas: 0 })
 
   const rodar = useRef(async function rodar() {
     const s = estado.current
@@ -55,9 +67,11 @@ export default function PreviewPaginado({ children, css, prepararConteudo, aposP
     // O loader só aparece na primeira geração; nas seguintes as páginas antigas
     // ficam na tela até as novas ficarem prontas.
     if (avisoRef.current) avisoRef.current.style.display = destinoRef.current?.childElementCount ? 'none' : ''
+    if (erroRef.current) erroRef.current.style.display = 'none'
     let palco = null
+    let novaTentativa = false
     try {
-      const { Previewer } = await import('pagedjs')
+      const { Previewer } = await carregarPaged()
       if (!s.ativo || !fonteRef.current || !destinoRef.current) return
 
       palco = document.createElement('div')
@@ -80,6 +94,7 @@ export default function PreviewPaginado({ children, css, prepararConteudo, aposP
       // conteúdo do palco já descartado — "Cannot read properties of null
       // (reading 'getAttribute')" a cada repaginação.
       previewer.chunker?.pages?.forEach(pg => pg.removeListeners?.())
+      if (!palco.querySelector('.pagedjs_page')) throw new Error('A paginação não gerou nenhuma folha.')
       empurrarAssinaturasProFim(palco)
       destinoRef.current.replaceChildren(...palco.childNodes)
       propsRef.current.aposPaginar?.(destinoRef.current)
@@ -87,16 +102,26 @@ export default function PreviewPaginado({ children, css, prepararConteudo, aposP
       s.previewer = previewer
       anterior?.polisher.destroy()
       s.ultimoHtml = html
+      s.falhas = 0
     } catch (erro) {
       console.error('Falha ao paginar o documento:', erro)
-      s.ultimoHtml = html
+      // Antes, a falha marcava o conteúdo como paginado e o destino ficava
+      // vazio (fundo escuro) até recarregar a página. Agora tenta de novo e,
+      // esgotadas as tentativas, mostra o aviso com "Tentar novamente".
+      s.falhas += 1
+      if (s.falhas < TENTATIVAS) novaTentativa = true
+      else s.ultimoHtml = html
     } finally {
       palco?.remove()
       s.palco = null
       s.rodando = false
-      if (avisoRef.current) avisoRef.current.style.display = 'none'
-      if (s.ativo && s.pendente) { s.pendente = false; rodar.current() }
-
+      const temFolhas = !!destinoRef.current?.childElementCount
+      if (avisoRef.current) avisoRef.current.style.display = novaTentativa && !temFolhas ? '' : 'none'
+      if (erroRef.current) erroRef.current.style.display = !novaTentativa && s.falhas >= TENTATIVAS && !temFolhas ? '' : 'none'
+      if (s.ativo && novaTentativa) {
+        clearTimeout(s.timer)
+        s.timer = setTimeout(() => rodar.current(), 600 * s.falhas)
+      } else if (s.ativo && s.pendente) { s.pendente = false; rodar.current() }
     }
   })
 
@@ -107,6 +132,13 @@ export default function PreviewPaginado({ children, css, prepararConteudo, aposP
     clearTimeout(s.timer)
     s.timer = setTimeout(() => rodar.current(), 250)
   })
+
+  const tentarDeNovo = () => {
+    const s = estado.current
+    s.falhas = 0
+    s.ultimoHtml = null
+    rodar.current()
+  }
 
   useEffect(() => {
     const s = estado.current
@@ -127,6 +159,13 @@ export default function PreviewPaginado({ children, css, prepararConteudo, aposP
       </div>
       <div ref={avisoRef} className="no-print flex-1 flex items-center justify-center min-h-[96px]" role="status" aria-label="Gerando páginas">
         <Loader size={40}/>
+      </div>
+      <div ref={erroRef} className="no-print flex-1 flex flex-col items-center justify-center gap-3 min-h-[160px] text-center text-[13px] text-ink-faint" role="alert" style={{ display: 'none' }}>
+        <span>Não foi possível gerar as páginas do documento.</span>
+        <div className="flex gap-2">
+          <button type="button" className="btn-ghost" onClick={tentarDeNovo}>Tentar novamente</button>
+          <button type="button" className="btn-ghost" onClick={() => window.location.reload()}>Recarregar página</button>
+        </div>
       </div>
       <div ref={destinoRef} className="print-area print-area-memorial"/>
     </>
