@@ -441,6 +441,7 @@
 .print-area-memorial .pbf .pbf-titulo-doc { font-size: 10pt; font-weight: 700; text-decoration: underline; }
 .pbf { color: #000; }
 .pbf-cabecalho { text-align: center; margin-bottom: 10pt; }
+.pbf-logo { display: block; width: 26mm; height: 26mm; object-fit: contain; margin: 0 auto 4pt; }
 .pbf-tabela { width: 100%; border-collapse: collapse; margin-bottom: 9pt; table-layout: fixed; }
 .pbf-tabela td, .pbf-tabela th { border: 1px solid #000; padding: 0; vertical-align: stretch; }
 .pbf-secao { background: #c00000; color: #fff; text-align: left; font-weight: 400; padding: 2pt 4pt !important; }

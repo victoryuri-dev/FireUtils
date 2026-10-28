@@ -4,7 +4,7 @@
 // uma tabela do Word com a grade de colunas real, faixas coloridas, caixas
 // de X e células mescladas — editável no Word sem a conversão do PDF.
 import {
-  mmTw, ptTw, run, runsComDestaque, par, tabelaGrade, blocosOoxml, montarDocx,
+  mmTw, ptTw, run, runsComDestaque, par, tabelaGrade, blocosOoxml, montarDocx, imagemInline,
 } from '../../utils/docx/ooxml'
 import { numerarBlocos } from '../../utils/memorialEstilo'
 import { siglaConselho } from '../../utils/conselho'
@@ -113,9 +113,11 @@ function secaoOoxml(secao) {
   return tabelaGrade(linhas, { largura: LARGURA }) + p('', { depois: 9 })
 }
 
-function cabecalhoOoxml(norma) {
+// Brasão do CBMPB no topo, como no modelo (26 mm).
+function cabecalhoOoxml(norma, comLogo) {
   const c = texto => p(run(texto, { sz: 9.5 }), { alinha: 'center' })
-  return c('ESTADO DA PARAÍBA')
+  return (comLogo ? p(imagemInline('rIdLogo', 26, 26, 2), { alinha: 'center', depois: 4 }) : '')
+    + c('ESTADO DA PARAÍBA')
     + c('Secretária de Estado da Segurança e da Defesa Social')
     + c(norma.orgao.replace(' — ', '- '))
     + c(norma.diretoria)
@@ -143,14 +145,15 @@ function assinaturaOoxml(state) {
 }
 
 /** Blob do .docx do memorial da PB. */
-export function gerarDocxPB({ state, formulario, anexoA, anexoB, rubrica, titulo }) {
-  const corpo = cabecalhoOoxml(formulario.norma)
+export function gerarDocxPB({ state, formulario, anexoA, anexoB, rubrica, titulo, logo = null }) {
+  const corpo = cabecalhoOoxml(formulario.norma, !!logo)
     + formulario.secoes.map(secaoOoxml).join('')
     + anexoOoxml('A', anexoA, false)
     + anexoOoxml('B', anexoB, true)
     + assinaturaOoxml(state)
   return montarDocx({
     corpo, margens: MARGENS, fonte: 'Arial', sz: SZ, titulo,
+    imagens: logo ? [{ rId: 'rIdLogo', nome: 'logo-cbmpb.png', bytes: logo }] : [],
     rodape: { comRubrica: true, rubrica },
   })
 }

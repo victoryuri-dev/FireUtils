@@ -13,6 +13,7 @@ import Icon from '../../components/ui/Icon'
 import { imprimirComNome, nomeDocumentoMemorial } from '../../utils/exportarWord'
 import { baixarBlob } from '../../utils/docx/ooxml'
 import { gerarDocxPB } from '../../estados/PB/formularioDocx'
+import logoCbmpb from '../../assets/logos/cbmpb.png'
 import { usePerfil } from '../../hooks/usePerfil'
 import CampoRubrica from '../../components/perfil/CampoRubrica'
 import { useZoomDocumento } from '../../hooks/useZoomDocumento'
@@ -51,6 +52,7 @@ const cssPagina = rubrica => (rubrica
 function Cabecalho({ norma }) {
   return (
     <div className="pbf-cabecalho">
+      <img src={logoCbmpb} alt="Brasão do Corpo de Bombeiros Militar da Paraíba" className="pbf-logo"/>
       <div>ESTADO DA PARAÍBA</div>
       <div>Secretária de Estado da Segurança e da Defesa Social</div>
       <div>{norma.orgao.replace(' — ', '- ')}</div>
@@ -99,6 +101,14 @@ export default function MemorialPBPage({ onBack }) {
     ? [textoMemorialHidrantes(state, sistemas, porEstrutura), textoMemorialCalculoHidrantes(state)].filter(Boolean)
     : []
 
+  // Word: o brasão vai embutido no .docx (bytes do asset).
+  const salvarWord = async () => {
+    let logo = null
+    try { logo = new Uint8Array(await (await fetch(logoCbmpb)).arrayBuffer()) } catch { /* sem o brasão, segue o documento */ }
+    const titulo = nomeDocumentoMemorial(state.nome)
+    baixarBlob(gerarDocxPB({ state, formulario, anexoA, anexoB, rubrica: perfil?.rubrica, titulo, logo }), `${titulo}.docx`)
+  }
+
   return (
     <JanelaDocumento maximizado={maximizado} onFechar={() => setMaximizado(false)} className="flex flex-col flex-1 overflow-hidden">
       <div className="no-print shrink-0 flex items-center justify-between gap-3 py-3 px-8 border-b border-solid border-border">
@@ -106,7 +116,7 @@ export default function MemorialPBPage({ onBack }) {
         <BarraZoom {...zoomDoc}/>
         <div className="flex items-center gap-2">
           <CampoRubrica compacto/>
-          <button className="btn-ghost" onClick={() => baixarBlob(gerarDocxPB({ state, formulario, anexoA, anexoB, rubrica: perfil?.rubrica, titulo: nomeDocumentoMemorial(state.nome) }), `${nomeDocumentoMemorial(state.nome)}.docx`)} title="Baixar o memorial como documento do Word (.docx)">
+          <button className="btn-ghost" onClick={salvarWord} title="Baixar o memorial como documento do Word (.docx)">
             <Icon name="download" size={13}/> Salvar Word
           </button>
           <button className="btn-primary" onClick={() => imprimirComNome(nomeDocumentoMemorial(state.nome))}>

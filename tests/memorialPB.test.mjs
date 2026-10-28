@@ -701,13 +701,16 @@ test('Word (.docx) do formulário: pacote com documento, rodapé com Rubrica e u
   const state = projeto({ nome: 'Escola', rtNome: 'Fulano' })
   const { sistemas, porEstrutura } = medidasObrigatorias(state)
   const formulario = buildFormularioPB(state, sistemas, porEstrutura)
-  const blob = gerarDocxPB({ state, formulario, anexoA: [], anexoB: [], rubrica: '', titulo: 'Memorial Descritivo PPCI - Escola' })
+  const { readFileSync: ler } = await import('node:fs')
+  const logo = new Uint8Array(ler(new URL('../src/assets/logos/cbmpb.png', import.meta.url)))
+  const blob = gerarDocxPB({ state, formulario, anexoA: [], anexoB: [], rubrica: '', titulo: 'Memorial Descritivo PPCI - Escola', logo })
   const bytes = new Uint8Array(await blob.arrayBuffer())
   if (process.env.DOCX_SAIDA) writeFileSync(process.env.DOCX_SAIDA, bytes)
   const texto = new TextDecoder().decode(bytes)
   assert.equal(bytes[0], 0x50); assert.equal(bytes[1], 0x4b)            // ZIP
   assert.ok(texto.includes('word/document.xml') && texto.includes('word/footer1.xml'))
   assert.ok(texto.includes('Rubrica'))
+  assert.ok(texto.includes('word/media/logo-cbmpb.png') && texto.includes('r:embed="rIdLogo"'))   // brasão no topo
   assert.ok((texto.match(/<w:tbl>/g) || []).length >= formulario.secoes.length + 1)   // seções + quadro da rubrica (+ tabelas dos dimensionamentos)
   assert.ok(texto.includes('1. IDENTIFICAÇÃO DA EDIFICAÇÃO'))
 })
