@@ -302,7 +302,10 @@ function migrarAlturaEdificacao(estruturas) {
   }).map(semAlturasOcultas)
 }
 
-function hydrateState(saved) {
+// Também usado fora do provider (ProjetosPage: completude dos cards com o
+// projeto no mesmo formato que o dashboard vê).
+// eslint-disable-next-line react-refresh/only-export-components
+export function hydrateState(saved) {
   return {
     ...INITIAL_STATE,
     ...saved,

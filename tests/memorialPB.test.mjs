@@ -722,3 +722,14 @@ test('3.1: como no modelo, a natureza da ocupação continua em folha nova a par
   assert.ok(s.linhas[i - 1].itens.some(it => it.label.startsWith('F-11')))
   assert.ok(s.linhas[i + 1].itens[0].label.startsWith('G-1'))
 })
+
+test('completude do card de "Meus projetos" = a do dashboard (auditoria de campos obrigatórios)', async () => {
+  const { percentualCompletude } = await server.ssrLoadModule('/src/utils/completude.js')
+  const { camposObrigatorios } = await server.ssrLoadModule('/src/data/auditoriaProjeto.js')
+  const st = projeto({ rtNome: 'Fulano', nome: 'Escola', endereco: 'Rua 1', cidade: 'JP' })
+  const { porEstrutura } = medidasObrigatorias(st)
+  const campos = camposObrigatorios(st, porEstrutura)
+  const esperado = Math.round(((campos.length - campos.filter(c => c.pendente).length) / campos.length) * 100)
+  assert.equal(percentualCompletude(st), esperado)
+  assert.ok(esperado > 0 && esperado < 100)
+})

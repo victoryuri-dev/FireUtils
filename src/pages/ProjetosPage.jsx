@@ -5,10 +5,11 @@ import Loader from '../components/ui/Loader'
 import { useNorma } from '../hooks/useNorma'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { newIds, useProjeto } from '../context/ProjetoContext'
+import { newIds, useProjeto, hydrateState } from '../context/ProjetoContext'
+import { percentualCompletude } from '../utils/completude'
 import { statusCatalogo, carregarNormasRemotas } from '../lib/normasRemote'
 import { enquadrarTipoProjeto } from '../data/tipoProjeto'
-import { temCNAECadastrado, getEstadosDisponiveis } from '../data/normas/index'
+import { getEstadosDisponiveis } from '../data/normas/index'
 import { fmtUn } from '../utils/numero'
 import { usePerfil } from '../hooks/usePerfil'
 
@@ -22,23 +23,17 @@ function totalArea(proj) {
   return parseFloat(proj.areaConstruidaTotal) || soma
 }
 
-function calcCompletude(s) {
-  const area = totalArea(s)
-  const uf = s.uf || 'MA'
-  // Divisoes sem nenhum CNAE cadastrado (ex: J-1..J-4) nunca terao p.cnae
-  // preenchido — contam como classificadas so com a divisao definida.
-  const pavClassificado = p => !!(p.divisao && (p.cnae || !temCNAECadastrado(uf, p.divisao)))
-  const checks = [
-    !!(s.nome && s.endereco && s.cidade),
-    !!(s.estruturas?.length && s.estruturas.every(e => e.areaTotal && e.altura)),
-    !!s.propNome,
-    !!(s.rtNome && (!s.usaArt || s.artNumero)),
-    !!(s.pavimentos?.length > 0 && s.pavimentos.every(pavClassificado)),
-    !!(Object.keys(s.cargaState || {}).length > 0),
-    true,
-    !!(s.nome && area > 0 && s.pavimentos?.length > 0),
-  ]
-  return Math.round(checks.filter(Boolean).length / checks.length * 100)
+// Mesma completude do dashboard (utils/completude.js), sobre o projeto
+// hidratado como o editor o vê. Cache por projeto + versão das normas: a
+// conta muda quando as normas da UF terminam de carregar.
+let versaoNormasLista = 0
+const cacheCompletude = new WeakMap()
+function calcCompletude(proj, versao = versaoNormasLista) {
+  const c = cacheCompletude.get(proj)
+  if (c && c.versao === versao) return c.pct
+  const pct = percentualCompletude(hydrateState(proj))
+  cacheCompletude.set(proj, { versao, pct })
+  return pct
 }
 
 function barToneClasses(pct) {
@@ -694,7 +689,11 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
   useEffect(() => {
     if (!ufsDaLista) return
     let cancelado = false
-    Promise.all(ufsDaLista.split(',').map(carregarNormasRemotas)).then(() => { if (!cancelado) setNormasVersao(v => v + 1) })
+    Promise.all(ufsDaLista.split(',').map(carregarNormasRemotas)).then(() => {
+      if (cancelado) return
+      versaoNormasLista += 1   // cards remontados (key) recalculam a completude
+      setNormasVersao(v => v + 1)
+    })
     return () => { cancelado = true }
   }, [ufsDaLista])
 
@@ -722,14 +721,14 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
 
   // Estatísticas
   const stats = useMemo(() => {
-    const pcts = allProjects.map(calcCompletude)
+    const pcts = allProjects.map(p => calcCompletude(p, normasVersao))
     return {
       total:      allProjects.length,
       andamento:  pcts.filter(p => p >= 25 && p < 100).length,
       concluidos: pcts.filter(p => p === 100).length,
       rascunhos:  pcts.filter(p => p < 25).length,
     }
-  }, [allProjects])
+  }, [allProjects, normasVersao])
 
   // Opções dos filtros
   const ufsDisponiveis = useMemo(() =>
@@ -759,7 +758,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
     if (filterGrupo) list = list.filter(p => p.pavimentos?.some(pav => pav.grupo === filterGrupo))
     if (filterStatus.length) {
       list = list.filter(p => {
-        const pct = calcCompletude(p)
+        const pct = calcCompletude(p, normasVersao)
         const key = pct === 100 ? 'concluidos' : pct >= 25 ? 'andamento' : 'rascunhos'
         return filterStatus.includes(key)
       })
@@ -770,12 +769,12 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
       if (sort === 'oldest')  return new Date(a.updatedAt || 0) - new Date(b.updatedAt || 0)
       if (sort === 'name')    return (a.nome || '').localeCompare(b.nome || '', 'pt-BR')
       if (sort === 'area')    return totalArea(b) - totalArea(a)
-      if (sort === 'pct')     return calcCompletude(b) - calcCompletude(a)
+      if (sort === 'pct')     return calcCompletude(b, normasVersao) - calcCompletude(a, normasVersao)
       return 0
     })
 
     return list
-  }, [allProjects, search, sort, filterUF, filterGrupo, filterStatus])
+  }, [allProjects, search, sort, filterUF, filterGrupo, filterStatus, normasVersao])
 
   // Fixados em cima, separados; sem nenhum fixado, a lista fica como antes.
   const gruposDaLista = useMemo(() => {
@@ -935,7 +934,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
                   {g.titulo && <TituloGrupo titulo={g.titulo} total={g.lista.length}/>}
                   <ListHeader/>
                   {g.lista.map(proj => (
-                    <ProjectRow key={proj.id} proj={proj} onOpen={onOpenProject} onDelete={setToDelete} onDuplicate={setToDuplicate}
+                    <ProjectRow key={`${proj.id}-${normasVersao}`} proj={proj} onOpen={onOpenProject} onDelete={setToDelete} onDuplicate={setToDuplicate}
                       fixado={fixados.includes(proj.id)} onFixar={alternarFixado}/>
                   ))}
                 </section>
