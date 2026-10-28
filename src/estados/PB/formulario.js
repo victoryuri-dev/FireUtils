@@ -45,7 +45,7 @@ import { cmarPorEstrutura, ELEMENTOS_CMAR } from './cmar'
 import { riscoDoPavimentoRobusto, calcularBrigadaPavimento, NIVEL_LABEL, maiorRisco, maiorNivel } from '../../data/brigada_calc'
 import { observacoesDoProjeto, ROTULO_OBSERVACOES } from '../../utils/observacoes'
 import { textoMemorialBrigadaIncendio } from '../../data/memorial/brigada_incendio'
-import { enquadrarTipoProjeto, rotuloTipoProjeto } from '../../data/tipoProjeto'
+import { enquadrarTipoProjeto } from '../../data/tipoProjeto'
 import { opcoesPublicoBrigada } from '../../utils/brigadaPublico'
 import { opcaoCapacidade } from '../../data/extintores_calc'
 import { LANCES_INTERNOS, LANCES_EXTERNOS, TIPOS_MANGUEIRA, tipoMangueiraValido } from '../../data/hidrantesMangueiras'
@@ -143,14 +143,15 @@ function secaoIdentificacao(state) {
 
 // A ferramenta só gera projeto técnico ou simplificado (data/tipoProjeto.js):
 // os dois são PCI — PTIOT/PTOTEP (ocupação temporária) ficam desmarcados.
-// Sem área/altura para enquadrar, nada é marcado.
+// Sem área/altura para enquadrar, nada é marcado. Os rótulos são os do
+// formulário padrão do CBMPB, sem acréscimos.
 function secaoFormaApresentacao(state, F) {
   const { tipo } = enquadrarTipoProjeto(state.uf, state.estruturas)
   return {
     titulo: '2. FORMA DE APRESENTAÇÃO', nota: '(Marcar com X a que se refere o PCI)',
     linhas: F.FORMAS_APRESENTACAO.map(f => ck({
       x: f.key === 'pci' && !!tipo,
-      label: f.key === 'pci' && tipo ? `${f.label} — ${rotuloTipoProjeto(state.uf, tipo)}` : f.label,
+      label: f.label,
     })),
   }
 }

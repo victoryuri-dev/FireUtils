@@ -224,7 +224,7 @@ test('linha padronizada da PB: Tabela 5 inclusiva, subtabelas por divisão e gru
     const { buildFormularioPB: build } = await srv.ssrLoadModule('/src/estados/PB/formulario.js')
     const st = { ...projeto(), estruturas: [{ ...projeto().estruturas[0], areaTotal: '900', nPavimentos: 3, alturaEdificacao: 9 }] }
     const s2 = build(st, {}, []).secoes[1]
-    assert.deepEqual(marcados(s2), ['Projeto de Segurança contra Incêndio - PCI — Projeto Técnico de Segurança Contra Incêndio Simplificado (PCIS)'])
+    assert.deepEqual(marcados(s2), ['Projeto de Segurança contra Incêndio - PCI'])   // rótulo do formulário, sem acréscimo
   } finally {
     await srv.close()
   }
