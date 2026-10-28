@@ -10,13 +10,16 @@ export default function useEntradaEmLote(rootRef, seletor, chave) {
   useLayoutEffect(() => {
     const grid = rootRef.current
     if (!grid || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const cards = [...grid.querySelectorAll(seletor)]
+    // Só os que ainda não entraram: ao acrescentar itens (ex.: próximo lote
+    // de cards ao rolar), os que já estão na tela não piscam de novo.
+    const cards = [...grid.querySelectorAll(seletor)].filter(c => !c.dataset.entrou)
     gsap.set(cards, { autoAlpha: 0, y: 60 })
 
     let fila = [], timer = null
     const soltar = () => {
       timer = null
       const lote = fila; fila = []
+      lote.forEach(c => { c.dataset.entrou = '1' })
       gsap.to(lote, {
         autoAlpha: 1, y: 0, duration: .7, ease: 'power3.out',
         stagger: .1, overwrite: true,

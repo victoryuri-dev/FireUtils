@@ -27,6 +27,8 @@ function totalArea(proj) {
 // hidratado como o editor o vê. Cache por projeto + versão das normas: a
 // conta muda quando as normas da UF terminam de carregar.
 let versaoNormasLista = 0
+// Cards renderizados por vez em "Meus projetos" (o resto entra ao rolar).
+const POR_LOTE = 15
 const cacheCompletude = new WeakMap()
 function calcCompletude(proj, versao = versaoNormasLista) {
   const c = cacheCompletude.get(proj)
@@ -784,15 +786,39 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
   }, [allProjects, search, sort, filterUF, filterGrupo, filterStatus, normasVersao])
 
   // Fixados em cima, separados; sem nenhum fixado, a lista fica como antes.
+  // Renderiza no máximo POR_LOTE cards; os próximos entram conforme a
+  // sentinela no fim da lista aparece na rolagem. Mudar busca/filtro/ordem/
+  // visualização volta ao primeiro lote.
+  const chaveFiltros = `${search}|${sort}|${filterUF}|${filterGrupo}|${filterStatus.join(',')}|${view}`
+  const [lote, setLote] = useState({ chave: chaveFiltros, limite: POR_LOTE })
+  const limite = lote.chave === chaveFiltros ? lote.limite : POR_LOTE
+  const temMais = limite < filtered.length
+
   const gruposDaLista = useMemo(() => {
     const ehFixado = p => fixados.includes(p.id)
-    const lista = filtered.filter(ehFixado)
-    if (!lista.length) return [{ chave: 'todos', titulo: null, lista: filtered }]
-    const demais = filtered.filter(p => !ehFixado(p))
-    return [{ chave: 'fixados', titulo: 'Fixados', lista }, ...(demais.length ? [{ chave: 'demais', titulo: 'Outros projetos', lista: demais }] : [])]
-  }, [filtered, fixados])
+    const fixadosLista = filtered.filter(ehFixado)
+    const grupos = fixadosLista.length
+      ? [{ chave: 'fixados', titulo: 'Fixados', lista: fixadosLista }, { chave: 'demais', titulo: 'Outros projetos', lista: filtered.filter(p => !ehFixado(p)) }]
+      : [{ chave: 'todos', titulo: null, lista: filtered }]
+    // Fixados primeiro: o lote corta na ordem em que os cards aparecem.
+    let restante = limite
+    return grupos
+      .map(g => { const visiveis = g.lista.slice(0, Math.max(0, restante)); restante -= visiveis.length; return { ...g, total: g.lista.length, lista: visiveis } })
+      .filter(g => g.lista.length)
+  }, [filtered, fixados, limite])
 
-  useEntradaEmLote(gridRef, '.card-projeto', `${carregando}|${view}|${filtered.map(p => p.id).join(',')}`)
+  const sentinelaRef = useRef(null)
+  useEffect(() => {
+    const el = sentinelaRef.current
+    if (!el || !temMais) return
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) setLote({ chave: chaveFiltros, limite: limite + POR_LOTE })
+    }, { rootMargin: '0px 0px 300px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [temMais, limite, chaveFiltros, carregando])
+
+  useEntradaEmLote(gridRef, '.card-projeto', `${carregando}|${view}|${gruposDaLista.flatMap(g => g.lista.map(p => p.id)).join(',')}`)
   const hasFilter = !!(search || filterUF || filterGrupo || filterStatus.length)
 
   const toggleFilterStatus = key =>
@@ -924,7 +950,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
             <div ref={gridRef} className="flex flex-col gap-6">
               {gruposDaLista.map(g => (
                 <section key={g.chave} aria-label={g.titulo || 'Projetos'}>
-                  {g.titulo && <TituloGrupo titulo={g.titulo} total={g.lista.length}/>}
+                  {g.titulo && <TituloGrupo titulo={g.titulo} total={g.total}/>}
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(272px,1fr))] gap-3">
                     {g.lista.map(proj => (
                       <ProjectCard key={`${proj.id}-${normasVersao}`} proj={proj} onOpen={onOpenProject} onDelete={setToDelete} onDuplicate={setToDuplicate}
@@ -938,7 +964,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
             <div className="flex flex-col gap-6">
               {gruposDaLista.map(g => (
                 <section key={g.chave} className="flex flex-col gap-2.5" aria-label={g.titulo || 'Projetos'}>
-                  {g.titulo && <TituloGrupo titulo={g.titulo} total={g.lista.length}/>}
+                  {g.titulo && <TituloGrupo titulo={g.titulo} total={g.total}/>}
                   <ListHeader/>
                   {g.lista.map(proj => (
                     <ProjectRow key={`${proj.id}-${normasVersao}`} proj={proj} onOpen={onOpenProject} onDelete={setToDelete} onDuplicate={setToDuplicate}
@@ -948,6 +974,8 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
               ))}
             </div>
           )}
+          {/* Sentinela: ao entrar na tela, renderiza o próximo lote de cards. */}
+          {!carregando && temMais && <div ref={sentinelaRef} className="h-10" aria-hidden="true"/>}
           {erroFixar && <div className="ibox red mt-4" role="alert"><Icon name="warn" size={13} color="var(--color-red)" className="shrink-0"/><span className="text-xs">{erroFixar}</span></div>}
 
         </div>
