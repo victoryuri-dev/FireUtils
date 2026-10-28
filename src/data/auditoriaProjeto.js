@@ -4,7 +4,7 @@ import { montarLinhas } from './cmar_calc'
 import { calcGatilho } from './av_calc'
 import { alturaEdificacaoBase } from './trrf_calc'
 import { linhaTabelaA1 } from './brigada_calc'
-import { ESTADOS_COM_FLUXO_PROPRIO, campoOculto, campoOpcionalNoEstado } from '../estados/fluxos'
+import { ESTADOS_COM_FLUXO_PROPRIO, campoOculto, campoOpcionalNoEstado, usaArtNoProjeto } from '../estados/fluxos'
 
 export const campoId = (...partes) => partes.join('.')
 export const preenchido = v => Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== ''
@@ -38,7 +38,7 @@ export function camposObrigatorios(state, porEstrutura = []) {
   if (!dim) {
     root([['respCNPJ','CNPJ'], ['respRazaoSocial','Razão social'], ['endereco','Logradouro'], ['cidade','Cidade'], ['propNome','Nome / razão social do proprietário'], ['propDocumento','CPF / CNPJ do proprietário']], config(1))
     root([['rtNome','Nome completo'], ['rtConselho','CREA / CAU'], ['rtEspecialidade','Especialidade']], config(3))
-    if (state.usaArt) root([['artNumero','Número da ART']], config(3))
+    if (usaArtNoProjeto(state)) root([['artNumero','Número da ART']], config(3))
   }
   root([['areaConstruidaTotal','Área construída total',positivo]], config(2))
   if (!dim) root([['caracteristicasEstrutura','Características construtivas · Estrutura'], ['cobertura','Elementos de cobertura'], ['fachada','Elementos de vedação']], config(2))

@@ -17,6 +17,7 @@ import MenuSecoes from '../../components/documentos/MenuSecoes'
 import { Titulo, BlocoMedida } from '../../components/documentos/BlocosMemorial'
 import { TABELA, TABELA_THEAD, TABELA_TH, TABELA_TD, zebra, TEXTO, TEXTO_PEQUENO, tituloCase, numerarBlocos } from '../../utils/memorialEstilo'
 import { registroComConselho } from '../../utils/conselho'
+import { usaArtNoProjeto } from '../../estados/fluxos'
 
 // Memorial descritivo: um documento para impressão, uma pagina A4 por medida
 // de seguranca (secao vinda de buildMemorial). Medidas ainda sem builder
@@ -257,7 +258,7 @@ function SobreEdificacao({ state }) {
       ['Responsável Técnico', state.rtNome],
       ['Especialidade', state.rtEspecialidade],
       ['Registro Profissional', registroComConselho(state)],
-      ['Número da ART / RRT', state.usaArt ? state.artNumero : ''],
+      ['Número da ART / RRT', usaArtNoProjeto(state) ? state.artNumero : ''],
     ] },
     { titulo: 'Responsável pelo Uso', campos: [
       ['Razão Social', state.respRazaoSocial],

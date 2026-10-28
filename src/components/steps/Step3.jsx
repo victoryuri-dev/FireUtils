@@ -6,6 +6,7 @@ import FormSection from '../ui/FormSection'
 import Icon from '../ui/Icon'
 import SwitchToggle from '../ui/SwitchToggle'
 import CampoConselho from '../ui/CampoConselho'
+import { artObrigatoria, usaArtNoProjeto } from '../../estados/fluxos'
 const S={section:'max-w-[980px] mx-auto pt-8 px-10 pb-20',header:'mb-8',stepLbl:'text-[11px] text-red uppercase tracking-[.08em] font-semibold mb-[5px]',title:'text-[22px] font-semibold text-ink mb-[5px]',desc:'text-[13px] text-ink-faint leading-[1.6]'}
 
 export default function Step3({ step, totalSteps }) {
@@ -44,6 +45,8 @@ export default function Step3({ step, totalSteps }) {
     </button>
   )
 
+  // PB: ART obrigatória — sem o switch, sempre em uso.
+  const usaArt = usaArtNoProjeto(state)
   return (
     <div className={S.section}>
       <div className={S.header}><div className={S.stepLbl}>Etapa {step} de {totalSteps}</div><h2 className={S.title}>Responsavel tecnico</h2><p className={S.desc}>Dados do engenheiro ou arquiteto responsavel pelo PPCI e informacoes da ART.</p></div>
@@ -76,23 +79,25 @@ export default function Step3({ step, totalSteps }) {
           <div className="fg"><label>Telefone <Obrigatorio id="rtTelefone"/></label><input type="tel" value={state.rtTelefone} onChange={set('rtTelefone')}/></div>
         </div>
       </FormSection>
+      {/* ART: título e número na mesma linha. PB: obrigatória, sem o switch. */}
       <FormSection
-        title="ART"
-        description={state.usaArt ? 'Dados desta obra — não vêm do perfil, mudam de projeto para projeto.' : 'Desativada — não entra no memorial descritivo.'}
+        title={<>ART {usaArt && <Obrigatorio id={'artNumero'}/>}</>}
+        cabecalhoCentralizado
         extra={
-          <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-[11px] text-ink-faint">Utiliza ART</span>
-            <SwitchToggle checked={state.usaArt} onChange={v => dispatch({ type:'SET_FIELD', field:'usaArt', value:v })}/>
-          </label>
-        }
-      >
-        {/* Só o número da ART. */}
-        {state.usaArt && (
-          <div className="fg max-w-[calc(50%-8px)] max-[720px]:max-w-full">
-            <label>Numero da ART <Obrigatorio id={'artNumero'}/></label><input value={state.artNumero} onChange={set('artNumero')}/>
+          <div className="flex items-center gap-3 flex-wrap">
+            {usaArt && (
+              <input value={state.artNumero} onChange={set('artNumero')} placeholder="Número da ART" aria-label="Número da ART"
+                className="w-[280px] max-w-full"/>
+            )}
+            {!artObrigatoria(state.uf) && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-[11px] text-ink-faint">Utiliza ART</span>
+                <SwitchToggle checked={state.usaArt} onChange={v => dispatch({ type:'SET_FIELD', field:'usaArt', value:v })}/>
+              </label>
+            )}
           </div>
-        )}
-      </FormSection>
+        }
+      />
     </div>
   )
 }

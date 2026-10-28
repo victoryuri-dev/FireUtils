@@ -22,3 +22,9 @@ const CAMPOS_OPCIONAIS = { PB: new Set(['respCNPJ']) }
 export const campoOculto = (uf, id) => !!CAMPOS_OCULTOS[uf]?.has(id)
 /** O campo (obrigatório no padrão) é opcional para o estado? */
 export const campoOpcionalNoEstado = (uf, id) => !!CAMPOS_OPCIONAIS[uf]?.has(id)
+
+// Estados em que a ART é obrigatória (o RT não pode desligá-la na Etapa 3).
+const ART_OBRIGATORIA = new Set(['PB'])
+export const artObrigatoria = uf => ART_OBRIGATORIA.has(uf)
+/** ART em uso no projeto: ligada pelo RT ou obrigatória no estado. */
+export const usaArtNoProjeto = state => !!state?.usaArt || artObrigatoria(state?.uf)

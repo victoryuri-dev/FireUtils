@@ -13,6 +13,7 @@ import Icon from '../components/ui/Icon'
 import ProjectNotesCard from '../components/notes/ProjectNotesCard'
 import { fmtNum } from '../utils/numero'
 import './DashboardPage.css'
+import { usaArtNoProjeto } from '../estados/fluxos'
 
 const DIAS_SEMANA_ABREV = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
@@ -226,7 +227,7 @@ function getStatusTone(key, required, progressTone) {
 const COMPLETE_CONFIG_STEPS = [
   { label: 'Identificação', test: s => [s.nome, s.endereco, s.cidade, s.propNome, s.propDocumento, s.respRazaoSocial, s.respCNPJ].every(Boolean) },
   { label: 'Edificação', test: s => (s.estruturas || []).length > 0 && s.estruturas.every(e => e.areaTotal && e.altura) },
-  { label: 'Responsável técnico', test: s => Boolean(s.rtNome && (!s.usaArt || s.artNumero)) },
+  { label: 'Responsável técnico', test: s => Boolean(s.rtNome && (!usaArtNoProjeto(s) || s.artNumero)) },
   { label: 'Classificação', test: s => (s.pavimentos || []).length > 0 && s.pavimentos.every(p => p.divisao && p.cnae) },
   // Antes só conferia as entradas que já existiam em cargaState — uma
   // divisão nova (estrutura adicionada depois, por exemplo) sem entrada
