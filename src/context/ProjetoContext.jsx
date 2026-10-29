@@ -330,7 +330,7 @@ export function hydrateState(saved) {
     // acessos ficam com `[]` mesmo (não ganham a árvore padrão
     // retroativamente) — só pavimentos criados a partir de agora nascem com
     // ela, ver acessosPadrao.
-    pavimentos: (saved.pavimentos || INITIAL_STATE.pavimentos).map(p => ({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p })),
+    pavimentos: (saved.pavimentos || INITIAL_STATE.pavimentos).map(p => ({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) })),
     ...migrarParaPorEstrutura(saved),
   }
 }
@@ -385,6 +385,20 @@ function novaEstrutura(nome, id) {
   }
 }
 
+// Rótulos de pavimentos antigos ("Pavimento 2", "Subsolo 1", "Terreo") para a
+// numeração atual: o térreo é o P1 interno, então o primeiro pavimento acima
+// dele (id ...-P2) é o "1º Pavimento"; subsolos contam para baixo ("2º
+// Subsolo", "1º Subsolo", Térreo). Só reescreve rótulos no formato gerado
+// automaticamente (um nome digitado à mão não casa) e é idempotente.
+export function normalizarRotuloPavimento(label) {
+  if (label === 'Terreo') return 'Térreo'
+  const pav = /^Pavimento (\d+)$/.exec(label || '')
+  if (pav) return `${Math.max(1, parseInt(pav[1], 10) - 1)}º Pavimento`
+  const sub = /^Subsolo (\d+)$/.exec(label || '')
+  if (sub) return `${sub[1]}º Subsolo`
+  return label
+}
+
 // Pavimento térreo padrão de uma estrutura recém-criada — toda estrutura
 // nasce com nPavimentos:1/nSubsolos:0, então já cadastra este único
 // pavimento de saída, em vez de deixar `pavimentos` vazio até o usuário
@@ -397,7 +411,7 @@ function novaEstrutura(nome, id) {
 // da Brigada de Incêndio (Tabela A.1, NT 17) — é também a fonte da população
 // fixa total mostrada no Plano de Emergência (ver utils/planoEmergencia.js).
 function pavimentoTerreo(estruturaId) {
-  return { id: `${estruturaId}-P1`, estruturaId, tipo:'terreo', label: 'Terreo', grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(true), pisoDescarga: true }
+  return { id: `${estruturaId}-P1`, estruturaId, tipo:'terreo', label: 'Térreo', grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(true), pisoDescarga: true }
 }
 
 const INITIAL_STATE = {
@@ -733,14 +747,14 @@ function reducer(state, action) {
       const list = []
       for (let s = nSub; s >= 1; s--) {
         const id = `${estruturaId}-sub-${s}`
-        list.push(find(id) || { id, estruturaId, tipo:'subsolo', label: `Subsolo ${s}`, grupo: 'G', divisao: 'G-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
+        list.push(find(id) || { id, estruturaId, tipo:'subsolo', label: `${s}º Subsolo`, grupo: 'G', divisao: 'G-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
       }
       const terId = `${estruturaId}-P1`
       const ter = find(terId)
       list.push(ter || pavimentoTerreo(estruturaId))
       for (let p = 2; p <= nPav; p++) {
         const id = `${estruturaId}-P${p}`
-        list.push(find(id) || { id, estruturaId, tipo:'pav', label: `Pavimento ${p}`, grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
+        list.push(find(id) || { id, estruturaId, tipo:'pav', label: `${p - 1}º Pavimento`, grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
       }
       const idsValidos = new Set(list.map(p => p.id))
       return {
