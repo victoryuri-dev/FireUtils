@@ -243,7 +243,7 @@ export function textoMemorialCalculoHidrantes(state) {
       ['Lm', 'Comprimento da mangueira, em m'],
       ['g', `Aceleração da gravidade = ${f(G)} m/s²`],
       ['Dm', 'Diâmetro da mangueira, em m'],
-      ['Q', 'Vazão INDIVIDUAL do hidrante — nunca Qt nem Qt/2, já que cada mangueira tem sua própria vazão'],
+      ['Q', 'Vazão individual do hidrante'],
     ])
     titulo3(`${prox()}) Velocidade do fluido na mangueira`)
     formula('V = 21,22 · Q / Dm²   [m/s]', [['V', 'Velocidade do fluido na mangueira']])
@@ -298,7 +298,7 @@ export function textoMemorialCalculoHidrantes(state) {
   titulo3(`${prox()}) Equilíbrio hidráulico do ramal mais favorável`)
   paragrafo(`Uma diferença de pressão entre os ramais, calculados os dois com a mesma vazão, é normal — reflete a diferença de resistência hidráulica entre os caminhos (comprimento, diâmetro, conexões, desnível), não um erro de projeto. O Ponto A só tem uma pressão física, então o ramal mais favorável precisa convergir até sua P_A bater com a pressão-alvo, dentro da variação máxima de pressão admitida pela norma (${norma.TOLERANCIA_EQUILIBRIO_MCA_REF}):`)
   formula('P_ref = P_PA,alvo − J − ∆H', [['P_ref', 'Pressão de referência recalculada do ramal mais favorável']])
-  formula('Q = K · √P_ref', [['Q', 'Vazão recalculada — muda a cada passo, então a perda de carga TEM que ser recalculada com ela; nunca reaproveitar a perda de uma vazão diferente']])
+  formula('Q = K · √P_ref', [['Q', 'Vazão recalculada a cada iteração, a partir da nova pressão de referência']])
   formula('Erro = |P_A − P_PA,alvo|', [['P_A', 'Pressão no Ponto A recalculada com a nova vazão (P_ref + J + ∆H)']])
   paragrafo(`Repete até Erro ≤ variação máxima admitida pela norma (${f(toleranciaEquilibrio, 2)} mca). Só então soma-se a vazão dos dois ramais:`)
   formula('Qt = Q_hd01 + Q_hd02')
@@ -442,10 +442,10 @@ export function textoMemorialCalculoHidrantes(state) {
     paragrafo('Pressão de referência recalculada — a pressão-alvo do Ponto A menos a perda de carga e o desnível deste ramal:')
     formula('P_ref = P_PA,alvo − J − ∆H')
     paragrafo(`P_ref = ${f(res.P_PA)} − ${f(jAtual)} ${fDh(dHIt)} = ${f(h.P_ref)} mca`)
-    paragrafo('Vazão recalculada pelo Fator K, com essa nova pressão de referência — nunca a vazão de uma iteração anterior:')
+    paragrafo('Vazão recalculada pelo Fator K, com a nova pressão de referência:')
     formula(`Q = K · √(P_ref / ${f(MCA_POR_BAR)})`)
     paragrafo(`Q = ${f(K)} · √(${f(h.P_ref)} / ${f(MCA_POR_BAR)}) = ${f(h.Q, 2)} L/min`)
-    paragrafo('Perda de carga recalculada por Hazen-Williams — Jun muda porque a vazão mudou; nunca reaproveita a perda de uma vazão diferente:')
+    paragrafo('Perda de carga recalculada por Hazen-Williams, com a vazão recalculada:')
     formula('Jun = 605·10⁴ · Q^1,85 · C^−1,85 · D^−4,87   [m/m]')
     formula('J = Ltotal · Jun   [mca]')
     tabela(['DN (mm)', 'Ltotal (m)', 'Jun (m/m)', 'J (mca)'],
@@ -472,10 +472,6 @@ export function textoMemorialCalculoHidrantes(state) {
     ['HD02', f(K), f(res.P_hd02 / MCA_POR_BAR), f(res.Q_hd02, 2)],
   ])
   paragrafo(`Qt = Q_hd01 + Q_hd02 = ${f(res.Q_hd01, 2)} + ${f(res.Q_hd02, 2)} = ${f(res.Qt, 2)} L/min`)
-
-  const qFavoravel = ramalIt === 'HD02' ? res.Q_hd02 : res.Q_hd01
-  const rQ = Qs ? qFavoravel / Qs : 0
-  paragrafo(`Indicador de desequilíbrio entre os ramais — o quanto o equilíbrio elevou a vazão do ramal mais favorável acima da vazão mínima: R_Q = Q_final/Q_mín = ${f(qFavoravel, 2)}/${f(Qs, 2)} = ${f(rQ, 3)}. Não há um percentual fixo como critério normativo; um R_Q alto indica que o ramal governante está sofrendo perda de carga desproporcional em relação ao mais favorável, e vale avaliar o diâmetro dele — mas só depois de conferir a velocidade de escoamento (próximo passo) e verificar se a diferença não é predominantemente por desnível geométrico, que o diâmetro não corrige.`)
 
   if (esguicho) {
     paragrafo('Com a vazão final de cada hidrante, recalculam-se a velocidade na mangueira e a perda na válvula angular — valores que aumentam conforme o traçado hidráulico caminha em direção aos pontos mais favoráveis. A pressão no esguicho sai de:')
