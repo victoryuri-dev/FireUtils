@@ -160,10 +160,17 @@ export function useClassificacaoHidrantes() {
   // estrutura selecionada, ajusta área/carga, etc.): antes só sincronizava
   // na primeira vez (guard `!h.tipo`), então uma mudança posterior deixava
   // a classificação salva desatualizada, divergindo da Tabela 3 em
-  // silêncio. Quando há 2 opções (coluna 1), o RT decide qual das duas
-  // adotar (ver escolherOpcao) — preserva essa escolha entre as duas, só
-  // atualizando a RTI se a faixa de área mudou, e só reseta se a escolha
-  // salva não for mais uma das opções válidas (ex.: saiu da coluna 1).
+  // silêncio. Quando há 2 opções (coluna 1, ou Nota 1/2), o RT decide qual
+  // das duas adotar (ver escolherOpcao) — preserva essa escolha entre as
+  // duas, só atualizando a RTI se a faixa de área mudou. Sem uma escolha
+  // válida ainda (projeto novo, h.tipo vazio) ou com a escolha salva fora
+  // das opções atuais (ex.: saiu da coluna 1), NUNCA escolhe uma das duas
+  // por conta própria — limpa tipo/rti pra nenhuma pill aparecer
+  // selecionada até o RT de fato clicar. Escolher sozinho aqui equivalia a
+  // uma decisão de projeto (RTI 8 m³ x 12 m³, por exemplo) tomada sem o RT
+  // perceber, e mascarava o sistema como já classificado em telas que
+  // dependem disso (ex.: dockpane só libera "Mapear Trechos" depois que o
+  // Tipo é de fato aplicado no Revit).
   useEffect(() => {
     const opcoes = sugestao.opcoes
     if (opcoes.length === 0) return
@@ -178,7 +185,7 @@ export function useClassificacaoHidrantes() {
 
     const escolhaAtual = opcoes.find(o => o.tipo === h.tipo)
     if (!escolhaAtual) {
-      set({ tipo: opcoes[0].tipo, rti: opcoes[0].rti, tipoVariante: 0 })
+      if (h.tipo || h.rti) set({ tipo: '', rti: '', tipoVariante: 0 })
     } else if (Number(h.rti) !== Number(escolhaAtual.rti)) {
       set({ rti: escolhaAtual.rti })
     }
