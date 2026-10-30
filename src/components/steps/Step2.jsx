@@ -230,10 +230,6 @@ export default function Step2({ step, totalSteps }) {
   const semTerreno = dimensionamento || oculto('areaTerreno')
   const estadosDisponiveis = getEstadosDisponiveis()
 
-  // Informar alvará/AVCB/ano de construção? Projeto que já tem algum desses
-  // dados preenchido conta como "sim" (sem perder o que foi digitado).
-  const jaTemDadosLegais = !!(state.numeroAlvara || state.anoConstrucao || state.numeroAVCB || state.validadeAVCB)
-  const informarLegais = state.informarDadosLegais || (jaTemDadosLegais ? 'sim' : '')
   const optClass = (sel) =>
     `border border-solid ${sel ? 'border-red-border bg-red-dim' : 'border-border bg-transparent'} rounded-md py-3.5 px-4 cursor-pointer flex items-center gap-3`
 
@@ -331,52 +327,6 @@ export default function Step2({ step, totalSteps }) {
           )}
 
           <ExtensaoConfig ponto="situacao"/>
-
-          {/* Pergunta: informar alvará / AVCB / ano de construção? Projetos que já
-              têm algum desses dados preenchidos contam como "sim". */}
-          <div className="mb-3.5 flex items-center justify-between gap-4 py-3 px-4 rounded-md border border-solid border-border">
-            <div className="text-[13px] font-medium text-ink">
-              {state.situacao === 'existente'
-                ? (oculto('numeroAVCB') ? 'Deseja informar o número do alvará e o ano de construção?' : 'Deseja informar os dados de alvará, AVCB e ano de construção?')
-                : 'Deseja informar o número do alvará?'}
-            </div>
-            <div className="flex items-center gap-2.5 shrink-0">
-              <span className={`text-xs font-medium w-7 text-right ${informarLegais === 'sim' ? 'text-ink' : 'text-ink-faint'}`}>
-                {informarLegais === 'sim' ? 'Sim' : 'Não'}
-              </span>
-              <SwitchToggle checked={informarLegais === 'sim'}
-                onChange={v => dispatch({ type:'SET_FIELD', field:'informarDadosLegais', value: v ? 'sim' : 'nao' })}/>
-            </div>
-          </div>
-
-          {informarLegais === 'sim' && state.situacao === 'nova' && (
-            <div className="fg">
-              <label>Numero do alvara <Obrigatorio id="numeroAlvara"/></label><input value={state.numeroAlvara} onChange={set('numeroAlvara')}/>
-            </div>
-          )}
-
-          {state.situacao === 'existente' && informarLegais === 'sim' && (
-            <>
-              <div className="fg mb-3 max-w-[calc(50%-8px)]"><label>Numero do alvara <Obrigatorio id="numeroAlvara"/></label><input value={state.numeroAlvara} onChange={set('numeroAlvara')}/></div>
-              <div className="g2 mb-3">
-                <div className="fg"><label>Ano de construcao <Obrigatorio id="anoConstrucao"/></label><input type="number" value={state.anoConstrucao} onChange={set('anoConstrucao')} placeholder="Ex: 1998"/></div>
-                {!oculto('situacaoCBM') && <div className="fg"><label>Situacao perante o CBMMA</label>
-                  <select value={state.situacaoCBM} onChange={set('situacaoCBM')}>
-                    <option>Sem AVCB anterior</option>
-                    <option>AVCB vencido</option>
-                    <option>AVCB em vigor — renovacao</option>
-                    <option>Em regularizacao</option>
-                  </select>
-                </div>}
-              </div>
-              {!oculto('numeroAVCB') && (
-                <div className="g2 mb-3">
-                  <div className="fg"><label>No do AVCB anterior <Obrigatorio id="numeroAVCB"/></label><input value={state.numeroAVCB} onChange={set('numeroAVCB')}/></div>
-                  <div className="fg"><label>Validade do AVCB <Obrigatorio id="validadeAVCB"/></label><input type="date" value={state.validadeAVCB} onChange={set('validadeAVCB')}/></div>
-                </div>
-              )}
-            </>
-          )}
 
           <div className="fg">
             <label>Observações complementares <Obrigatorio id="condicoesAtuais"/></label>

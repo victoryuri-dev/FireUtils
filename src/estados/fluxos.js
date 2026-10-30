@@ -10,7 +10,6 @@ const CAMPOS_OCULTOS = {
   PB: new Set([
     'respFantasia', 'respTelefone', 'respEmail',
     'propNome', 'propDocumento', 'propTelefone', 'propEmail',
-    'situacaoCBM', 'numeroAVCB', 'validadeAVCB',
     'areaTerreno', 'areaComplementar',
     'caracteristicasEstrutura', 'cobertura', 'fachada',
   ]),

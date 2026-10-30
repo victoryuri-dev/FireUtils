@@ -425,10 +425,8 @@ const INITIAL_STATE = {
   tipoProjeto: 'completo',
   nome: '', dataInicio: '', fase: 'Em desenvolvimento',
   endereco: '', numero: '', complemento: '', bairro: '', cidade: '', uf: 'MA', cep: '',
-  situacao: 'nova', numeroAlvara: '',
-  anoConstrucao: '', situacaoCBM: 'Sem AVCB anterior',
-  numeroAVCB: '', validadeAVCB: '', condicoesAtuais: '',
-  informarDadosLegais: '', // '' (não respondeu) | 'sim' | 'nao' — informar alvará/AVCB/ano de construção?
+  situacao: 'nova',
+  condicoesAtuais: '',
   areaTerreno: '', areaConstruidaTotal: '', areaComplementar: '',
   areaMaiorPav: '', peDireito: '',
   usoSubsolo: '', coberturaHabitavel: 'Nao',

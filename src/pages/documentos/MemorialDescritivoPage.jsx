@@ -235,20 +235,11 @@ function CampoDiscriminado({ label, value }) {
 function SobreEdificacao({ state }) {
   const endereco = enderecoCompletoDe(state, '')
 
-  // Situação da edificação (Etapa 2): nova ou existente. Os dados legais só
-  // entram quando o usuário optou por informá-los (mesma regra da Etapa 2 —
-  // projeto com algum desses dados preenchido conta como "sim"); ano de
-  // construção e AVCB só fazem sentido pra existente — observações
+  // Situação da edificação (Etapa 2): nova ou existente; observações
   // complementares (state.condicoesAtuais) valem pras duas situações.
   const existente = state.situacao === 'existente'
   const situacaoTxt = existente ? 'Edificação existente'
     : state.situacao === 'nova' ? 'Edificação nova' : ''
-  const jaTemDadosLegais = !!(state.numeroAlvara || state.anoConstrucao || state.numeroAVCB || state.validadeAVCB)
-  const legais = (state.informarDadosLegais || (jaTemDadosLegais ? 'sim' : '')) === 'sim'
-  const fmtData = iso => {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '')
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || '')
-  }
 
   // Subitem só entra na numeração se tiver ao menos um campo preenchido —
   // assim "3.1, 3.2, 3.3" nunca pula um número quando um bloco some (ver
@@ -280,11 +271,6 @@ function SobreEdificacao({ state }) {
       ['Endereço', endereco],
       ['Área construída total', state.areaConstruidaTotal ? fmtUn(state.areaConstruidaTotal, 'm²', 2, `${state.areaConstruidaTotal} m²`) : ''],
       ['Área do terreno', state.areaTerreno ? fmtUn(state.areaTerreno, 'm²', 2, `${state.areaTerreno} m²`) : ''],
-      ['Número do alvará', legais ? state.numeroAlvara : ''],
-      ['Ano de construção', legais && existente ? state.anoConstrucao : ''],
-      ['Situação perante o CBMMA', legais && existente ? state.situacaoCBM : ''],
-      ['Nº do AVCB anterior', legais && existente ? state.numeroAVCB : ''],
-      ['Validade do AVCB', legais && existente ? fmtData(state.validadeAVCB) : ''],
       ['Observações complementares', state.condicoesAtuais?.trim()],
     ] },
   ].filter(b => b.campos.some(([, v]) => v))
