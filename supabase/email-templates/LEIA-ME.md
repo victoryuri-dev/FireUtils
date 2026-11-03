@@ -38,3 +38,16 @@ O site valida o mesmo (10+ caracteres, letra e número) antes de enviar.
 ## 5. Banco
 Rode `supabase/migrations/20261103120000_perfil_no_cadastro.sql` no SQL Editor: cria a
 linha de `perfis` no cadastro com o conselho e o número do registro (e o nome, no caso do Google).
+
+## 6. Segurança e privacidade — conferir no painel
+- **E-mail já cadastrado:** cadastrar de novo um e-mail existente devolve "sucesso" sem enviar nada.
+  É proposital (Supabase, com *Confirm email* ligado): impede descobrir quem tem conta. O site mostra
+  uma mensagem neutra e orienta a entrar ou usar "Esqueci minha senha". Não existe duplicata: o e-mail
+  é único em `auth.users`, e `perfis` tem `user_id` como chave primária.
+- **Google com e-mail já cadastrado:** o Supabase vincula a identidade do Google à MESMA conta (mesmo
+  usuário, sem duplicar) quando o e-mail do Google é verificado. Entrar sem senha é esperado — quem
+  controla o Google daquele e-mail provou ser o dono. A senha continua valendo.
+- **Mantenha *Confirm email* LIGADO** (Authentication → Sign In / Providers → Email). Com ele desligado,
+  alguém poderia criar uma conta com e-mail alheio sem confirmar. Não ative provedores que não verificam e-mail.
+- Authentication → Rate Limits: mantenha os limites padrão; considere CAPTCHA (Turnstile) em Attack Protection.
+- Authentication → Sessions: defina tempo de vida máximo e/ou inatividade, se quiser sessões mais curtas.

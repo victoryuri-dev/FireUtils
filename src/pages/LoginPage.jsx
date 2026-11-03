@@ -72,7 +72,7 @@ export function ForcaSenha({ senha }) {
 // Erros e avisos aparecem dentro do próprio card — os toasts ficam reservados
 // ao retorno das importações do Revit.
 export default function LoginPage() {
-  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth()
+  const { signIn, signUp, signInWithGoogle, resetPassword, resendConfirmation } = useAuth()
 
   const [mode, setMode] = useState('entrar')
   const [email, setEmail] = useState('')
@@ -81,11 +81,13 @@ export default function LoginPage() {
   const [conselhoNumero, setConselhoNumero] = useState('')
   const [busy, setBusy] = useState(false)
   const [mensagem, setMensagem] = useState(null) // { tipo: 'erro' | 'sucesso', texto }
+  const [naoConfirmado, setNaoConfirmado] = useState(false)
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setBusy(true)
     setMensagem(null)
+    setNaoConfirmado(false)
 
     try {
       if (mode === 'recuperar') {
@@ -95,8 +97,8 @@ export default function LoginPage() {
           ? { tipo: 'sucesso', texto: 'Se houver uma conta com esse e-mail, enviamos um link para redefinir a senha.' }
           : { tipo: 'erro', texto: authError })
       } else if (mode === 'entrar') {
-        const { ok, error: authError } = await signIn(email, password)
-        if (!ok) setMensagem({ tipo: 'erro', texto: authError })
+        const { ok, error: authError, naoConfirmado: pendente } = await signIn(email, password)
+        if (!ok) { setMensagem({ tipo: 'erro', texto: authError }); setNaoConfirmado(!!pendente) }
       } else {
         if (!avaliarSenha(password).valida) {
           setMensagem({ tipo: 'erro', texto: `A senha precisa ter pelo menos ${SENHA_MIN} caracteres, com letra e número.` })
@@ -111,7 +113,9 @@ export default function LoginPage() {
           setMensagem({ tipo: 'erro', texto: authError })
           return
         }
-        if (needsConfirmation) setMensagem({ tipo: 'sucesso', texto: 'Conta criada! Verifique seu e-mail para confirmar antes de entrar.' })
+        // Resposta neutra: com e-mail já cadastrado o Supabase também devolve
+        // sucesso (e não envia nada) de propósito, pra ninguém descobrir quem tem conta.
+        if (needsConfirmation) setMensagem({ tipo: 'sucesso', texto: 'Pronto! Se este e-mail ainda não tiver conta, enviamos um link de confirmação. Se você já tem cadastro, entre com sua senha ou use "Esqueci minha senha".' })
       }
     } catch {
       setMensagem({ tipo: 'erro', texto: 'Não foi possível conectar. Tente novamente em instantes.' })
@@ -127,7 +131,15 @@ export default function LoginPage() {
     if (!ok) { setMensagem({ tipo: 'erro', texto: authError }); setBusy(false) }
   }
 
-  const irPara = novo => { setMode(novo); setMensagem(null) }
+  const reenviar = async () => {
+    setBusy(true)
+    const { ok, error: authError } = await resendConfirmation(email)
+    setBusy(false)
+    setNaoConfirmado(false)
+    setMensagem(ok ? { tipo: 'sucesso', texto: 'Se houver uma conta pendente com esse e-mail, enviamos um novo link de confirmação.' } : { tipo: 'erro', texto: authError })
+  }
+
+  const irPara = novo => { setMode(novo); setMensagem(null); setNaoConfirmado(false) }
 
   const isLogin = mode === 'entrar'
   const isCadastro = mode === 'cadastro'
@@ -212,6 +224,12 @@ export default function LoginPage() {
               <Icon name={erro ? 'warn' : 'check'} size={13} color={`var(--color-${erro ? 'red' : 'green'})`} className="shrink-0"/>
               <span className="text-xs">{mensagem.texto}</span>
             </div>
+          )}
+
+          {naoConfirmado && (
+            <button type="button" onClick={reenviar} disabled={busy} className="login-mode-toggle self-start text-[12px] text-ink-muted hover:text-ink underline underline-offset-4">
+              Reenviar e-mail de confirmação
+            </button>
           )}
 
           <button type="submit" className="btn-primary justify-center mt-1" disabled={busy}>

@@ -15,6 +15,9 @@ function traduzErro(msg) {
   return msg
 }
 
+// Mesmo e-mail em caixas diferentes ou com espaços não pode virar outra conta.
+const normalizarEmail = email => (email || '').trim().toLowerCase()
+
 export function AuthProvider({ children }) {
   // undefined = ainda carregando a sessão inicial; null = deslogado
   const [session, setSession] = useState(undefined)
@@ -26,7 +29,13 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signIn = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email: normalizarEmail(email), password })
+    if (!error) return { ok: true }
+    return { ok: false, error: traduzErro(error.message), naoConfirmado: error.code === 'email_not_confirmed' || /Email not confirmed/i.test(error.message) }
+  }
+
+  const resendConfirmation = async (email) => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email: normalizarEmail(email), options: { emailRedirectTo: `${window.location.origin}/login` } })
     return error ? { ok: false, error: traduzErro(error.message) } : { ok: true }
   }
 
@@ -34,7 +43,7 @@ export function AuthProvider({ children }) {
   // trigger criar_perfil_no_cadastro (migração 20261103120000) o copia pro perfil.
   const signUp = async (email, password, registro = {}) => {
     const { data, error } = await supabase.auth.signUp({
-      email, password,
+      email: normalizarEmail(email), password,
       options: {
         emailRedirectTo: `${window.location.origin}/login`,
         data: { conselho_tipo: registro.conselhoTipo || '', conselho_numero: (registro.conselhoNumero || '').trim() },
@@ -57,7 +66,7 @@ export function AuthProvider({ children }) {
   }
 
   const resetPassword = async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/redefinir-senha` })
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizarEmail(email), { redirectTo: `${window.location.origin}/redefinir-senha` })
     return error ? { ok: false, error: traduzErro(error.message) } : { ok: true }
   }
 
@@ -71,7 +80,7 @@ export function AuthProvider({ children }) {
       session,
       user: session?.user ?? null,
       loading: session === undefined,
-      signIn, signUp, signOut, signInWithGoogle, resetPassword, updatePassword,
+      signIn, signUp, signOut, resendConfirmation, signInWithGoogle, resetPassword, updatePassword,
     }}>
       {children}
     </Ctx.Provider>

@@ -22,13 +22,19 @@ declare
 begin
   if tipo not in ('CREA', 'CAU') then tipo := ''; end if;
 
-  insert into public.perfis (user_id, nome, responsavel_tecnico)
-  values (
-    new.id,
-    nome,
-    jsonb_build_object('rtConselhoTipo', tipo, 'rtConselho', left(numero, 40))
-  )
-  on conflict (user_id) do nothing;
+  begin
+    insert into public.perfis (user_id, nome, responsavel_tecnico)
+    values (
+      new.id,
+      left(nome, 120),
+      jsonb_build_object('rtConselhoTipo', tipo, 'rtConselho', left(numero, 40))
+    )
+    on conflict (user_id) do nothing;
+  exception when others then
+    -- O perfil é complemento: nunca pode impedir a criação da conta. Sem a
+    -- linha, o site trata como perfil vazio e o usuário preenche depois.
+    raise warning 'criar_perfil_no_cadastro falhou para %: %', new.id, sqlerrm;
+  end;
   return new;
 end;
 $$;
