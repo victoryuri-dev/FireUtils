@@ -137,12 +137,13 @@ export function textoMemorialCompartHorizontal(state, sistemas, porEstrutura) {
     if (r.linhas.length > 0) {
       blocos.push({
         tipo: 'tabela',
-        colunas: ['Pavimento', 'Divisão', 'Área de compartimentação', 'Área máxima permitida'],
+        colunas: ['Pavimento', 'Divisão', 'Área de compartimentação', 'Área máxima permitida', 'Situação'],
         linhas: r.linhas.map(l => [
           l.pavimento.label,
           l.pavimento.divisao || '—',
           l.area ? m2(l.area) : '—',
           !l.encontrado ? '—' : fmtArea(l.valor),
+          l.excede ? 'Excede o limite' : (l.area > 0 && typeof l.valor === 'number' ? 'Dentro do limite' : 'A definir'),
         ]),
       })
     }

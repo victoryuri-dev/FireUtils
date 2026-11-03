@@ -287,7 +287,7 @@ function EstruturaCompartimentacao({ sentido, est, pavimentos, areaCompartimenta
   const limparSubstituicao = (campo) => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: campo, value: null })
 
   return (
-    <EstruturaSection titulo={est.nome} extra={<EstruturaHeaderInfo estrutura={est}/>} status={status} conclusao={!exigida ? null : { estruturaId: est.id, medida: horizontal ? 'compart_horizontal' : 'compart_vertical' }} defaultOpen={false}>
+    <EstruturaSection titulo={est.nome} extra={<EstruturaHeaderInfo estrutura={est}/>} status={status} conclusao={!exigida ? null : { estruturaId: est.id, medida: horizontal ? 'compart_horizontal' : 'compart_vertical' }} pendenciasExtras={exigida && !resolvido ? [{ rotulo: horizontal ? 'Elementos de proteção da compartimentação horizontal (ou isenção)' : 'Elementos de proteção da compartimentação vertical (ou isenção)' }] : []} defaultOpen={false}>
 
       {/* Compartimentação Horizontal */}
       {horizontal && <Card className="mb-3">

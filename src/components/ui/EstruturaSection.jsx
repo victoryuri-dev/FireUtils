@@ -88,13 +88,16 @@ function BarraConclusao({ concluida, automatica, definir, pendencias = [] }) {
   )
 }
 
-export default function EstruturaSection({ titulo, extra, status: statusBase, conclusao, defaultOpen = true, children }) {
+// `pendenciasExtras` ([{ rotulo }]): pendências que só a própria tela sabe
+// calcular (ex.: Compartimentação) e que, somadas às da auditoria, também
+// travam o "Marcar como concluída".
+export default function EstruturaSection({ titulo, extra, status: statusBase, conclusao, pendenciasExtras = [], defaultOpen = true, children }) {
   const { search } = useLocation()
   const [open, setOpen] = useState(defaultOpen || new URLSearchParams(search).has('audit'))
   const c = useConclusao(conclusao, statusBase)
   const { pendencias } = useAuditoria()
   const rota = [`medida/${conclusao?.medida}`]
-  const pendenciasMedida = pendencias.filter(p => (!p.estruturaId || p.estruturaId === conclusao?.estruturaId) && rota.includes(p.rota))
+  const pendenciasMedida = [...pendencias.filter(p => (!p.estruturaId || p.estruturaId === conclusao?.estruturaId) && rota.includes(p.rota)), ...pendenciasExtras]
   const status = c.status
   const bar = status ? (STATUS_TONE[status.tone] || STATUS_TONE.pendente).bar : null
 
