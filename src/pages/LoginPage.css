@@ -74,7 +74,7 @@
   display:grid;
   place-items:center;
   border-radius:inherit;
-  background:var(--color-surface);
+  background:#101014;
   cursor:wait;
 }
 .login-original-card .fg input,
@@ -86,14 +86,28 @@
 .login-original-card .fg label{position:absolute;z-index:1;top:50%;left:13px;margin:0;color:#aaaab2;font-size:13px;line-height:1;transform:translateY(-50%);pointer-events:none;transition:top .18s ease,transform .18s ease,font-size .18s ease,color .18s ease}
 .login-original-card .fg input{height:50px;padding:8px 12px;border-color:#ffffff18;background:#1b1b21;color:#f5f5f7;box-shadow:none;transition:padding .18s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease}
 .login-original-card .fg:has(input:focus) label,
+.login-original-card .fg:has(input:-webkit-autofill) label,
+.login-original-card .fg:has(input:autofill) label,
 .login-original-card .fg:has(input:not(:placeholder-shown)) label{top:8px;color:#8e8e98;font-size:9px;transform:none}
 .login-original-card .fg:has(input:focus) input,
+.login-original-card .fg:has(input:-webkit-autofill) input,
+.login-original-card .fg:has(input:autofill) input,
 .login-original-card .fg:has(input:not(:placeholder-shown)) input{padding:19px 12px 6px}
 .login-original-card .fg input:hover{border-color:#ffffff2b}
 .login-original-card .fg input:focus{border-color:#ffffff45;background:#202027;color:#fff;box-shadow:0 0 0 3px #ea133020}
 .login-original-card .fg input:-webkit-autofill,
 .login-original-card .fg input:-webkit-autofill:hover,
 .login-original-card .fg input:-webkit-autofill:focus{-webkit-text-fill-color:#fff;box-shadow:0 0 0 1000px #1b1b21 inset;caret-color:#fff}
+.login-original-card .fg:has(select) label,
+.login-original-card .fg:has(select):has(input:focus) label,
+.login-original-card .fg:has(select):has(input:-webkit-autofill) label,
+.login-original-card .fg:has(select):has(input:not(:placeholder-shown)) label{position:static;display:block;margin-bottom:6px;color:#8e8e98;font-size:11px;transform:none;pointer-events:auto}
+.login-original-card .fg:has(select) input,
+.login-original-card .fg:has(select):has(input:focus) input,
+.login-original-card .fg:has(select):has(input:-webkit-autofill) input,
+.login-original-card .fg:has(select):has(input:not(:placeholder-shown)) input{padding:8px 12px}
+.login-original-card .fg select{height:50px;padding:8px 12px;border-color:#ffffff18;border-radius:5px;background:#1b1b21;color:#f5f5f7;box-shadow:none}
+.login-original-card .fg select:focus{border-color:#ffffff45;background:#202027;box-shadow:0 0 0 3px #ea133020}
 .login-original-card .btn-primary{border:1px solid #fff;background:#fff;color:#101014;transition:background .2s ease,border-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease}
 .login-original-card .btn-primary:hover:not(:disabled){border-color:var(--color-red);background:var(--color-red);color:#fff;box-shadow:0 8px 22px rgba(192,21,42,.18);transform:translateY(-1px)}
 .login-original-card .fg input:focus-visible,
