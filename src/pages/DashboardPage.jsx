@@ -288,6 +288,10 @@ function getFireLoad(cargaState) {
     }, 0)
 }
 
+// Medida exigida pela norma mas dispensada pelos próprios dados do projeto
+// (ex.: compartimentação por área): nada a dimensionar, então não fica pendente.
+const PROGRESSO_ISENTO = { tone: 'done', label: 'Isenta', detail: 'Dispensada pelos dados do projeto' }
+
 function getSystemProgress(key, state, structureId = null) {
   const scopedItems = items => structureId
     ? (items || []).filter(item => item.estruturaId === structureId)
@@ -522,10 +526,10 @@ export default function DashboardPage({ onGoConfig, onNavigate }) {
   const data = useMemo(() => {
     const structures = state.estruturas || []
     const activeSystems = SYSTEMS
-      .filter(system => sistemas[system.key]?.ativo)
+      .filter(system => sistemas[system.key]?.ativo || sistemas[system.key]?.isento)
       .map(system => {
         const required = Boolean(sistemas[system.key]?.obrigatorio)
-        const progress = getSystemProgress(system.key, state)
+        const progress = sistemas[system.key]?.isento ? PROGRESSO_ISENTO : getSystemProgress(system.key, state)
         return { ...system, required, progress, statusTone: getStatusTone(system.key, required, progress.tone) }
       })
       .sort((a, b) => Number(b.required) - Number(a.required))
@@ -574,11 +578,11 @@ export default function DashboardPage({ onGoConfig, onNavigate }) {
     const structureSystems = selectedStructure
       ? porEstrutura.find(item => item.estrutura.id === selectedStructure.id)?.sistemas || {}
       : sistemas
-    const summarySystems = SYSTEMS.filter(system => structureSystems[system.key]?.ativo)
+    const summarySystems = SYSTEMS.filter(system => structureSystems[system.key]?.ativo || structureSystems[system.key]?.isento)
     const displayedSystems = summarySystems
       .map(system => {
         const required = Boolean(structureSystems[system.key]?.obrigatorio)
-        const progress = getSystemProgress(system.key, state, selectedStructure?.id)
+        const progress = structureSystems[system.key]?.isento ? PROGRESSO_ISENTO : getSystemProgress(system.key, state, selectedStructure?.id)
         return { ...system, required, progress, statusTone: getStatusTone(system.key, required, progress.tone) }
       })
       .sort((a, b) => Number(b.required) - Number(a.required))

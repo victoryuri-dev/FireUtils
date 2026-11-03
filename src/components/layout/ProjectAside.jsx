@@ -57,8 +57,9 @@ export default function ProjectAside({ activePage, onNavigate }) {
   }, [])
 
   // `ativo` já cai para `obrigatorio` sem toggle manual; medida desativada
-  // pelo RT (isenção) sai do menu.
-  const enabledSystems = SISTEMAS.filter(s => sistemas[s.key]?.ativo)
+  // pelo RT (isenção manual) sai do menu; a isenção pelos próprios dados do
+  // projeto (`isento`, ex.: compartimentação por área) continua nele.
+  const enabledSystems = SISTEMAS.filter(s => sistemas[s.key]?.ativo || sistemas[s.key]?.isento)
 
   const itemProps = { activePage, collapsed: col, onNavigate }
 

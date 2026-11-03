@@ -109,7 +109,11 @@ export function medidasObrigatorias(state) {
       if (k === 'compart_horizontal' && isentoCompartHorizontal) ativo = false
       else if (k === 'compart_vertical' && isentoCompartVertical) ativo = false
       else ativo = manual !== undefined ? manual : obrigatorio
-      sistemas[k] = { obrigatorio, ativo }
+      // `isento`: a norma exige, mas a medida ficou dispensada pelos próprios
+      // dados do projeto (área, compartimento único, sistema alternativo) — e
+      // não por desligamento manual. Continua aparecendo no site, com a
+      // justificativa calculada.
+      sistemas[k] = { obrigatorio, ativo, isento: obrigatorio && !ativo && manual !== false }
     })
 
     return {
@@ -138,7 +142,8 @@ export function medidasObrigatorias(state) {
     }
     const obrigatorio = porEstrutura.some(pe => pe.sistemas[k]?.obrigatorio)
     const ativo = porEstrutura.some(pe => pe.sistemas[k]?.ativo)
-    sistemas[k] = { obrigatorio, ativo }
+    const isento = !ativo && porEstrutura.some(pe => pe.sistemas[k]?.isento)
+    sistemas[k] = { obrigatorio, ativo, isento }
   })
 
   return { porEstrutura, sistemas }

@@ -51,13 +51,16 @@ function textoDesativadaManualmente(medida, motivo) {
 // único compartimento (nenhum pavimento excede a área máxima do Anexo B, e
 // todos já têm área informada — `r.dentroDoLimite`) — cita a área
 // considerada e a área máxima de cada pavimento, sem repetir a tabela.
-function textoDentroDoLimite(r) {
+function blocosDentroDoLimite(r) {
   if (r.linhas.length === 1) {
     const l = r.linhas[0]
-    return `Compartimentação horizontal dispensada: a área de compartimentação considerada (${m2(l.area)}) está dentro da área máxima de compartimentação permitida (${fmtArea(l.valor)}) para a divisão ${l.pavimento.divisao} no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento.`
+    return [{ tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada (${m2(l.area)}) está dentro da área máxima de compartimentação permitida (${fmtArea(l.valor)}) para a divisão ${l.pavimento.divisao} no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento.` }]
   }
-  const porPavimento = r.linhas.map(l => `${l.pavimento.label}: ${m2(l.area)} (máximo ${fmtArea(l.valor)})`).join('; ')
-  return `Compartimentação horizontal dispensada: a área de compartimentação considerada de todos os pavimentos está dentro da área máxima de compartimentação permitida no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento — ${porPavimento}.`
+  // Um item por pavimento — num texto corrido a lista ficava ilegível.
+  return [
+    { tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada de todos os pavimentos está dentro da área máxima de compartimentação permitida no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento. Área considerada e área máxima por pavimento:` },
+    { tipo: 'lista', recuo: true, itens: r.linhas.map(l => ({ label: l.pavimento.label, valor: `${m2(l.area)} (máximo ${fmtArea(l.valor)})` })) },
+  ]
 }
 
 export function textoMemorialCompartHorizontal(state, sistemas, porEstrutura) {
@@ -118,7 +121,7 @@ export function textoMemorialCompartHorizontal(state, sistemas, porEstrutura) {
     }
 
     if (r.dentroDoLimite) {
-      blocos.push({ tipo: 'paragrafo', texto: textoDentroDoLimite(r) })
+      blocos.push(...blocosDentroDoLimite(r))
       return
     }
 
