@@ -508,14 +508,11 @@ function PortaoLicenca() {
 // Única fonte de verdade pro redirecionamento pós-login: quando `user`
 // muda de null pra autenticado, este componente re-renderiza e navega —
 // LoginPage não precisa (e não deve) chamar navigate() ela mesma, senão
-// as duas navegações competem e a que preserva `from` pode perder a corrida.
+// as duas navegações competem. Todo login (e-mail/senha ou Google) cai na
+// página do perfil, independente da página de origem.
 function LoginRoute() {
   const { user } = useAuth()
-  const location = useLocation()
-  if (user) {
-    const from = location.state?.from?.pathname || '/projetos'
-    return <Navigate to={from} replace/>
-  }
+  if (user) return <Navigate to="/perfil" replace/>
   return <LoginPage/>
 }
 
