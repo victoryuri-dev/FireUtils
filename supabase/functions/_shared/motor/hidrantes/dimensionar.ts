@@ -182,6 +182,12 @@ export interface ResultadoDimensionamento {
   j_succao_npsh: JTrecho | null
   C_HW: number
   uf: string
+  // Velocidade acima do limite não interrompe mais o dimensionamento (ver
+  // Etapa 5 abaixo) — cada trecho reprovado vira uma mensagem aqui, e o
+  // resultado completo é devolvido mesmo assim, pra dockpane/site
+  // mostrarem a tabela de velocidade (com a reprovação já marcada) em vez
+  // de nada. Vazio quando todos os trechos atendem.
+  avisos_velocidade: string[]
 }
 
 export type RespostaDimensionamento =
@@ -398,7 +404,13 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
     pRefDesc = 'pressão na válvula'
   }
 
-  // Etapa 5 — verificações normativas: para no primeiro ponto que não atender.
+  // Etapa 5 — verificações normativas. Pressão/vazão no hidrante para o
+  // dimensionamento (não dá pra seguir com um resultado que não atende);
+  // velocidade só registra um aviso e continua — uma correção de diâmetro
+  // que pode ser feita depois não deveria travar o resto do fluxo
+  // (resultado final, memorial, sincronização com o site/dockpane). O RT
+  // vê a reprovação na própria tabela de velocidade, com o trecho/DN/
+  // limite ultrapassado, em vez de nada.
   const falhaVelocidade = (j: JTrecho, limite: number, nomeTrecho: string, comprimentoMin: number | null = null) => {
     const segmentos = comprimentoMin === null ? j.segmentos : j.segmentos.filter((s) => s.L >= comprimentoMin)
     const falhas = segmentos.filter((s) => s.V > limite + 1e-9)
@@ -410,18 +422,22 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
     return resumoFalhaHidrante(label, p, q, pRefDesc, trechoDesc, Pmin, Qs)
   }
 
-  const falhas = [
-    () => falhaVelocidade(res.j.t3, vMaxTubo, 'Ponto A → HD01'),
-    () => falhaHidrante('HD01', pHd01Ref, res.Q_hd01, 'Ponto A → HD01'),
-    () => falhaVelocidade(res.j.t4, vMaxTubo, 'Ponto A → HD02'),
-    () => falhaHidrante('HD02', pHd02Ref, res.Q_hd02, 'Ponto A → HD02'),
-    () => falhaVelocidade(res.j.t2, vMaxTubo, 'Bomba → Ponto A (recalque)', COMPRIMENTO_MIN_VERIF_VELOCIDADE_M),
-    () => falhaVelocidade(res.j.t1, vMaxSuccao, 'Sucção (RTI → Bomba)', COMPRIMENTO_MIN_VERIF_VELOCIDADE_M),
-  ]
-  for (const verificar of falhas) {
-    const falha = verificar()
-    if (falha) return { ok: false, erro: falha }
+  const avisosVelocidade: string[] = []
+  const registrarVelocidade = (j: JTrecho, limite: number, nomeTrecho: string, comprimentoMin: number | null = null) => {
+    const falha = falhaVelocidade(j, limite, nomeTrecho, comprimentoMin)
+    if (falha) avisosVelocidade.push(falha)
   }
+
+  registrarVelocidade(res.j.t3, vMaxTubo, 'Ponto A → HD01')
+  const falhaHd01 = falhaHidrante('HD01', pHd01Ref, res.Q_hd01, 'Ponto A → HD01')
+  if (falhaHd01) return { ok: false, erro: falhaHd01 }
+
+  registrarVelocidade(res.j.t4, vMaxTubo, 'Ponto A → HD02')
+  const falhaHd02 = falhaHidrante('HD02', pHd02Ref, res.Q_hd02, 'Ponto A → HD02')
+  if (falhaHd02) return { ok: false, erro: falhaHd02 }
+
+  registrarVelocidade(res.j.t2, vMaxTubo, 'Bomba → Ponto A (recalque)', COMPRIMENTO_MIN_VERIF_VELOCIDADE_M)
+  registrarVelocidade(res.j.t1, vMaxSuccao, 'Sucção (RTI → Bomba)', COMPRIMENTO_MIN_VERIF_VELOCIDADE_M)
 
   return {
     ok: true,
@@ -440,6 +456,7 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
       j_succao_npsh: jSuccaoNpsh,
       C_HW: CHW,
       uf: perfil._uf_efetiva,
+      avisos_velocidade: avisosVelocidade,
     },
   }
 }

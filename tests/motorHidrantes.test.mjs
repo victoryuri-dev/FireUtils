@@ -171,13 +171,14 @@ test('dimensionamento aprovado devolve o mesmo formato que o plugin gravava', ()
   assert.equal(r.norma, 'NT 22/2021 CBMMA')
   const chaves = Object.keys(r.resultado).sort()
   assert.deepEqual(chaves, [
-    'C_HW', 'cotas', 'dados_sistema', 'dados_succao', 'erro_npshd', 'j_succao_npsh', 'metodo',
-    'res', 'succao', 'uf', 'valor_sistema', 'verif_npshd', 'verif_succao',
+    'C_HW', 'avisos_velocidade', 'cotas', 'dados_sistema', 'dados_succao', 'erro_npshd', 'j_succao_npsh',
+    'metodo', 'res', 'succao', 'uf', 'valor_sistema', 'verif_npshd', 'verif_succao',
   ])
   assert.equal(r.resultado.C_HW, 120)
   assert.equal(r.resultado.dados_sistema.q_min, 300)
   assert.equal(r.resultado.succao, 'positiva')
   assert.equal(r.resultado.verif_npshd, null)
+  assert.deepEqual(r.resultado.avisos_velocidade, [])
   assert.ok(r.resultado.res.Qt >= 600 - 0.02)
 })
 
@@ -217,11 +218,18 @@ test('altitude fora da tabela não derruba o resultado: vira erro_npshd', () => 
   assert.equal(r.resultado.verif_npshd, null)
 })
 
-test('velocidade acima do limite barra o dimensionamento com o texto do plugin', () => {
+test('velocidade acima do limite não barra mais o dimensionamento — vira aviso, com o texto do plugin', () => {
   const entrada = entradaBase({ trechos: { ...entradaBase().trechos, t3: [seg(25, 20, 6)] } })
   const r = dimensionar(entrada, perfilMA())
-  assert.equal(r.ok, false)
-  assert.match(r.erro, /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.000 m\/s\):\n- DN25 : /)
+  assert.equal(r.ok, true, r.erro)
+  assert.equal(r.resultado.avisos_velocidade.length, 1)
+  assert.match(
+    r.resultado.avisos_velocidade[0],
+    /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.000 m\/s\):\n- DN25 : /,
+  )
+  // Pressão/vazão no hidrante continua interrompendo normalmente — não faz
+  // parte deste aviso.
+  assert.ok(r.resultado.res.Qt > 0)
 })
 
 test('texto das falhas é idêntico ao que o plugin mostrava (golden)', () => {
