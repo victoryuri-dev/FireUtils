@@ -56,10 +56,14 @@ function blocosDentroDoLimite(r) {
     const l = r.linhas[0]
     return [{ tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada (${m2(l.area)}) está dentro da área máxima de compartimentação permitida (${fmtArea(l.valor)}) para a divisão ${l.pavimento.divisao} no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento.` }]
   }
-  // Um item por pavimento — num texto corrido a lista ficava ilegível.
+  // Uma linha por pavimento, em tabela — num texto corrido ficava ilegível.
   return [
     { tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada de todos os pavimentos está dentro da área máxima de compartimentação permitida no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento. Área considerada e área máxima por pavimento:` },
-    { tipo: 'lista', recuo: true, itens: r.linhas.map(l => ({ label: l.pavimento.label, valor: `${m2(l.area)} (máximo ${fmtArea(l.valor)})` })) },
+    {
+      tipo: 'tabela',
+      colunas: ['Pavimento', 'Área de compartimentação', 'Área máxima permitida'],
+      linhas: r.linhas.map(l => [l.pavimento.label, m2(l.area), fmtArea(l.valor)]),
+    },
   ]
 }
 
