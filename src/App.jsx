@@ -9,7 +9,7 @@ import { supabase } from './lib/supabase'
 import { statusNormas } from './lib/normasRemote'
 import { getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
 import { usePerfil, nomeDeUsuario } from './hooks/usePerfil'
-import LoginPage      from './pages/LoginPage'
+import LoginPage, { RedefinirSenhaPage } from './pages/LoginPage'
 import LandingPage    from './pages/LandingPage'
 import PricingPage    from './pages/PricingPage'
 import LicencaProvider from './context/LicencaContext'
@@ -519,6 +519,13 @@ function LoginRoute() {
   return <LoginPage/>
 }
 
+// Link de recuperação de senha (e-mail): a página fica fora do LoginRoute, que
+// mandaria quem tem sessão direto pra /projetos antes de trocar a senha.
+function RedefinirSenhaRoute() {
+  const navigate = useNavigate()
+  return <RedefinirSenhaPage onConcluir={() => navigate('/projetos', { replace: true })}/>
+}
+
 // ── AppInner ──────────────────────────────────────────────────────────
 // Título da aba conforme a rota ("FireUtils | Página").
 function TituloDaAba() {
@@ -548,6 +555,7 @@ function AppInner() {
       <Route path="/landing" element={<LandingPage/>}/>
       <Route path="/pricing" element={<PricingPage/>}/>
       <Route path="/login" element={<LoginRoute/>}/>
+      <Route path="/redefinir-senha" element={<RedefinirSenhaRoute/>}/>
 
       <Route element={<AuthedLayout/>}>
         <Route path="/" element={<Navigate to="/projetos" replace/>}/>
