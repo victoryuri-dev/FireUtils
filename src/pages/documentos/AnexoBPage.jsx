@@ -89,10 +89,10 @@ export default function AnexoBPage({ onBack }) {
                 <tr><td colSpan={11}><Campo label="NOME FANTASIA:" value={d.nomeFantasia}/></td></tr>
                 <tr><td colSpan={11}><Campo label="CNAE PRINCIPAL:" value={d.cnaePrincipal}/></td></tr>
                 <tr><td colSpan={11}><Campo label="CLASSIFICAÇÃO DA OCUPAÇÃO (Tabela 1, Anexo A, NT_01):" value={d.classificacaoOcupacao} accent/></td></tr>
-                <tr><td colSpan={5}><Campo label="ÁREA TOTAL CONSTRUÍDA:" value={d.areaTotalConstruida}/></td><td colSpan={6}><Campo label="PAVIMENTOS SUBSOLO:" value={d.pavimentosSubsolo}/></td></tr>
-                <tr><td colSpan={5}><Campo label="ÁREA DO TERRENO:" value={d.areaTerreno}/></td><td colSpan={6} rowSpan={3} className="anexob-carga"><div className="anexob-label">CARGA DE INCÊNDIO</div><div className="anexob-value">{d.cargaIncendio && `${d.cargaIncendio} - Risco ${d.riscoCargaIncendio}`}</div></td></tr>
-                <tr><td colSpan={5}><Campo label="ÁREA COMPLEMENTAR:" value={d.areaComplementar}/></td></tr>
-                <tr><td colSpan={5}><Campo label="ALTURA (PARA FINS DE MEDIDAS DE SEGURANÇA):" value={d.altura}/></td></tr>
+                <tr><td colSpan={6}><Campo label="ÁREA TOTAL CONSTRUÍDA:" value={d.areaTotalConstruida}/></td><td colSpan={5}><Campo label="PAVIMENTOS SUBSOLO:" value={d.pavimentosSubsolo}/></td></tr>
+                <tr><td colSpan={6}><Campo label="ÁREA DO TERRENO:" value={d.areaTerreno}/></td><td colSpan={5} rowSpan={3} className="anexob-carga"><div className="anexob-label">CARGA DE INCÊNDIO</div><div className="anexob-value">{d.cargaIncendio && `${d.cargaIncendio} - Risco ${d.riscoCargaIncendio}`}</div></td></tr>
+                <tr><td colSpan={6}><Campo label="ÁREA COMPLEMENTAR:" value={d.areaComplementar}/></td></tr>
+                <tr><td colSpan={6}><Campo label="ALTURA (PARA FINS DE MEDIDAS DE SEGURANÇA):" value={d.altura}/></td></tr>
                 <SectionBar>FORMA DE APRESENTAÇÃO</SectionBar>
                 <tr><Check estado={d.processoTecnico ? 'x' : 'none'}/><td colSpan={4} className="anexob-label">PROCESSO TÉCNICO</td><td colSpan={6} className="anexob-label anexob-accent anexob-center">PARA USO DO CBMMA</td></tr>
                 <tr><Check rowSpan={2}/><td colSpan={4} className="anexob-label">PROCESSO TÉCNICO COMPLEMENTAR</td><td colSpan={3} rowSpan={2} className="anexob-label anexob-center">PROTOCOLO</td><td colSpan={3} rowSpan={2} className="anexob-label anexob-center">OBSERVAÇÕES</td></tr>

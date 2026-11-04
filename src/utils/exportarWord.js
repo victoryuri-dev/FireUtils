@@ -145,12 +145,15 @@ function converter(doc, no) {
   const tag = /^(TABLE|THEAD|TBODY|TFOOT|TR|TD|TH|P|UL|OL|LI|H[1-6]|STRONG|B|EM|I|U|SPAN|A|SUB|SUP|COL|COLGROUP|CAPTION)$/.test(no.tagName)
     ? no.tagName.toLowerCase()
     : (cs.display.startsWith('inline') ? 'span' : 'div')
-  const el = doc.createElement(tag)
+  const linhaDeBorda = !no.childNodes.length && parseFloat(cs.borderTopWidth) > 0 && tag === 'div'
+  const el = doc.createElement(linhaDeBorda ? 'p' : tag)
   for (const a of ['colspan', 'rowspan']) if (no.hasAttribute(a)) el.setAttribute(a, no.getAttribute(a))
   // Largura de colunas vem do style em linha (o computado seria em px).
   if (tag === 'col' && no.style.width) el.setAttribute('width', no.style.width)
   let extra = ''
-  if (tag === 'table') {
+  // Elemento vazio que só desenha uma linha (ex.: linha de assinatura): o Word
+  // ignora a borda de um <div> sem conteúdo; vira parágrafo de 1pt com borda.
+  if (linhaDeBorda) extra += ';font-size:1pt;line-height:1pt;mso-line-height-rule:exactly'
     el.setAttribute('cellspacing', '0')
     const pai = no.parentElement?.getBoundingClientRect().width || 1
     extra = `border-collapse:collapse;width:${pct(no.getBoundingClientRect().width, pai)}`
@@ -169,6 +172,7 @@ function converter(doc, no) {
   if (ehFlex && cs.flexDirection.startsWith('column') && cs.alignItems === 'center') extra += ';text-align:center'
   el.setAttribute('style', estiloEmLinha(no, extra))
   for (const filho of no.childNodes) el.appendChild(converter(doc, filho))
+  if (linhaDeBorda) el.appendChild(doc.createTextNode('\u00a0'))
   return el
 }
 
