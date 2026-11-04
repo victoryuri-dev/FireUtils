@@ -11,7 +11,7 @@ import { statusEstrutura } from '../../utils/statusEstrutura'
 import {
   TIPOS_DETECTOR, deteccaoDaEstrutura, deteccaoPav, detectoresAtivos, resumoDeteccaoPavimento, notasAplicaveis, fmtNum,
 } from '../../data/deteccao_alarme_calc'
-import { Card, CampoNum, BotaoOpcao, LinhaChave, NotasDaNorma, QuadroParametros, inputBase, TH, TD } from '../../components/deteccao/DaUi'
+import { Card, CampoNum, BotaoOpcao, NotasDaNorma, QuadroParametros, TH, TD } from '../../components/deteccao/DaUi'
 import ObservacoesComplementares from '../../components/ui/ObservacoesComplementares'
 
 // ── Detecção de Incêndio ────────────────────────────────────────────────
@@ -24,7 +24,7 @@ import ObservacoesComplementares from '../../components/ui/ObservacoesComplement
 function EstruturaDeteccao({ estrutura, pavimentos, norma, exigido }) {
   const { dispatch } = useProjeto()
   const cfg = deteccaoDaEstrutura(estrutura)
-  const { ITENS: itens, ENTREFORROS: entre, NORMA: nrm } = norma
+  const { NORMA: nrm } = norma
 
   const setCfg = changes => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: estrutura.id, field: 'deteccao', value: { ...cfg, ...changes } })
   const setQtd = (pav, key, v) => {
@@ -122,22 +122,6 @@ function EstruturaDeteccao({ estrutura, pavimentos, norma, exigido }) {
               </div>
             </>
           )}
-        </Card>
-
-        <Card titulo="Premissas da estrutura" icone="info">
-          <LinhaChave titulo="Entreforros / entrepisos com instalações combustíveis" item={itens.entreforros}
-            descricao={`Havendo detecção, são obrigatórios detectores nesses espaços${entre.obrigatorio_com_deteccao ? '' : ''}.`}
-            checked={cfg.entreforros} onChange={v => setCfg({ entreforros: v })}/>
-          {cfg.entreforros && (
-            <div className="pb-2.5">
-              <div className="text-[10px] text-ink-faint uppercase tracking-[.06em] mb-1">Onde e quais instalações</div>
-              <Obrigatorio id={`${estrutura.id}.deteccao.entreforrosDescricao`}/><input className={inputBase} value={cfg.entreforrosDescricao} placeholder="Ex.: forro do 1º pavimento com eletrocalhas e cabos elétricos"
-                onChange={e => setCfg({ entreforrosDescricao: e.target.value })}/>
-            </div>
-          )}
-          <LinhaChave titulo="Ambientes com ar-condicionado ou ventilação forçada"
-            descricao="Recomenda-se detectores próximos aos retornos e afastados 1,50 m dos pontos de insuflamento; o sistema deve funcionar com e sem ventilação."
-            checked={cfg.arCondicionado} onChange={v => setCfg({ arCondicionado: v })}/>
         </Card>
       </div>
 

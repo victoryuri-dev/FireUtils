@@ -100,7 +100,6 @@ export function camposObrigatorios(state, porEstrutura = []) {
       const tipos = detectoresAtivos(est,pavs)
       add(campoId(est.id,'deteccao','tiposDetector'),'Tipos de detector',tipos,dest)
       for (const t of tipos) add(campoId(est.id,'deteccao',t.key),`Quantidade total · ${t.label}`,pavs.reduce((s,p) => s + (numero(deteccaoPav(p).tipos[t.key]) || 0),0),dest,inteiro)
-      if (est.deteccao?.entreforros) add(campoId(est.id,'deteccao','entreforrosDescricao'),'Localização da detecção em entreforros',est.deteccao.entreforrosDescricao,dest)
     }
     if (ativo('saida_emergencia')) for (const pav of pavs) {
       const dest = medida('saida_emergencia','Saída de emergência',`${est.nome} · ${pav.label}`)

@@ -86,18 +86,6 @@ function blocosEstrutura(norma, { est, pavs }) {
 
   linhas.forEach(({ pav, r }) => { if (r.obs) blocos.push({ tipo: 'paragrafo', texto: `${pav.label}: ${r.obs}` }) })
 
-  if (cfg.entreforros) {
-    blocos.push({
-      tipo: 'paragrafo',
-      texto: `Os entreforros/entrepisos com instalações de materiais combustíveis${cfg.entreforrosDescricao ? ` (${cfg.entreforrosDescricao})` : ''} são protegidos por detectores (${cita(norma, 'entreforros')}).`,
-    })
-  }
-  if (cfg.arCondicionado) {
-    blocos.push({
-      tipo: 'paragrafo',
-      texto: 'Nos ambientes com ar-condicionado ou ventilação forçada, há detectores próximos aos retornos do fluxo de ar, e nenhum detector pontual fica a menos de 1,50 m da borda dos pontos de insuflamento; o sistema de detecção opera com e sem a ventilação ligada.',
-    })
-  }
   const { especificas } = notasAplicaveis(norma, pavs.map(p => p.divisao))
   especificas.forEach(n => blocos.push({ tipo: 'paragrafo', texto: `Ocupação ${listaDivisoes(pavs)} — item ${n.item} da ${nrm.sigla}: ${n.texto}` }))
   return blocos

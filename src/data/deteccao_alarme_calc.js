@@ -40,7 +40,7 @@ export function alarmeDaEstrutura(est) {
   }
 }
 export function deteccaoDaEstrutura(est) {
-  return { entreforros: false, entreforrosDescricao: '', arCondicionado: false, tiposDetector: undefined, ...(est?.deteccao || {}) }
+  return { tiposDetector: undefined, ...(est?.deteccao || {}) }
 }
 export function alarmePav(pav) {
   return { acionadores: '', avisadoresSonoros: '', avisadoresVisuais: '', avisadoresAudiovisuais: '', ...(pav?.alarme || {}) }
