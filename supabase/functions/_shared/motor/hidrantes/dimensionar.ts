@@ -27,7 +27,10 @@ import {
 import { verificarCondicaoSuccao, FATOR_VAZAO_NPSH, type VerifSuccao } from './succao.ts'
 import { ALTITUDE_PADRAO, TEMPERATURA_PADRAO, calcularNpshd, type ResultadoNpshd } from './npshd.ts'
 import { NormProfileError, opt, req, type PerfilHidrantes, type VarianteTipo } from './perfil.ts'
-import { calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, type ConexaoEntrada } from './leqConexoes.ts'
+import {
+  calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, SISTEMAS_CONEXAO,
+  type ConexaoEntrada, type SistemaConexao,
+} from './leqConexoes.ts'
 
 // ---------------------------------------------------------------------------
 // Entrada
@@ -91,11 +94,19 @@ function conexao(bruto: unknown, campo: string): ConexaoEntrada {
     throw new EntradaInvalida(`Campo inválido: ${campo}.tipo`)
   }
   const opcional = (v: unknown, c: string): number | null => (v === null || v === undefined ? null : numero(v, c, 0, 1e6))
+  // Ausente (plugin antigo, de antes do seletor BSP/Grooved) = 'bsp' — o
+  // que a tabela genérica já aproximava antes de existir tabela por sistema.
+  const sistema: SistemaConexao =
+    x.sistema === undefined || x.sistema === null ? 'bsp' : x.sistema
+  if (!SISTEMAS_CONEXAO.has(sistema)) {
+    throw new EntradaInvalida(`Campo inválido: ${campo}.sistema`)
+  }
   return {
     tipo: x.tipo,
     qtd: numero(x.qtd, `${campo}.qtd`, 0, 1e6),
     angulo_graus: opcional(x.angulo_graus, `${campo}.angulo_graus`),
     d2_mm: opcional(x.d2_mm, `${campo}.d2_mm`),
+    sistema,
   }
 }
 

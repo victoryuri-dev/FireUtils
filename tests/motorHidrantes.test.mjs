@@ -190,28 +190,73 @@ test('Ltotal e totais do trecho são recalculados no servidor, não aceitos do c
   assert.equal(r.resultado.res.j.t3.segmentos[0].Ltotal, 26)
 })
 
-test('Leq das conexões (cotovelo/tê/redução/tampão/união/luva Y) soma no Ltotal do trecho e aparece no memorial', () => {
+const conexaoBsp = (tipo, qtd, extra = {}) => ({ tipo, qtd, angulo_graus: null, d2_mm: null, sistema: 'bsp', ...extra })
+
+test('Leq das conexões fora de DN32-65 (sem tabela por sistema) continua no L/D genérico, e aparece no memorial', () => {
   const entrada = entradaBase()
   entrada.trechos.t3 = [
     {
-      ...seg(65, 20, 0),
+      ...seg(100, 20, 0),
       conexoes: [
-        { tipo: 'cotovelo', qtd: 2, angulo_graus: 90, d2_mm: null },
-        { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null },
-        { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null },
-        { tipo: 'uniao', qtd: 3, angulo_graus: null, d2_mm: null },
+        conexaoBsp('cotovelo', 2, { angulo_graus: 90 }),
+        conexaoBsp('cotovelo', 1, { angulo_graus: 45 }),
+        conexaoBsp('tee', 1),
+        conexaoBsp('uniao', 3),
       ],
     },
   ]
   const r = dimensionar(validarEntrada(entrada), perfilMA())
   assert.equal(r.ok, true, r.erro)
   const seg0 = r.resultado.res.j.t3.segmentos[0]
-  // L/D: cotovelo 90°=30, cotovelo 45°=16, tê(ramal)=60, união=0 — D=0.065 m.
-  const leqEsperado = (2 * 30 + 1 * 16 + 1 * 60 + 0) * 0.065
+  // L/D genérico (sem tabela pra DN100): cotovelo 90°=30, 45°=16, tê(ramal)=60, união=0 — D=0.1 m.
+  const leqEsperado = (2 * 30 + 1 * 16 + 1 * 60 + 0) * 0.1
   assert.ok(Math.abs(seg0.Leq - leqEsperado) < 1e-9, `Leq: ${seg0.Leq} ≠ ${leqEsperado}`)
   assert.ok(Math.abs(seg0.Ltotal - (20 + leqEsperado)) < 1e-9)
   const nomes = seg0.acessorios.map((a) => a.nome).sort()
-  assert.deepEqual(nomes, ['Cotovelo 45°', 'Cotovelo 90°', 'Tê', 'União'])
+  assert.deepEqual(nomes, ['Cotovelo 45° (BSP)', 'Cotovelo 90° (BSP)', 'Tê (BSP)', 'União'])
+})
+
+test('DN32-65 usa a tabela sourced por sistema (bsp = NFPA 13, grooved = Victaulic 10.06), não o L/D genérico', () => {
+  const entradaComSistema = (sistema) => {
+    const entrada = entradaBase()
+    entrada.trechos.t3 = [
+      {
+        ...seg(50, 20, 0),
+        conexoes: [
+          { tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null, sistema },
+          { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null, sistema },
+          { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null, sistema },
+        ],
+      },
+    ]
+    return entrada
+  }
+
+  const rBsp = dimensionar(validarEntrada(entradaComSistema('bsp')), perfilMA())
+  assert.equal(rBsp.ok, true, rBsp.erro)
+  const leqBspEsperado = (5 + 2 + 10) * 0.3048 // NFPA 13, DN50: 90°=5ft, 45°=2ft, tê ramal=10ft
+  const legBsp = rBsp.resultado.res.j.t3.segmentos[0].Leq
+  assert.ok(Math.abs(legBsp - leqBspEsperado) < 1e-9, `Leq bsp: ${legBsp} ≠ ${leqBspEsperado}`)
+
+  const rGrooved = dimensionar(validarEntrada(entradaComSistema('grooved')), perfilMA())
+  assert.equal(rGrooved.ok, true, rGrooved.erro)
+  const leqGroovedEsperado = (3.0 + 1.1 + 8.0) * 0.3048 // Victaulic 10.06, DN50: 90°=3.0ft, 45°=1.1ft, tê ramal=8.0ft
+  const legGrooved = rGrooved.resultado.res.j.t3.segmentos[0].Leq
+  assert.ok(Math.abs(legGrooved - leqGroovedEsperado) < 1e-9, `Leq grooved: ${legGrooved} ≠ ${leqGroovedEsperado}`)
+
+  assert.ok(legGrooved < legBsp, 'grooved deve dar Leq menor que bsp no mesmo diâmetro/conexões')
+
+  const nomesGrooved = rGrooved.resultado.res.j.t3.segmentos[0].acessorios.map((a) => a.nome).sort()
+  assert.deepEqual(nomesGrooved, ['Cotovelo 45° (Grooved)', 'Cotovelo 90° (Grooved)', 'Tê (Grooved)'])
+})
+
+test('sistema ausente no payload (plugin antigo) vira bsp por padrão', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [{ ...seg(50, 20, 0), conexoes: [{ tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null }] }]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, true, r.erro)
+  const leqEsperado = 5 * 0.3048 // NFPA 13, DN50, 90° = 5ft — mesma tabela que 'bsp' explícito
+  assert.ok(Math.abs(r.resultado.res.j.t3.segmentos[0].Leq - leqEsperado) < 1e-9)
 })
 
 test('sucção negativa dispara o NPSH com a vazão majorada pelo perfil', () => {
