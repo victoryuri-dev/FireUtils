@@ -259,6 +259,47 @@ test('sistema ausente no payload (plugin antigo) vira bsp por padrão', () => {
   assert.ok(Math.abs(r.resultado.res.j.t3.segmentos[0].Leq - leqEsperado) < 1e-9)
 })
 
+test('material do trecho muda o C de Hazen-Williams usado nesse segmento', () => {
+  const entradaComMaterial = (material) => {
+    const entrada = entradaBase()
+    entrada.trechos.t3 = [{ ...seg(50, 20, 0), material }]
+    return entrada
+  }
+
+  const rPadrao = dimensionar(validarEntrada(entradaComMaterial(null)), perfilMA())
+  assert.equal(rPadrao.ok, true, rPadrao.erro)
+  const jPadrao = rPadrao.resultado.res.j.t3.segmentos[0].J // C=120 (galvanizado, padrão)
+
+  const rPlastico = dimensionar(validarEntrada(entradaComMaterial('plastico')), perfilMA())
+  assert.equal(rPlastico.ok, true, rPlastico.erro)
+  const jPlastico = rPlastico.resultado.res.j.t3.segmentos[0].J // C=150 — menos perda que C=120
+
+  const rFoFundido = dimensionar(validarEntrada(entradaComMaterial('ff_sem_revest')), perfilMA())
+  assert.equal(rFoFundido.ok, true, rFoFundido.erro)
+  const jFoFundido = rFoFundido.resultado.res.j.t3.segmentos[0].J // C=100 — mais perda que C=120
+
+  assert.ok(jPlastico < jPadrao, `plástico (C150) devia perder menos que o padrão: ${jPlastico} ≥ ${jPadrao}`)
+  assert.ok(jFoFundido > jPadrao, `ferro fundido (C100) devia perder mais que o padrão: ${jFoFundido} ≤ ${jPadrao}`)
+})
+
+test('material desconhecido no trecho é recusado com mensagem clara, não cai num C qualquer', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [{ ...seg(50, 20, 0), material: 'inox_314' }]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, false)
+  assert.match(r.erro, /Material de tubulação desconhecido.*inox_314/)
+})
+
+test('material ausente no payload (plugin antigo) preserva o C padrão (galvanizado)', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [seg(50, 20, 0)]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, true, r.erro)
+  const seg0 = r.resultado.res.j.t3.segmentos[0]
+  const junEsperado = hid.calcJun(r.resultado.res.j.t3.Q_lmin, 120, 50)
+  assert.ok(Math.abs(seg0.Jun - junEsperado) < 1e-9, `Jun: ${seg0.Jun} ≠ ${junEsperado}`)
+})
+
 test('sucção negativa dispara o NPSH com a vazão majorada pelo perfil', () => {
   const entrada = entradaBase({
     cotas: { z_rti: -2, z_succao: 1, z_recalque: 1, z_ponto_a: 6, z_hd01: 5, z_hd02: 5 },
