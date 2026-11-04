@@ -117,7 +117,7 @@ function normaMA() {
 
 const perfilMA = () => resolverPerfil('MA', (uf) => (uf === 'MA' ? normaMA() : null))
 
-const seg = (d_mm, L, Leq = 0) => ({ d_mm, L, Leq, n_tubos: 1, ids: [1, 2], acessorios: [] })
+const seg = (d_mm, L, Leq = 0) => ({ d_mm, L, Leq, n_tubos: 1, ids: [1, 2], acessorios: [], conexoes: [] })
 
 function entradaBase(sobrescrever = {}) {
   return {
@@ -188,6 +188,30 @@ test('Ltotal e totais do trecho são recalculados no servidor, não aceitos do c
   const r = dimensionar(validarEntrada(entrada), perfilMA())
   assert.equal(r.ok, true)
   assert.equal(r.resultado.res.j.t3.segmentos[0].Ltotal, 26)
+})
+
+test('Leq das conexões (cotovelo/tê/redução/tampão/união/luva Y) soma no Ltotal do trecho e aparece no memorial', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [
+    {
+      ...seg(65, 20, 0),
+      conexoes: [
+        { tipo: 'cotovelo', qtd: 2, angulo_graus: 90, d2_mm: null },
+        { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null },
+        { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null },
+        { tipo: 'uniao', qtd: 3, angulo_graus: null, d2_mm: null },
+      ],
+    },
+  ]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, true, r.erro)
+  const seg0 = r.resultado.res.j.t3.segmentos[0]
+  // L/D: cotovelo 90°=30, cotovelo 45°=16, tê(ramal)=60, união=0 — D=0.065 m.
+  const leqEsperado = (2 * 30 + 1 * 16 + 1 * 60 + 0) * 0.065
+  assert.ok(Math.abs(seg0.Leq - leqEsperado) < 1e-9, `Leq: ${seg0.Leq} ≠ ${leqEsperado}`)
+  assert.ok(Math.abs(seg0.Ltotal - (20 + leqEsperado)) < 1e-9)
+  const nomes = seg0.acessorios.map((a) => a.nome).sort()
+  assert.deepEqual(nomes, ['Cotovelo 45°', 'Cotovelo 90°', 'Tê', 'União'])
 })
 
 test('sucção negativa dispara o NPSH com a vazão majorada pelo perfil', () => {

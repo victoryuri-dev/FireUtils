@@ -27,6 +27,7 @@ import {
 import { verificarCondicaoSuccao, FATOR_VAZAO_NPSH, type VerifSuccao } from './succao.ts'
 import { ALTITUDE_PADRAO, TEMPERATURA_PADRAO, calcularNpshd, type ResultadoNpshd } from './npshd.ts'
 import { NormProfileError, opt, req, type PerfilHidrantes, type VarianteTipo } from './perfil.ts'
+import { calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, type ConexaoEntrada } from './leqConexoes.ts'
 
 // ---------------------------------------------------------------------------
 // Entrada
@@ -46,6 +47,11 @@ export interface SegmentoEntrada {
   n_tubos: number
   ids: number[]
   acessorios: AcessorioEntrada[]
+  // Conexões/fittings (cotovelo, tê, redução, tampão, união, luva Y)
+  // classificadas no plugin pelo tipo nativo do Revit (PartType) — o Leq
+  // delas é calculado aqui, não aceito do cliente (ver trechoDeSegmentos).
+  // Ausente/vazio em payloads de versões antigas do plugin: trata como [].
+  conexoes: ConexaoEntrada[]
 }
 
 export interface EntradaDimensionamento {
@@ -63,6 +69,7 @@ export class EntradaInvalida extends Error {}
 const MAX_SEGMENTOS_POR_TRECHO = 100
 const MAX_ACESSORIOS_POR_SEGMENTO = 500
 const MAX_IDS_POR_SEGMENTO = 5000
+const MAX_CONEXOES_POR_SEGMENTO = 500
 
 function numero(valor: unknown, campo: string, min: number, max: number): number {
   if (typeof valor !== 'number' || !Number.isFinite(valor) || valor < min || valor > max) {
@@ -76,6 +83,22 @@ function texto(valor: unknown, campo: string, max: number): string {
   return valor
 }
 
+function conexao(bruto: unknown, campo: string): ConexaoEntrada {
+  if (!bruto || typeof bruto !== 'object') throw new EntradaInvalida(`Campo inválido: ${campo}`)
+  // deno-lint-ignore no-explicit-any
+  const x = bruto as any
+  if (typeof x.tipo !== 'string' || !TIPOS_CONEXAO.has(x.tipo)) {
+    throw new EntradaInvalida(`Campo inválido: ${campo}.tipo`)
+  }
+  const opcional = (v: unknown, c: string): number | null => (v === null || v === undefined ? null : numero(v, c, 0, 1e6))
+  return {
+    tipo: x.tipo,
+    qtd: numero(x.qtd, `${campo}.qtd`, 0, 1e6),
+    angulo_graus: opcional(x.angulo_graus, `${campo}.angulo_graus`),
+    d2_mm: opcional(x.d2_mm, `${campo}.d2_mm`),
+  }
+}
+
 function segmento(bruto: unknown, campo: string): SegmentoEntrada {
   if (!bruto || typeof bruto !== 'object') throw new EntradaInvalida(`Campo inválido: ${campo}`)
   // deno-lint-ignore no-explicit-any
@@ -87,6 +110,9 @@ function segmento(bruto: unknown, campo: string): SegmentoEntrada {
 
   const acessorios = Array.isArray(s.acessorios) ? s.acessorios : []
   if (acessorios.length > MAX_ACESSORIOS_POR_SEGMENTO) throw new EntradaInvalida(`Campo inválido: ${campo}.acessorios`)
+
+  const conexoes = Array.isArray(s.conexoes) ? s.conexoes : []
+  if (conexoes.length > MAX_CONEXOES_POR_SEGMENTO) throw new EntradaInvalida(`Campo inválido: ${campo}.conexoes`)
 
   return {
     d_mm: numero(s.d_mm, `${campo}.d_mm`, 0.1, 5000),
@@ -105,6 +131,7 @@ function segmento(bruto: unknown, campo: string): SegmentoEntrada {
         leq_tot: numero(x.leq_tot, `${campo}.acessorios[${i}].leq_tot`, 0, 1e6),
       }
     }),
+    conexoes: conexoes.map((cx: unknown, i: number) => conexao(cx, `${campo}.conexoes[${i}]`)),
   }
 }
 
@@ -201,7 +228,21 @@ export type RespostaDimensionamento =
 function trechoDeSegmentos(segmentos: SegmentoEntrada[]): Trecho {
   // Ltotal e os totais do trecho são recalculados aqui, nunca aceitos do
   // cliente: L + Leq por construção, igual a extrair_trecho() do plugin.
-  const completos = segmentos.map((s) => ({ ...s, Ltotal: s.L + s.Leq }))
+  // Leq agora soma duas fontes: s.Leq (válvulas/acessórios, ainda via
+  // parâmetro de família "Perda de Carga" — escopo não migrado) + o Leq das
+  // conexões/fittings, calculado aqui por tabela (ver leqConexoes.ts). As
+  // conexões também entram na lista de acessórios do segmento, só para o
+  // memorial mostrar a mesma composição que mostrava antes.
+  const completos = segmentos.map((s) => {
+    const conexoes = s.conexoes ?? []
+    const leqConexoes = calcularLeqConexoes(conexoes, s.d_mm)
+    const acessoriosConexoes = conexoes.map((cx) => {
+      const leqUnit = leqUnitarioConexao(cx, s.d_mm)
+      return { nome: nomeConexao(cx), qtd: cx.qtd, leq_unit: leqUnit, leq_tot: leqUnit * cx.qtd }
+    })
+    const leq = s.Leq + leqConexoes
+    return { ...s, Leq: leq, Ltotal: s.L + leq, acessorios: [...s.acessorios, ...acessoriosConexoes] }
+  })
   return {
     segmentos: completos,
     L: completos.reduce((soma, s) => soma + s.L, 0),
