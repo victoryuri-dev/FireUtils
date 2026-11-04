@@ -154,6 +154,7 @@ function converter(doc, no) {
   // Elemento vazio que só desenha uma linha (ex.: linha de assinatura): o Word
   // ignora a borda de um <div> sem conteúdo; vira parágrafo de 1pt com borda.
   if (linhaDeBorda) extra += ';font-size:1pt;line-height:1pt;mso-line-height-rule:exactly'
+  if (tag === 'table') {
     el.setAttribute('cellspacing', '0')
     const pai = no.parentElement?.getBoundingClientRect().width || 1
     extra = `border-collapse:collapse;width:${pct(no.getBoundingClientRect().width, pai)}`
