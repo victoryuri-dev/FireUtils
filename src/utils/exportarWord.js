@@ -155,6 +155,16 @@ function converter(doc, no) {
     const pai = no.parentElement?.getBoundingClientRect().width || 1
     extra = `border-collapse:collapse;width:${pct(no.getBoundingClientRect().width, pai)}`
   }
+  // Tabela de layout fixo (ex.: Anexo B, com <colgroup>): a largura de cada
+  // coluna vem do que o navegador renderizou. Sem a largura em cada célula o
+  // Word redistribui as colunas pelo conteúdo e a tabela desanda.
+  if (tag === 'table' && cs.tableLayout === 'fixed') extra += ';table-layout:fixed'
+  if ((tag === 'td' || tag === 'th') && no.closest('table') && getComputedStyle(no.closest('table')).tableLayout === 'fixed') {
+    const larguraTabela = no.closest('table').getBoundingClientRect().width || 1
+    const w = pct(no.getBoundingClientRect().width, larguraTabela)
+    el.setAttribute('width', w)
+    extra += `;width:${w}`
+  }
   // Coluna em flex centralizada (ex.: assinatura): centraliza o texto.
   if (ehFlex && cs.flexDirection.startsWith('column') && cs.alignItems === 'center') extra += ';text-align:center'
   el.setAttribute('style', estiloEmLinha(no, extra))
