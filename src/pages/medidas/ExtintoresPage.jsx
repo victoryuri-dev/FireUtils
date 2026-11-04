@@ -37,6 +37,12 @@ import ObservacoesComplementares from '../../components/ui/ObservacoesComplement
 // não bater com nenhum label, tenta como "Nível N" do Revit (ver
 // pavimentoPorNivelRevit — não cobre subsolo); se ainda assim não achar
 // (nível vazio, subsolo não reconhecido etc.), cai no Térreo da estrutura.
+// Quando o item vem com "pavimentoId" (plugin com a correlação "Nível <->
+// Pavimento" já preenchida na dockpane — ver niveis_bridge.py/
+// CorrelacaoNiveisModal.jsx), esse id é usado direto, ANTES de qualquer
+// heurística de nome: é a única forma confiável quando o nome do Nível no
+// Revit não tem nenhuma relação com o rótulo do pavimento (ex.: "Pavimento
+// Inferior" correlacionado ao "Térreo" do site).
 // "ambiente" vazio vira "Geral".
 //
 // "tipo" é o rótulo livre do produto no Revit (não corresponde às chaves
@@ -127,7 +133,8 @@ function resolverImportacao(json, estruturas, pavimentos, tiposPortatil, tiposSo
       if (!est) { erros.push(`${linha}: nenhuma estrutura cadastrada no projeto para receber o extintor.`); return }
     }
 
-    const pav = pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
+    const pav = (it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId))
+      || pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
       || pavimentoPorNivelRevit(it.pavimento, est.id, pavimentos)
       || pavimentos.find(p => p.estruturaId === est.id && p.tipo === 'terreo')
     if (!pav) { erros.push(`${linha}: ${est.nome} não tem nenhum pavimento cadastrado para receber o extintor.`); return }

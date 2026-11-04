@@ -42,6 +42,11 @@ const IMAGENS_EQUIPAMENTO = {
 // chave interna (ex.: "luminaria_30leds") quanto o label do catálogo
 // (ex.: "Luminária de Emergência 30 LEDs"), case/acento-insensível.
 //
+// "pavimento" é o nome cru do Nível do Revit; quando o item vem com
+// "pavimentoId" também (plugin com a correlação "Nível <-> Pavimento" já
+// preenchida na dockpane — ver niveis_bridge.py), esse id resolve o
+// pavimento direto, sem depender do nome bater com o rótulo do site.
+//
 // Potência, tensão e autonomia não vêm do Revit (não são parâmetro de
 // família) — quando o fluxo luminoso importado bate com algum preset do
 // catálogo (ver PRESETS_EQUIPAMENTO em normas/MA/iluminacao.js) do mesmo
@@ -55,7 +60,9 @@ function norm(s) {
 // Nível 2, ...) na ordem em que foram criados; quando o nome não bate com
 // nenhum pavimento cadastrado, tenta casar "Nível N" pela mesma numeração
 // que o site usa internamente pros pavimentos acima do solo (P1 = Térreo).
-// Não tenta adivinhar subsolo.
+// Não tenta adivinhar subsolo. Quando o item vem com "pavimentoId" (plugin
+// com a correlação "Nível <-> Pavimento" já preenchida na dockpane), esse
+// id é usado direto, antes de qualquer heurística de nome.
 function pavimentoPorNivelRevit(nomePavimento, estruturaId, pavimentos) {
   const m = norm(nomePavimento).match(/^(?:n[ií]vel|piso|level)\s*(\d+)$/)
   if (!m) return null
@@ -84,7 +91,8 @@ function resolverImportacaoIluminacao(json, estruturas, pavimentos, equipamentos
     const est = estruturaForcada || estruturas[0]
     if (!est) { erros.push(`${linha}: nenhuma estrutura cadastrada no projeto para receber o equipamento.`); return }
 
-    const pav = pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
+    const pav = (it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId))
+      || pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
       || pavimentoPorNivelRevit(it.pavimento, est.id, pavimentos)
       || pavimentos.find(p => p.estruturaId === est.id && p.tipo === 'terreo')
     if (!pav) { erros.push(`${linha}: ${est.nome} não tem nenhum pavimento cadastrado para receber o equipamento.`); return }
