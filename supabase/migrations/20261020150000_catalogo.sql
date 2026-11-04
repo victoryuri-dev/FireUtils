@@ -31,7 +31,7 @@ create table if not exists public.catalogo_familias (
                             on update cascade on delete restrict,
   thumbnail_key text        check (thumbnail_key ~ '^thumbnails/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+$' and thumbnail_key not like '%..%'),
   storage_key   text        not null unique
-                            check (storage_key ~ '^[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+\.rfa$' and storage_key not like '%..%'),
+                            check (storage_key ~ '^[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+\.(rfa|rvt)$' and storage_key not like '%..%'),
   size_bytes    bigint      not null check (size_bytes >= 0),
   sha256        text        not null check (sha256 ~ '^[0-9a-f]{64}$'),
   ordem         integer     not null default 0,

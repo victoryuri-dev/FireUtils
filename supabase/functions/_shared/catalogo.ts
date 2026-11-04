@@ -111,7 +111,7 @@ export function verificarRascunho(r: Rascunho, arquivos: Arquivo[]): Problema[] 
   for (const ref of referencias(r)) {
     const arq = existentes.get(`${ref.bucket}/${ref.key}`)
     if (!arq) {
-      const rotulo = { familia: 'o arquivo .rfa', thumbnail: 'a miniatura', icone: 'o ícone' }[ref.uso]
+      const rotulo = { familia: 'o arquivo', thumbnail: 'a miniatura', icone: 'o ícone' }[ref.uso]
       problemas.push({
         tipo: `${ref.uso}_ausente`, bloqueia: true, alvo: ref.dono,
         mensagem: `"${ref.dono}" aponta para ${rotulo} ${ref.key}, que não existe em ${ref.bucket}.`,
@@ -119,7 +119,7 @@ export function verificarRascunho(r: Rascunho, arquivos: Arquivo[]): Problema[] 
     } else if (ref.uso === 'familia' && arq.size != null && ref.tamanho != null && arq.size !== ref.tamanho) {
       problemas.push({
         tipo: 'tamanho_divergente', bloqueia: true, alvo: ref.dono,
-        mensagem: `"${ref.dono}": o arquivo no bucket tem ${arq.size} bytes, mas o catálogo diz ${ref.tamanho}. Reenvie o .rfa.`,
+        mensagem: `"${ref.dono}": o arquivo no bucket tem ${arq.size} bytes, mas o catálogo diz ${ref.tamanho}. Reenvie o arquivo.`,
       })
     }
   }
