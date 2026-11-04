@@ -33,16 +33,15 @@ import ObservacoesComplementares from '../../components/ui/ObservacoesComplement
 //
 // "estrutura" é casada por nome contra o que já está cadastrado no projeto
 // (Etapa 2); quando vier vazia, o item entra na primeira estrutura do
-// projeto. "pavimento" é casado por label dentro da estrutura resolvida; se
-// não bater com nenhum label, tenta como "Nível N" do Revit (ver
-// pavimentoPorNivelRevit — não cobre subsolo); se ainda assim não achar
-// (nível vazio, subsolo não reconhecido etc.), cai no Térreo da estrutura.
-// Quando o item vem com "pavimentoId" (plugin com a correlação "Nível <->
-// Pavimento" já preenchida na dockpane — ver niveis_bridge.py/
-// CorrelacaoNiveisModal.jsx), esse id é usado direto, ANTES de qualquer
-// heurística de nome: é a única forma confiável quando o nome do Nível no
-// Revit não tem nenhuma relação com o rótulo do pavimento (ex.: "Pavimento
-// Inferior" correlacionado ao "Térreo" do site).
+// projeto. "pavimento" (o nome cru do Nível do Revit) é só informativo —
+// quem resolve o pavimento é "pavimentoId", que o plugin já traz pronto a
+// partir da correlação "Nível <-> Pavimento" salva na dockpane (ver
+// niveis_bridge.py/CorrelacaoNiveisModal.jsx/quantitativos_core.py). Sem
+// "pavimentoId" (nível ainda não correlacionado), o item vira erro de
+// importação — nunca mais um palpite por nome ou um "cai no Térreo"
+// silencioso: o nome do Nível no Revit não tem garantia nenhuma de bater
+// com o rótulo do pavimento cadastrado aqui (ex.: um nível "Pavimento
+// Inferior" pode ser o "Térreo" do site).
 // "ambiente" vazio vira "Geral".
 //
 // "tipo" é o rótulo livre do produto no Revit (não corresponde às chaves
@@ -86,22 +85,6 @@ function norm(s) {
   return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-// O Revit não sabe se um pavimento é térreo, subsolo ou andar superior — só
-// enumera "níveis" (Nível 1, Nível 2, ...) na ordem em que foram criados no
-// projeto. Quando o nome não bate com nenhum pavimento cadastrado, tenta
-// casar "Nível N" pela mesma numeração que o site já usa internamente para
-// os pavimentos acima do solo (id termina em "-P{n}": P1 é sempre o Térreo,
-// P2 é o "Pavimento 2" etc. — estável mesmo se o label for renomeado). Não
-// tenta adivinhar subsolo: a numeração de nível do Revit para subsolo varia
-// por escritório (pode ser negativa, pode reiniciar em 1...), então para
-// esses o nome ainda precisa bater (ex.: nível chamado literalmente "Subsolo 1").
-function pavimentoPorNivelRevit(nomePavimento, estruturaId, pavimentos) {
-  const m = norm(nomePavimento).match(/^(?:n[ií]vel|piso|level)\s*(\d+)$/)
-  if (!m) return null
-  const n = parseInt(m[1], 10)
-  return pavimentos.find(p => p.estruturaId === estruturaId && p.id === `${estruturaId}-P${n}`) || null
-}
-
 // `estruturaIdForcado`: quando o lote vem do Supabase (uma linha por
 // estrutura, já resolvida no envio — ver revit-sync), a estrutura de
 // destino já é conhecida e não depende de casar o nome digitado no Revit
@@ -133,11 +116,11 @@ function resolverImportacao(json, estruturas, pavimentos, tiposPortatil, tiposSo
       if (!est) { erros.push(`${linha}: nenhuma estrutura cadastrada no projeto para receber o extintor.`); return }
     }
 
-    const pav = (it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId))
-      || pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
-      || pavimentoPorNivelRevit(it.pavimento, est.id, pavimentos)
-      || pavimentos.find(p => p.estruturaId === est.id && p.tipo === 'terreo')
-    if (!pav) { erros.push(`${linha}: ${est.nome} não tem nenhum pavimento cadastrado para receber o extintor.`); return }
+    const pav = it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId)
+    if (!pav) {
+      erros.push(`${linha}: nível "${it.pavimento || '?'}" do Revit ainda não correlacionado a um pavimento de ${est.nome} — use "Correlacionar Níveis" na dockpane.`)
+      return
+    }
 
     const formato = normFormato(it.formato)
     if (formato !== 'portatil' && formato !== 'sobrerodas') {

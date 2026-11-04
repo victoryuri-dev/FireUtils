@@ -42,10 +42,11 @@ const IMAGENS_EQUIPAMENTO = {
 // chave interna (ex.: "luminaria_30leds") quanto o label do catálogo
 // (ex.: "Luminária de Emergência 30 LEDs"), case/acento-insensível.
 //
-// "pavimento" é o nome cru do Nível do Revit; quando o item vem com
-// "pavimentoId" também (plugin com a correlação "Nível <-> Pavimento" já
-// preenchida na dockpane — ver niveis_bridge.py), esse id resolve o
-// pavimento direto, sem depender do nome bater com o rótulo do site.
+// "pavimento" (o nome cru do Nível do Revit) é só informativo — quem
+// resolve o pavimento é "pavimentoId", que o plugin já traz pronto a
+// partir da correlação "Nível <-> Pavimento" salva na dockpane (ver
+// niveis_bridge.py). Sem "pavimentoId" (nível ainda não correlacionado),
+// o item vira erro de importação — nunca mais um palpite por nome.
 //
 // Potência, tensão e autonomia não vêm do Revit (não são parâmetro de
 // família) — quando o fluxo luminoso importado bate com algum preset do
@@ -54,20 +55,6 @@ const IMAGENS_EQUIPAMENTO = {
 // senão ficam em branco, pro RT completar manualmente.
 function norm(s) {
   return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
-// Mesma lógica de ExtintoresPage.jsx — o Revit só enumera "níveis" (Nível 1,
-// Nível 2, ...) na ordem em que foram criados; quando o nome não bate com
-// nenhum pavimento cadastrado, tenta casar "Nível N" pela mesma numeração
-// que o site usa internamente pros pavimentos acima do solo (P1 = Térreo).
-// Não tenta adivinhar subsolo. Quando o item vem com "pavimentoId" (plugin
-// com a correlação "Nível <-> Pavimento" já preenchida na dockpane), esse
-// id é usado direto, antes de qualquer heurística de nome.
-function pavimentoPorNivelRevit(nomePavimento, estruturaId, pavimentos) {
-  const m = norm(nomePavimento).match(/^(?:n[ií]vel|piso|level)\s*(\d+)$/)
-  if (!m) return null
-  const n = parseInt(m[1], 10)
-  return pavimentos.find(p => p.estruturaId === estruturaId && p.id === `${estruturaId}-P${n}`) || null
 }
 
 // `estruturaIdForcado`: presente no pull do Supabase (uma linha por
@@ -91,11 +78,11 @@ function resolverImportacaoIluminacao(json, estruturas, pavimentos, equipamentos
     const est = estruturaForcada || estruturas[0]
     if (!est) { erros.push(`${linha}: nenhuma estrutura cadastrada no projeto para receber o equipamento.`); return }
 
-    const pav = (it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId))
-      || pavimentos.find(p => p.estruturaId === est.id && norm(p.label) === norm(it.pavimento))
-      || pavimentoPorNivelRevit(it.pavimento, est.id, pavimentos)
-      || pavimentos.find(p => p.estruturaId === est.id && p.tipo === 'terreo')
-    if (!pav) { erros.push(`${linha}: ${est.nome} não tem nenhum pavimento cadastrado para receber o equipamento.`); return }
+    const pav = it.pavimentoId && pavimentos.find(p => p.estruturaId === est.id && p.id === it.pavimentoId)
+    if (!pav) {
+      erros.push(`${linha}: nível "${it.pavimento || '?'}" do Revit ainda não correlacionado a um pavimento de ${est.nome} — use "Correlacionar Níveis" na dockpane.`)
+      return
+    }
 
     const chaveTipo = norm(it.tipoBase)
     const eqInfo = equipamentosDef.find(eq => norm(eq.key) === chaveTipo || norm(eq.label) === chaveTipo)

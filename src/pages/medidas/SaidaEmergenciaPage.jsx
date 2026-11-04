@@ -72,21 +72,21 @@ function norm(s) {
   return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-// Acha o pavimento "de verdade" do site (id estável, ex.: est-1-P2) a
-// partir do nome que vem do Revit — mesma lógica de casamento usada em
-// ExtintoresPage.jsx. Com `estruturaId`, restringe a busca aos pavimentos
+// Acha o pavimento "de verdade" do site (id estável, ex.: est-1-P2) pelo
+// `pavimentoId` que o próprio plugin já resolveu, na coleta, contra a
+// correlação "Nível do Revit <-> Pavimento" salva na dockpane (ver
+// montar_payload_ambientes em saidas/calc.py) — nunca por nome: o nome do
+// Nível no Revit não tem nenhuma relação garantida com o rótulo do
+// pavimento cadastrado aqui (ex.: um nível "Pavimento Inferior" pode ser
+// o "Térreo" do site). Sem `pavimentoId` (nível ainda não correlacionado),
+// devolve null — vira erro de importação pra esse pavimento, nunca um
+// palpite por nome. Com `estruturaId`, restringe a busca aos pavimentos
 // dela (pull do Supabase, uma estrutura por vez); sem ele (upload manual
-// de arquivo), busca entre todos.
-function resolverPavimentoSite(nomeImportado, estruturaId, projetoPavimentos) {
+// de arquivo), busca entre todos — o id já é único por estrutura.
+function resolverPavimentoSite(payloadPavimento, estruturaId, projetoPavimentos) {
+  if (!payloadPavimento.pavimentoId) return null
   const candidatos = estruturaId ? projetoPavimentos.filter(p => p.estruturaId === estruturaId) : projetoPavimentos
-  const porLabel = candidatos.find(p => norm(p.label) === norm(nomeImportado))
-  if (porLabel) return porLabel
-  const m = norm(nomeImportado).match(/^(?:n[ií]vel|piso|level)\s*(\d+)$/)
-  if (m) {
-    const porNivel = candidatos.find(p => p.id.endsWith(`-P${parseInt(m[1], 10)}`))
-    if (porNivel) return porNivel
-  }
-  return candidatos.find(p => p.tipo === 'terreo') || null
+  return candidatos.find(p => p.id === payloadPavimento.pavimentoId) || null
 }
 
 // Ao contrário da versão antiga (que substituía a lista inteira de
@@ -123,8 +123,11 @@ function resolverImportacaoSaidas(payloadSE, estruturaIdForcado, projetoPaviment
 
   payloadSE.pavimentos.forEach((p, pi) => {
     const nomeImportado = p.nome || `Pavimento ${pi + 1}`
-    const pavSite = resolverPavimentoSite(nomeImportado, estruturaIdForcado, projetoPavimentos)
-    if (!pavSite) { erros.push(`"${nomeImportado}": nenhum pavimento correspondente encontrado no projeto.`); return }
+    const pavSite = resolverPavimentoSite(p, estruturaIdForcado, projetoPavimentos)
+    if (!pavSite) {
+      erros.push(`"${nomeImportado}": nível do Revit ainda não correlacionado a um pavimento — use "Correlacionar Níveis" na dockpane.`)
+      return
+    }
     const existentesPorRevitId = new Map((pavSite.ambientes || []).filter(a => a.revitId).map(a => [a.revitId, a]))
     const existentesPorNome = new Map((pavSite.ambientes || []).map(a => [norm(a.nome), a]))
     const idsUsados = new Set()
