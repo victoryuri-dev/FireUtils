@@ -193,6 +193,7 @@
 .anexob-table .anexob-section { background: #a6a6a6; color: #1f3864; text-align: center; font-weight: 700; }
 .anexob-label { font-weight: 700; }
 .anexob-value { font-weight: 400; }
+.anexob-label-menor { font-size: .8em; }
 .anexob-accent { color: #c00000; }
 .anexob-table .anexob-check { text-align: center; padding-inline: 0; font-weight: 700; }
 .anexob-center, .anexob-carga { text-align: center; }
