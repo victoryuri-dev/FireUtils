@@ -93,7 +93,7 @@ export function buildAnexoBData(state, sistemas) {
   // mais alto da edificacao.
   const alturaNum      = estruturas.reduce((mx, e) => Math.max(mx, alturaEdificacaoBase(e)), 0)
   // Edificação térrea sem subsolo tem altura 0 e isso é um valor válido
-  // ("0,00 m"); só fica em branco quando há estrutura de mais de um pavimento
+  // ("0m - Edificação Térrea"); só fica em branco quando há estrutura de mais de um pavimento
   // cuja altura piso a piso ainda não foi informada (ou não há estrutura).
   const alturaConhecida = estruturas.length > 0 && estruturas.every(e =>
     (parseInt(e.nPavimentos) || 1) <= 1 || (e.alturaEdificacao !== '' && e.alturaEdificacao != null))
@@ -127,7 +127,7 @@ export function buildAnexoBData(state, sistemas) {
     pavimentosSubsolo: subsolosSum ? String(subsolosSum) : '',
     areaTerreno: state.areaTerreno ? fmtUn(state.areaTerreno, 'm²', 2, `${state.areaTerreno} m²`) : '',
     areaComplementar: state.areaComplementar ? fmtUn(state.areaComplementar, 'm²', 2, `${state.areaComplementar} m²`) : '',
-    altura: alturaConhecida ? (alturaNum ? fmtUn(alturaNum, 'm') : '0,00 m') : '',
+    altura: alturaConhecida ? (alturaNum ? fmtUn(alturaNum, 'm') : '0m - Edificação Térrea') : '',
     cargaIncendio: maxQ ? fmtUn(maxQ, 'MJ/m²') : '',
     riscoCargaIncendio: maxQ && getExtintores(state.uf) ? ({ baixo:'Baixo', medio:'Médio', alto:'Alto' })[classificarRisco(maxQ, getExtintores(state.uf).LIMIARES_RISCO)] : '',
     // O FireUtils gera o processo técnico principal (o projeto em si), então a
