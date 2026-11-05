@@ -130,8 +130,10 @@ export function buildAnexoBData(state, sistemas) {
     altura: alturaConhecida ? (alturaNum ? fmtUn(alturaNum, 'm') : '0,00 m') : '',
     cargaIncendio: maxQ ? fmtUn(maxQ, 'MJ/m²') : '',
     riscoCargaIncendio: maxQ && getExtintores(state.uf) ? ({ baixo:'Baixo', medio:'Médio', alto:'Alto' })[classificarRisco(maxQ, getExtintores(state.uf).LIMIARES_RISCO)] : '',
-    // Ausência de informação não implica marcar uma forma de apresentação.
-    processoTecnico: state.processoTecnico === true,
+    // O FireUtils gera o processo técnico principal (o projeto em si), então a
+    // forma de apresentação "Processo técnico" sempre sai marcada; o
+    // "complementar" depende de um CAP principal e continua em branco.
+    processoTecnico: true,
     responsavelTecnico: state.rtNome || '',
     rtCpf: state.rtCpf || '',
     rtConselho: state.rtConselho || '',

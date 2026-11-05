@@ -11,7 +11,7 @@ test('dados ausentes ficam em branco e não marcam processo técnico', () => {
   for (const [key,value] of Object.entries(d)) {
     if (typeof value === 'string') assert.equal(value,'',key)
   }
-  assert.equal(d.processoTecnico,false)
+  assert.equal(d.processoTecnico,true)
   assert.equal(d.medidasCol1.some(m => m.ativo),false)
   assert.equal(d.medidasCol2.some(m => m.ativo),false)
 })
