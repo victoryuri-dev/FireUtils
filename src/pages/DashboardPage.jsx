@@ -226,7 +226,7 @@ function getStatusTone(key, required, progressTone) {
 
 const COMPLETE_CONFIG_STEPS = [
   { label: 'Identificação', test: s => [s.nome, s.endereco, s.cidade, s.propNome, s.propDocumento, s.respRazaoSocial, s.respCNPJ].every(Boolean) },
-  { label: 'Edificação', test: s => (s.estruturas || []).length > 0 && s.estruturas.every(e => e.areaTotal && e.altura) },
+  { label: 'Edificação', test: s => (s.estruturas || []).length > 0 && s.estruturas.every(e => e.areaTotal) },
   { label: 'Responsável técnico', test: s => Boolean(s.rtNome && (!usaArtNoProjeto(s) || s.artNumero)) },
   { label: 'Classificação', test: s => (s.pavimentos || []).length > 0 && s.pavimentos.every(p => p.divisao && p.cnae) },
   // Antes só conferia as entradas que já existiam em cargaState — uma
@@ -269,7 +269,7 @@ const COMPLETE_CONFIG_STEPS = [
 ]
 
 const DIMENSIONING_CONFIG_STEPS = [
-  { label: 'Edificação', test: s => Boolean(s.nome) && (s.estruturas || []).length > 0 && s.estruturas.every(e => e.areaTotal && e.altura) },
+  { label: 'Edificação', test: s => Boolean(s.nome) && (s.estruturas || []).length > 0 && s.estruturas.every(e => e.areaTotal) },
   COMPLETE_CONFIG_STEPS[3],
   COMPLETE_CONFIG_STEPS[4],
   COMPLETE_CONFIG_STEPS[5],

@@ -119,7 +119,7 @@ function EstruturaModal({ est, index, dispatch, onClose }) {
             <div className="g2 mb-3">
               <div className="fg"><label>Area construida total (m2) <Obrigatorio id={`${est.id}.areaTotal`}/></label><input type="number" value={est.areaTotal} onChange={set('areaTotal')}/></div>
               <div className="fg">
-                <label>Altura total (m) <Obrigatorio id={`${est.id}.altura`}/><InfoTip text="medida entre o nível do solo ao ponto mais alto da edificação"/></label>
+                <label>Altura total (m) <InfoTip text="medida entre o nível do solo ao ponto mais alto da edificação"/></label>
                 <input type="number" step="0.1" value={est.altura} onChange={set('altura')}/>
               </div>
 
@@ -169,7 +169,7 @@ function EstruturaCard({ est, index, canRemove, dispatch, onOpen }) {
   const a   = parseFloat(est.areaTotal) || 0
   const sub = parseInt(est.nSubsolos)   || 0
   const alturaPPPreenchida = est.alturaPisoPiso !== '' && est.alturaPisoPiso != null
-  const configured = !!(est.areaTotal && est.altura) && alturaPPPreenchida
+  const configured = !!est.areaTotal && alturaPPPreenchida
 
   const terrea = parseInt(est.nPavimentos) === 1
   const pavimentos = `${terrea ? 'Térrea' : `${est.nPavimentos} pavimentos`}${sub > 0 ? ` + ${sub} subsolo${sub > 1 ? 's' : ''}` : ''}`
