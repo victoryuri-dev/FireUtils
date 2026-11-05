@@ -19,6 +19,7 @@ import {
   resumoFalhaVelocidade,
   validarEntrada,
   EntradaInvalida,
+  TOLERANCIA_VELOCIDADE_M_S,
 } from '../supabase/functions/_shared/motor/hidrantes/dimensionar.ts'
 
 const golden = JSON.parse(readFileSync(new URL('./fixtures/motor-hidrantes/golden.json', import.meta.url), 'utf8'))
@@ -328,6 +329,10 @@ test('altitude fora da tabela não derruba o resultado: vira erro_npshd', () => 
   assert.equal(r.resultado.verif_npshd, null)
 })
 
+test('tolerância de velocidade é 0,049 m/s — abaixo de 0,05 de propósito, nunca arredonda ambíguo em 2 casas', () => {
+  assert.equal(TOLERANCIA_VELOCIDADE_M_S, 0.049)
+})
+
 test('velocidade acima do limite não barra mais o dimensionamento — vira aviso, com o texto do plugin', () => {
   const entrada = entradaBase({ trechos: { ...entradaBase().trechos, t3: [seg(25, 20, 6)] } })
   const r = dimensionar(entrada, perfilMA())
@@ -335,24 +340,24 @@ test('velocidade acima do limite não barra mais o dimensionamento — vira avis
   assert.equal(r.resultado.avisos_velocidade.length, 1)
   assert.match(
     r.resultado.avisos_velocidade[0],
-    /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.000 m\/s\):\n- DN25 : /,
+    /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.00 m\/s\):\n- DN25 : /,
   )
   // Pressão/vazão no hidrante continua interrompendo normalmente — não faz
   // parte deste aviso.
   assert.ok(r.resultado.res.Qt > 0)
 })
 
-test('texto das falhas é idêntico ao que o plugin mostrava (golden)', () => {
+test('texto das falhas usa 2 casas decimais (golden.json tem o texto antigo, 3/4 casas — divergência intencional)', () => {
   assert.equal(
     resumoFalhaVelocidade('Ponto A → HD01', 5.0, [
       { d_mm: 50.0, V: 6.123456 },
       { d_mm: 65.0, V: 5.0004 },
     ]),
-    golden.textos.velocidade,
+    'Velocidade acima do limite normativo em "Ponto A → HD01" (limite 5.00 m/s):\n- DN50 : 6.12 m/s\n- DN65 : 5.00 m/s',
   )
   assert.equal(
     resumoFalhaHidrante('HD02', 28.4567, 291.234, 'pressão na válvula', 'Ponto A → HD02', 30.0, 300.0),
-    golden.textos.hidrante,
+    'HD02 não atende a norma em "Ponto A → HD02":\n- pressão na válvula obtida: 28.46 mca (mínimo 30.00 mca)\n- Vazão obtida: 291.23 L/min (mínimo 300.00 L/min)',
   )
 })
 

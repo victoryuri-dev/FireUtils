@@ -294,9 +294,15 @@ function trechoDeSegmentos(segmentos: SegmentoEntrada[], perfil: PerfilHidrantes
 
 const f = (n: number, casas: number) => n.toFixed(casas)
 
+// Tolerância antes de reprovar por velocidade: evita reprovar por ruído
+// numérico (ex. 2,018 m/s calculado contra um limite de 2 m/s). Abaixo de
+// 0,05 de propósito (não exatos 0,05) — nunca cai num valor que arredonde
+// de forma ambígua pra 2 casas decimais.
+export const TOLERANCIA_VELOCIDADE_M_S = 0.049
+
 export function resumoFalhaVelocidade(nomeTrecho: string, limite: number, falhas: Array<{ d_mm: number; V: number }>): string {
-  const partes = [`Velocidade acima do limite normativo em "${nomeTrecho}" (limite ${f(limite, 3)} m/s):`]
-  for (const s of falhas) partes.push(`- DN${Math.round(s.d_mm)} : ${f(s.V, 3)} m/s`)
+  const partes = [`Velocidade acima do limite normativo em "${nomeTrecho}" (limite ${f(limite, 2)} m/s):`]
+  for (const s of falhas) partes.push(`- DN${Math.round(s.d_mm)} : ${f(s.V, 2)} m/s`)
   return partes.join('\n')
 }
 
@@ -311,7 +317,7 @@ export function resumoFalhaHidrante(
 ): string {
   return (
     `${label} não atende a norma em "${trechoDesc}":\n` +
-    `- ${pRefDesc} obtida: ${f(p, 4)} mca (mínimo ${f(pmin, 2)} mca)\n` +
+    `- ${pRefDesc} obtida: ${f(p, 2)} mca (mínimo ${f(pmin, 2)} mca)\n` +
     `- Vazão obtida: ${f(q, 2)} L/min (mínimo ${f(qmin, 2)} L/min)`
   )
 }
@@ -498,7 +504,7 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
   // limite ultrapassado, em vez de nada.
   const falhaVelocidade = (j: JTrecho, limite: number, nomeTrecho: string, comprimentoMin: number | null = null) => {
     const segmentos = comprimentoMin === null ? j.segmentos : j.segmentos.filter((s) => s.L >= comprimentoMin)
-    const falhas = segmentos.filter((s) => s.V > limite + 1e-9)
+    const falhas = segmentos.filter((s) => s.V > limite + TOLERANCIA_VELOCIDADE_M_S)
     return falhas.length ? resumoFalhaVelocidade(nomeTrecho, limite, falhas) : null
   }
 
