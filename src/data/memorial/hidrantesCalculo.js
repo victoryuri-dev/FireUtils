@@ -30,6 +30,10 @@ const G = 9.81
 const K_VALVULA = 5.0
 const COEF_JM = 8.0
 const COMPRIMENTO_MIN_VERIF_VELOCIDADE_M = 0.20
+// Mesma tolerância do dockpane (HidrantesDimensionamento.jsx) — evita reprovar
+// por arredondamento (ex.: 2,018 m/s contra limite de 2 m/s). 0,049 (não 0,05)
+// pra não cair na ambiguidade de arredondamento de 2 casas decimais.
+const TOLERANCIA_VELOCIDADE_M_S = 0.049
 
 const SIM_OK = '✓'
 const SIM_X = '✗'
@@ -314,7 +318,9 @@ export function textoMemorialCalculoHidrantes(state) {
   const passoLtotal = (jt, letra) => {
     titulo3(`${letra}) Comprimento total da tubulação`)
     formula('Ltotal = L + Leq')
-    const linhasAces = jt.segmentos.flatMap((s) => s.acessorios.map((a) => [a.nome, f(s.d_mm, 1), `${a.qtd}`, f(a.leq_unit), f(a.leq_tot)]))
+    const linhasAces = jt.segmentos.flatMap((s) => s.acessorios
+      .filter((a) => a.leq_tot > 0)
+      .map((a) => [a.nome, f(s.d_mm, 1), `${a.qtd}`, f(a.leq_unit), f(a.leq_tot)]))
     if (linhasAces.length) {
       tabela(['Conexão / acessório', 'DN (mm)', 'Qtd', 'Leq unitário (m)', 'Leq total (m)'], linhasAces, { titulo: 'Conexões e acessórios por diâmetro' })
     } else {
@@ -344,10 +350,12 @@ export function textoMemorialCalculoHidrantes(state) {
       if (comprimentoMin != null && s.L < comprimentoMin) {
         temCurto = true
         verificacao = '— não verificado'
-      } else {
-        verificacao = s.V <= vLimite ? `${SIM_OK} atende` : `${SIM_X} NÃO atende`
+        return [f(s.d_mm, 1), f(jt.Q_lmin, 2), f(s.V, 2), f(vLimite, 2), verificacao]
       }
-      return [f(s.d_mm, 1), f(jt.Q_lmin, 2), f(s.V, 3), f(vLimite, 1), verificacao]
+      const atende = s.V <= vLimite + TOLERANCIA_VELOCIDADE_M_S
+      verificacao = atende ? `${SIM_OK} atende` : `${SIM_X} NÃO atende`
+      const vExibido = atende ? Math.min(s.V, vLimite) : s.V
+      return [f(s.d_mm, 1), f(jt.Q_lmin, 2), f(vExibido, 2), f(vLimite, 2), verificacao]
     })
     tabela(['DN (mm)', 'Q (L/min)', 'V (m/s)', 'Limite (m/s)', 'Verificação'], linhas,
       { alinhas: ['right', 'right', 'right', 'right', 'left'] })
