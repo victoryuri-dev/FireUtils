@@ -27,7 +27,10 @@ import {
 import { verificarCondicaoSuccao, FATOR_VAZAO_NPSH, type VerifSuccao } from './succao.ts'
 import { ALTITUDE_PADRAO, TEMPERATURA_PADRAO, calcularNpshd, type ResultadoNpshd } from './npshd.ts'
 import { NormProfileError, opt, req, type PerfilHidrantes, type VarianteTipo } from './perfil.ts'
-import { calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, type ConexaoEntrada } from './leqConexoes.ts'
+import {
+  calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, SISTEMAS_CONEXAO,
+  type ConexaoEntrada, type SistemaConexao,
+} from './leqConexoes.ts'
 
 // ---------------------------------------------------------------------------
 // Entrada
@@ -52,6 +55,13 @@ export interface SegmentoEntrada {
   // delas é calculado aqui, não aceito do cliente (ver trechoDeSegmentos).
   // Ausente/vazio em payloads de versões antigas do plugin: trata como [].
   conexoes: ConexaoEntrada[]
+  // Material da tubulação deste segmento — chave de hazen_c no perfil
+  // normativo (ex. "galvanizado", "ff_sem_revest"), escolhido por trecho na
+  // dockpane (ver material_conexao.py no plugin). null = sem escolha feita
+  // ainda (plugin antigo, ou trecho não configurado) — usa o C padrão do
+  // perfil (hazen_c.galvanizado), igual ao comportamento de antes desta
+  // migração. Resolvido para c_hw em trechoDeSegmentos.
+  material: string | null
 }
 
 export interface EntradaDimensionamento {
@@ -91,11 +101,19 @@ function conexao(bruto: unknown, campo: string): ConexaoEntrada {
     throw new EntradaInvalida(`Campo inválido: ${campo}.tipo`)
   }
   const opcional = (v: unknown, c: string): number | null => (v === null || v === undefined ? null : numero(v, c, 0, 1e6))
+  // Ausente (plugin antigo, de antes do seletor BSP/Grooved) = 'bsp' — o
+  // que a tabela genérica já aproximava antes de existir tabela por sistema.
+  const sistema: SistemaConexao =
+    x.sistema === undefined || x.sistema === null ? 'bsp' : x.sistema
+  if (!SISTEMAS_CONEXAO.has(sistema)) {
+    throw new EntradaInvalida(`Campo inválido: ${campo}.sistema`)
+  }
   return {
     tipo: x.tipo,
     qtd: numero(x.qtd, `${campo}.qtd`, 0, 1e6),
     angulo_graus: opcional(x.angulo_graus, `${campo}.angulo_graus`),
     d2_mm: opcional(x.d2_mm, `${campo}.d2_mm`),
+    sistema,
   }
 }
 
@@ -132,6 +150,7 @@ function segmento(bruto: unknown, campo: string): SegmentoEntrada {
       }
     }),
     conexoes: conexoes.map((cx: unknown, i: number) => conexao(cx, `${campo}.conexoes[${i}]`)),
+    material: s.material === null || s.material === undefined ? null : texto(s.material, `${campo}.material`, 50),
   }
 }
 
@@ -225,7 +244,12 @@ export type RespostaDimensionamento =
 // Auxiliares
 // ---------------------------------------------------------------------------
 
-function trechoDeSegmentos(segmentos: SegmentoEntrada[]): Trecho {
+/**
+ * `perfil` só é usado pra resolver o material de cada segmento (hazen_c) —
+ * nunca aceita um C numérico vindo direto do cliente, mesma regra de
+ * "recalculado aqui" do resto da função.
+ */
+function trechoDeSegmentos(segmentos: SegmentoEntrada[], perfil: PerfilHidrantes): Trecho {
   // Ltotal e os totais do trecho são recalculados aqui, nunca aceitos do
   // cliente: L + Leq por construção, igual a extrair_trecho() do plugin.
   // Leq agora soma duas fontes: s.Leq (válvulas/acessórios, ainda via
@@ -233,6 +257,16 @@ function trechoDeSegmentos(segmentos: SegmentoEntrada[]): Trecho {
   // conexões/fittings, calculado aqui por tabela (ver leqConexoes.ts). As
   // conexões também entram na lista de acessórios do segmento, só para o
   // memorial mostrar a mesma composição que mostrava antes.
+  //
+  // c_hw: material escolhido por trecho na dockpane (ver material_conexao.py
+  // no plugin) — "material" aqui é a CHAVE de hazen_c no perfil normativo
+  // (ex. "galvanizado", "ff_sem_revest"), não um C numérico. null = sem
+  // escolha feita (plugin antigo, ou trecho ainda não configurado): fica sem
+  // c_hw, e calcJTrecho (hidraulica.ts) cai no C padrão do perfil —
+  // hazen_c.galvanizado, igual ao comportamento de antes desta migração. Um
+  // material presente mas desconhecido é erro, não fallback silencioso (o
+  // motivo de existir essa troca é parar de assumir C errado sem avisar).
+  const hazen = req<Record<string, number>>(perfil, 'hazen_c')
   const completos = segmentos.map((s) => {
     const conexoes = s.conexoes ?? []
     const leqConexoes = calcularLeqConexoes(conexoes, s.d_mm)
@@ -241,7 +275,15 @@ function trechoDeSegmentos(segmentos: SegmentoEntrada[]): Trecho {
       return { nome: nomeConexao(cx), qtd: cx.qtd, leq_unit: leqUnit, leq_tot: leqUnit * cx.qtd }
     })
     const leq = s.Leq + leqConexoes
-    return { ...s, Leq: leq, Ltotal: s.L + leq, acessorios: [...s.acessorios, ...acessoriosConexoes] }
+    let c_hw: number | undefined
+    if (s.material != null) {
+      const c = hazen[s.material]
+      if (typeof c !== 'number' || !Number.isFinite(c) || c <= 0) {
+        throw new EntradaInvalida(`Material de tubulação desconhecido ou sem coeficiente C válido: "${s.material}"`)
+      }
+      c_hw = c
+    }
+    return { ...s, Leq: leq, Ltotal: s.L + leq, acessorios: [...s.acessorios, ...acessoriosConexoes], c_hw }
   })
   return {
     segmentos: completos,
@@ -252,9 +294,15 @@ function trechoDeSegmentos(segmentos: SegmentoEntrada[]): Trecho {
 
 const f = (n: number, casas: number) => n.toFixed(casas)
 
+// Tolerância antes de reprovar por velocidade: evita reprovar por ruído
+// numérico (ex. 2,018 m/s calculado contra um limite de 2 m/s). Abaixo de
+// 0,05 de propósito (não exatos 0,05) — nunca cai num valor que arredonde
+// de forma ambígua pra 2 casas decimais.
+export const TOLERANCIA_VELOCIDADE_M_S = 0.049
+
 export function resumoFalhaVelocidade(nomeTrecho: string, limite: number, falhas: Array<{ d_mm: number; V: number }>): string {
-  const partes = [`Velocidade acima do limite normativo em "${nomeTrecho}" (limite ${f(limite, 3)} m/s):`]
-  for (const s of falhas) partes.push(`- DN${Math.round(s.d_mm)} : ${f(s.V, 3)} m/s`)
+  const partes = [`Velocidade acima do limite normativo em "${nomeTrecho}" (limite ${f(limite, 2)} m/s):`]
+  for (const s of falhas) partes.push(`- DN${Math.round(s.d_mm)} : ${f(s.V, 2)} m/s`)
   return partes.join('\n')
 }
 
@@ -269,7 +317,7 @@ export function resumoFalhaHidrante(
 ): string {
   return (
     `${label} não atende a norma em "${trechoDesc}":\n` +
-    `- ${pRefDesc} obtida: ${f(p, 4)} mca (mínimo ${f(pmin, 2)} mca)\n` +
+    `- ${pRefDesc} obtida: ${f(p, 2)} mca (mínimo ${f(pmin, 2)} mca)\n` +
     `- Vazão obtida: ${f(q, 2)} L/min (mínimo ${f(qmin, 2)} L/min)`
   )
 }
@@ -292,9 +340,11 @@ export function dimensionar(entrada: EntradaDimensionamento, perfil: PerfilHidra
     return processar(entrada, perfil)
   } catch (ex) {
     if (ex instanceof NormProfileError) return { ok: false, erro: ex.message }
-    // Erros de dados (ex.: mangueira ausente no método do esguicho) trazem
-    // mensagem própria; o resto vira falha genérica sem vazar pilha.
+    // Erros de dados (ex.: mangueira ausente no método do esguicho, ou
+    // material de trecho desconhecido em trechoDeSegmentos) trazem mensagem
+    // própria; o resto vira falha genérica sem vazar pilha.
     if (ex instanceof ErroDeCalculo) return { ok: false, erro: ex.message }
+    if (ex instanceof EntradaInvalida) return { ok: false, erro: ex.message }
     return { ok: false, erro: 'Falha inesperada ao dimensionar.' }
   }
 }
@@ -366,10 +416,10 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
 
   // Etapa 4: trechos (por diâmetro) e perfil normativo do cálculo.
   const trechos: Trechos = {
-    t1: trechoDeSegmentos(entrada.trechos.t1),
-    t2: trechoDeSegmentos(entrada.trechos.t2),
-    t3: trechoDeSegmentos(entrada.trechos.t3),
-    t4: trechoDeSegmentos(entrada.trechos.t4),
+    t1: trechoDeSegmentos(entrada.trechos.t1, perfil),
+    t2: trechoDeSegmentos(entrada.trechos.t2, perfil),
+    t3: trechoDeSegmentos(entrada.trechos.t3, perfil),
+    t4: trechoDeSegmentos(entrada.trechos.t4, perfil),
   }
 
   const toleranciaEquilibrioMca = numeroDoPerfil(req(perfil, 'tolerancia_equilibrio_mca'), 'tolerancia_equilibrio_mca', perfil)
@@ -454,7 +504,7 @@ function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): Re
   // limite ultrapassado, em vez de nada.
   const falhaVelocidade = (j: JTrecho, limite: number, nomeTrecho: string, comprimentoMin: number | null = null) => {
     const segmentos = comprimentoMin === null ? j.segmentos : j.segmentos.filter((s) => s.L >= comprimentoMin)
-    const falhas = segmentos.filter((s) => s.V > limite + 1e-9)
+    const falhas = segmentos.filter((s) => s.V > limite + TOLERANCIA_VELOCIDADE_M_S)
     return falhas.length ? resumoFalhaVelocidade(nomeTrecho, limite, falhas) : null
   }
 

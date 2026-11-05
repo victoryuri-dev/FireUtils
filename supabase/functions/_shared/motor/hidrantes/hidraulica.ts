@@ -189,6 +189,11 @@ export interface SegmentoCalculado extends Segmento {
   V: number
 }
 
+function cDoSegmento(seg: Segmento, cPadrao: number): number {
+  const c = (seg as { c_hw?: unknown }).c_hw
+  return typeof c === 'number' && Number.isFinite(c) && c > 0 ? c : cPadrao
+}
+
 export interface JTrecho {
   label: string
   Q_lmin: number
@@ -199,13 +204,20 @@ export interface JTrecho {
   Leq: number
 }
 
-/** Hazen-Williams por segmento de diâmetro: J_trecho = Σ Ltotal(D)·Jun(Q,C,D). */
+/**
+ * Hazen-Williams por segmento de diâmetro: J_trecho = Σ Ltotal(D)·Jun(Q,C,D).
+ * `c` é o coeficiente PADRÃO (ex.: hazen_c.galvanizado) — cada segmento pode
+ * trazer o próprio `c_hw` (material escolhido por trecho na dockpane, ver
+ * trechoDeSegmentos em dimensionar.ts) e nesse caso ele prevalece sobre `c`.
+ * Payload sem material em nenhum segmento se comporta exatamente como antes.
+ */
 export function calcJTrecho(trecho: Trecho, qLmin: number, c: number, label = ''): JTrecho {
   const segmentos: SegmentoCalculado[] = []
   let jTotal = 0.0
   let vMax = 0.0
   for (const seg of trecho.segmentos) {
-    const jun = calcJun(qLmin, c, seg.d_mm)
+    const cSeg = cDoSegmento(seg, c)
+    const jun = calcJun(qLmin, cSeg, seg.d_mm)
     const j = jun * seg.Ltotal
     const v = calcVelocidade(qLmin, seg.d_mm)
     jTotal += j

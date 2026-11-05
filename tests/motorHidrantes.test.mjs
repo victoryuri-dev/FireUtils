@@ -19,6 +19,7 @@ import {
   resumoFalhaVelocidade,
   validarEntrada,
   EntradaInvalida,
+  TOLERANCIA_VELOCIDADE_M_S,
 } from '../supabase/functions/_shared/motor/hidrantes/dimensionar.ts'
 
 const golden = JSON.parse(readFileSync(new URL('./fixtures/motor-hidrantes/golden.json', import.meta.url), 'utf8'))
@@ -190,28 +191,114 @@ test('Ltotal e totais do trecho são recalculados no servidor, não aceitos do c
   assert.equal(r.resultado.res.j.t3.segmentos[0].Ltotal, 26)
 })
 
-test('Leq das conexões (cotovelo/tê/redução/tampão/união/luva Y) soma no Ltotal do trecho e aparece no memorial', () => {
+const conexaoBsp = (tipo, qtd, extra = {}) => ({ tipo, qtd, angulo_graus: null, d2_mm: null, sistema: 'bsp', ...extra })
+
+test('Leq das conexões fora de DN32-65 (sem tabela por sistema) continua no L/D genérico, e aparece no memorial', () => {
   const entrada = entradaBase()
   entrada.trechos.t3 = [
     {
-      ...seg(65, 20, 0),
+      ...seg(100, 20, 0),
       conexoes: [
-        { tipo: 'cotovelo', qtd: 2, angulo_graus: 90, d2_mm: null },
-        { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null },
-        { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null },
-        { tipo: 'uniao', qtd: 3, angulo_graus: null, d2_mm: null },
+        conexaoBsp('cotovelo', 2, { angulo_graus: 90 }),
+        conexaoBsp('cotovelo', 1, { angulo_graus: 45 }),
+        conexaoBsp('tee', 1),
+        conexaoBsp('uniao', 3),
       ],
     },
   ]
   const r = dimensionar(validarEntrada(entrada), perfilMA())
   assert.equal(r.ok, true, r.erro)
   const seg0 = r.resultado.res.j.t3.segmentos[0]
-  // L/D: cotovelo 90°=30, cotovelo 45°=16, tê(ramal)=60, união=0 — D=0.065 m.
-  const leqEsperado = (2 * 30 + 1 * 16 + 1 * 60 + 0) * 0.065
+  // L/D genérico (sem tabela pra DN100): cotovelo 90°=30, 45°=16, tê(ramal)=60, união=0 — D=0.1 m.
+  const leqEsperado = (2 * 30 + 1 * 16 + 1 * 60 + 0) * 0.1
   assert.ok(Math.abs(seg0.Leq - leqEsperado) < 1e-9, `Leq: ${seg0.Leq} ≠ ${leqEsperado}`)
   assert.ok(Math.abs(seg0.Ltotal - (20 + leqEsperado)) < 1e-9)
   const nomes = seg0.acessorios.map((a) => a.nome).sort()
-  assert.deepEqual(nomes, ['Cotovelo 45°', 'Cotovelo 90°', 'Tê', 'União'])
+  assert.deepEqual(nomes, ['Cotovelo 45° (BSP)', 'Cotovelo 90° (BSP)', 'Tê (BSP)', 'União'])
+})
+
+test('DN32-65 usa a tabela sourced por sistema (bsp = NFPA 13, grooved = Victaulic 10.06), não o L/D genérico', () => {
+  const entradaComSistema = (sistema) => {
+    const entrada = entradaBase()
+    entrada.trechos.t3 = [
+      {
+        ...seg(50, 20, 0),
+        conexoes: [
+          { tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null, sistema },
+          { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null, sistema },
+          { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null, sistema },
+        ],
+      },
+    ]
+    return entrada
+  }
+
+  const rBsp = dimensionar(validarEntrada(entradaComSistema('bsp')), perfilMA())
+  assert.equal(rBsp.ok, true, rBsp.erro)
+  const leqBspEsperado = (5 + 2 + 10) * 0.3048 // NFPA 13, DN50: 90°=5ft, 45°=2ft, tê ramal=10ft
+  const legBsp = rBsp.resultado.res.j.t3.segmentos[0].Leq
+  assert.ok(Math.abs(legBsp - leqBspEsperado) < 1e-9, `Leq bsp: ${legBsp} ≠ ${leqBspEsperado}`)
+
+  const rGrooved = dimensionar(validarEntrada(entradaComSistema('grooved')), perfilMA())
+  assert.equal(rGrooved.ok, true, rGrooved.erro)
+  const leqGroovedEsperado = (3.0 + 1.1 + 8.0) * 0.3048 // Victaulic 10.06, DN50: 90°=3.0ft, 45°=1.1ft, tê ramal=8.0ft
+  const legGrooved = rGrooved.resultado.res.j.t3.segmentos[0].Leq
+  assert.ok(Math.abs(legGrooved - leqGroovedEsperado) < 1e-9, `Leq grooved: ${legGrooved} ≠ ${leqGroovedEsperado}`)
+
+  assert.ok(legGrooved < legBsp, 'grooved deve dar Leq menor que bsp no mesmo diâmetro/conexões')
+
+  const nomesGrooved = rGrooved.resultado.res.j.t3.segmentos[0].acessorios.map((a) => a.nome).sort()
+  assert.deepEqual(nomesGrooved, ['Cotovelo 45° (Grooved)', 'Cotovelo 90° (Grooved)', 'Tê (Grooved)'])
+})
+
+test('sistema ausente no payload (plugin antigo) vira bsp por padrão', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [{ ...seg(50, 20, 0), conexoes: [{ tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null }] }]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, true, r.erro)
+  const leqEsperado = 5 * 0.3048 // NFPA 13, DN50, 90° = 5ft — mesma tabela que 'bsp' explícito
+  assert.ok(Math.abs(r.resultado.res.j.t3.segmentos[0].Leq - leqEsperado) < 1e-9)
+})
+
+test('material do trecho muda o C de Hazen-Williams usado nesse segmento', () => {
+  const entradaComMaterial = (material) => {
+    const entrada = entradaBase()
+    entrada.trechos.t3 = [{ ...seg(50, 20, 0), material }]
+    return entrada
+  }
+
+  const rPadrao = dimensionar(validarEntrada(entradaComMaterial(null)), perfilMA())
+  assert.equal(rPadrao.ok, true, rPadrao.erro)
+  const jPadrao = rPadrao.resultado.res.j.t3.segmentos[0].J // C=120 (galvanizado, padrão)
+
+  const rPlastico = dimensionar(validarEntrada(entradaComMaterial('plastico')), perfilMA())
+  assert.equal(rPlastico.ok, true, rPlastico.erro)
+  const jPlastico = rPlastico.resultado.res.j.t3.segmentos[0].J // C=150 — menos perda que C=120
+
+  const rFoFundido = dimensionar(validarEntrada(entradaComMaterial('ff_sem_revest')), perfilMA())
+  assert.equal(rFoFundido.ok, true, rFoFundido.erro)
+  const jFoFundido = rFoFundido.resultado.res.j.t3.segmentos[0].J // C=100 — mais perda que C=120
+
+  assert.ok(jPlastico < jPadrao, `plástico (C150) devia perder menos que o padrão: ${jPlastico} ≥ ${jPadrao}`)
+  assert.ok(jFoFundido > jPadrao, `ferro fundido (C100) devia perder mais que o padrão: ${jFoFundido} ≤ ${jPadrao}`)
+})
+
+test('material desconhecido no trecho é recusado com mensagem clara, não cai num C qualquer', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [{ ...seg(50, 20, 0), material: 'inox_314' }]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, false)
+  assert.match(r.erro, /Material de tubulação desconhecido.*inox_314/)
+})
+
+test('material ausente no payload (plugin antigo) preserva o C padrão (galvanizado)', () => {
+  const entrada = entradaBase()
+  entrada.trechos.t3 = [seg(50, 20, 0)]
+  const r = dimensionar(validarEntrada(entrada), perfilMA())
+  assert.equal(r.ok, true, r.erro)
+  const seg0 = r.resultado.res.j.t3.segmentos[0]
+  const junEsperado = hid.calcJun(r.resultado.res.j.t3.Q_lmin, 120, 50)
+  assert.ok(Math.abs(seg0.Jun - junEsperado) < 1e-9, `Jun: ${seg0.Jun} ≠ ${junEsperado}`)
 })
 
 test('sucção negativa dispara o NPSH com a vazão majorada pelo perfil', () => {
@@ -242,6 +329,10 @@ test('altitude fora da tabela não derruba o resultado: vira erro_npshd', () => 
   assert.equal(r.resultado.verif_npshd, null)
 })
 
+test('tolerância de velocidade é 0,049 m/s — abaixo de 0,05 de propósito, nunca arredonda ambíguo em 2 casas', () => {
+  assert.equal(TOLERANCIA_VELOCIDADE_M_S, 0.049)
+})
+
 test('velocidade acima do limite não barra mais o dimensionamento — vira aviso, com o texto do plugin', () => {
   const entrada = entradaBase({ trechos: { ...entradaBase().trechos, t3: [seg(25, 20, 6)] } })
   const r = dimensionar(entrada, perfilMA())
@@ -249,24 +340,24 @@ test('velocidade acima do limite não barra mais o dimensionamento — vira avis
   assert.equal(r.resultado.avisos_velocidade.length, 1)
   assert.match(
     r.resultado.avisos_velocidade[0],
-    /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.000 m\/s\):\n- DN25 : /,
+    /^Velocidade acima do limite normativo em "Ponto A → HD01" \(limite 5\.00 m\/s\):\n- DN25 : /,
   )
   // Pressão/vazão no hidrante continua interrompendo normalmente — não faz
   // parte deste aviso.
   assert.ok(r.resultado.res.Qt > 0)
 })
 
-test('texto das falhas é idêntico ao que o plugin mostrava (golden)', () => {
+test('texto das falhas usa 2 casas decimais (golden.json tem o texto antigo, 3/4 casas — divergência intencional)', () => {
   assert.equal(
     resumoFalhaVelocidade('Ponto A → HD01', 5.0, [
       { d_mm: 50.0, V: 6.123456 },
       { d_mm: 65.0, V: 5.0004 },
     ]),
-    golden.textos.velocidade,
+    'Velocidade acima do limite normativo em "Ponto A → HD01" (limite 5.00 m/s):\n- DN50 : 6.12 m/s\n- DN65 : 5.00 m/s',
   )
   assert.equal(
     resumoFalhaHidrante('HD02', 28.4567, 291.234, 'pressão na válvula', 'Ponto A → HD02', 30.0, 300.0),
-    golden.textos.hidrante,
+    'HD02 não atende a norma em "Ponto A → HD02":\n- pressão na válvula obtida: 28.46 mca (mínimo 30.00 mca)\n- Vazão obtida: 291.23 L/min (mínimo 300.00 L/min)',
   )
 })
 
