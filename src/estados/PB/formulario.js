@@ -128,7 +128,9 @@ function exigibilidade(ctx, key) {
 // ── Seções ─────────────────────────────────────────────────────────────────
 
 function secaoIdentificacao(state) {
-  const endereco = [[state.endereco, state.numero].filter(Boolean).join(', '), state.complemento].filter(Boolean).join(' — ')
+  // Logradouro, número e CEP (depois do número); complemento por último.
+  const cep = (state.cep || '').trim() ? `CEP ${state.cep.trim()}` : ''
+  const endereco = [[state.endereco, state.numero, cep].filter(Boolean).join(', '), state.complemento].filter(Boolean).join(' — ')
   return {
     titulo: '1. IDENTIFICAÇÃO DA EDIFICAÇÃO',
     linhas: [

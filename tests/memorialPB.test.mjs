@@ -733,3 +733,8 @@ test('completude do card de "Meus projetos" = a do dashboard (auditoria de campo
   assert.equal(percentualCompletude(st), esperado)
   assert.ok(esperado > 0 && esperado < 100)
 })
+
+test('1. endereço da edificação: CEP depois do número', () => {
+  const s = secao(gerar(projeto({ endereco: 'Rua A', numero: '300', cep: '58000-000', complemento: 'Bloco 2' })), '1.')
+  assert.equal(valorCampo(s, 'Endereço da edificação:'), 'Rua A, 300, CEP 58000-000 — Bloco 2')
+})
