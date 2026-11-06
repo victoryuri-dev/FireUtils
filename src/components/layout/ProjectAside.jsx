@@ -37,7 +37,7 @@ function NavItem({ pageKey, icon, label, onClick, activePage, collapsed, onNavig
           role="img"
           aria-label={STATUS_MEDIDA[status].texto}
           title={STATUS_MEDIDA[status].texto}
-          className={`shrink-0 w-2 h-2 rounded-full ${collapsed ? 'absolute top-1.5 right-2.5' : 'ml-auto'}`}
+          className={`shrink-0 w-1.5 h-1.5 rounded-full ${collapsed ? 'absolute top-1.5 right-2.5' : 'ml-auto'}`}
           style={{ background: STATUS_MEDIDA[status].cor }}
         />
       )}
