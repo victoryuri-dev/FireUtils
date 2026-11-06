@@ -3,18 +3,26 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import Icon from '../ui/Icon'
 import logoFullDark from '../../assets/logo-fireutils-dark.svg'
 import { SISTEMAS } from '../../data/sistemasMenu'
+import { useProjeto } from '../../context/ProjetoContext'
+import { useAuditoria } from '../../context/AuditoriaContext'
+import { statusMedida } from '../../utils/statusMedida'
 
 // Lista completa de sistemas — mesma ordem do Step7
 
-function NavItem({ pageKey, icon, label, onClick, activePage, collapsed, onNavigate }) {
+const STATUS_MEDIDA = {
+  concluida: { cor: '#2fbf8a', texto: 'Concluída' },
+  andamento: { cor: '#f2b84b', texto: 'Em andamento' },
+}
+
+function NavItem({ pageKey, icon, label, onClick, activePage, collapsed, onNavigate, status }) {
   const active = activePage === pageKey
   return (
     <button
       type="button"
       onClick={onClick || (() => onNavigate(pageKey))}
-      title={collapsed ? label : undefined}
+      title={collapsed ? (status ? `${label} — ${STATUS_MEDIDA[status].texto}` : label) : undefined}
       className={[
-        'w-full flex items-center gap-2.5 cursor-pointer whitespace-nowrap transition-[background-color,color] duration-100 text-[13px] border-l-2 border-y-0 border-r-0 border-solid',
+        'relative w-full flex items-center gap-2.5 cursor-pointer whitespace-nowrap transition-[background-color,color] duration-100 text-[13px] border-l-2 border-y-0 border-r-0 border-solid',
         collapsed ? 'py-2.5 px-0 justify-center' : 'py-2.5 px-5 justify-start',
         active
           ? 'text-white font-medium bg-[rgba(204,26,50,.18)] border-l-red'
@@ -24,6 +32,15 @@ function NavItem({ pageKey, icon, label, onClick, activePage, collapsed, onNavig
     >
       <Icon name={icon} size={18} className="shrink-0"/>
       {!collapsed && <span className="overflow-hidden text-ellipsis">{label}</span>}
+      {status && (
+        <span
+          role="img"
+          aria-label={STATUS_MEDIDA[status].texto}
+          title={STATUS_MEDIDA[status].texto}
+          className={`shrink-0 w-2 h-2 rounded-full ${collapsed ? 'absolute top-1.5 right-2.5' : 'ml-auto'}`}
+          style={{ background: STATUS_MEDIDA[status].cor }}
+        />
+      )}
     </button>
   )
 }
@@ -43,7 +60,9 @@ function salvarMenuRecolhido(valor) {
 }
 
 export default function ProjectAside({ activePage, onNavigate }) {
-  const { sistemas } = useMedidasObrigatorias()
+  const { sistemas, porEstrutura } = useMedidasObrigatorias()
+  const { state } = useProjeto()
+  const { pendencias } = useAuditoria()
   // Telas estreitas sempre abrem recolhidas (sem sobrescrever a preferência salva);
   // nas demais vale a última escolha do usuário.
   const [col, setCol] = useState(() => window.matchMedia('(max-width: 720px)').matches || lerMenuRecolhido())
@@ -105,7 +124,7 @@ export default function ProjectAside({ activePage, onNavigate }) {
           <>
             <SectionLabel text="Medidas de segurança" collapsed={col}/>
             {enabledSystems.map(s => (
-              <NavItem key={s.key} pageKey={`medida-${s.key}`} icon={s.icon} label={s.label} {...itemProps}/>
+              <NavItem key={s.key} pageKey={`medida-${s.key}`} icon={s.icon} label={s.label} status={statusMedida(s.key, { state, porEstrutura, pendencias })} {...itemProps}/>
             ))}
           </>
         )}
