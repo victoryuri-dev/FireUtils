@@ -178,14 +178,13 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
   }
 
   if (!resultado && !loading && !error) {
+    // Sem CNPJ válido na Etapa 1 não há o que buscar: o atalho nem aparece.
+    if (cnpjDigits.length !== 14) return null
     return (
       <div className="mb-5">
-        <button type="button" className="btn-ghost" disabled={cnpjDigits.length !== 14} onClick={() => buscar(state.respCNPJ)}>
+        <button type="button" className="btn-ghost" onClick={() => buscar(state.respCNPJ)}>
           <Icon name="search" size={12}/> Preencher do CNPJ
         </button>
-        {cnpjDigits.length !== 14 && (
-          <div className="text-xs text-ink-faint mt-1.5">Informe o CNPJ na identificação do projeto para usar este atalho.</div>
-        )}
       </div>
     )
   }
