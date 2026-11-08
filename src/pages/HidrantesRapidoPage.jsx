@@ -10,11 +10,12 @@ import { useProjeto } from '../context/ProjetoContext'
 import { useNorma } from '../hooks/useNorma'
 import Icon from '../components/ui/Icon'
 import FormSection from '../components/ui/FormSection'
-import { Pill, Resultado } from '../components/hidrantes/formUi'
+import { Field, Nota, Pill, Resultado } from '../components/hidrantes/formUi'
 import { CnaeBusca, CargaCnaeBox } from '../components/steps/Step4'
 import InfoTip from '../components/ui/InfoTip'
 import LinkNorma from '../components/ui/LinkNorma'
 import { getEstadosDisponiveis } from '../data/normas/index'
+import { fmtNum } from '../utils/numero'
 import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
@@ -237,7 +238,6 @@ export default function HidrantesRapidoPage() {
   }
 
   const variantes = h.tipo ? (norma.TIPOS_SISTEMA[h.tipo]?.variantes || []) : []
-  const escolhida = opcoes.find(o => o.tipo === h.tipo)
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -293,50 +293,47 @@ export default function HidrantesRapidoPage() {
             <>
               {opcoes.length > 1 && (
                 <div className="mb-4">
-                  <div className="text-[10px] text-ink-faint uppercase tracking-[.06em] mb-1.5">
-                    Escolha o Tipo do sistema
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Field label="A norma permite dois sistemas para esta ocupação — escolha qual adotar"/>
+                  <div className="grid grid-cols-2 gap-2 mt-1 max-[600px]:grid-cols-1">
                     {opcoes.map(o => (
-                      <Pill key={o.tipo} active={h.tipo === o.tipo} onClick={() => setH({ tipo: o.tipo, rti: o.rti, tipoVariante: 0 })}>
-                        <div className="font-semibold">Tipo {o.tipo} — RTI {o.rti} m³</div>
-                        {o.origem !== 'normal' && <div className="text-[11px] text-ink-faint font-normal mt-0.5">Rebaixamento permitido pela {o.origem === 'nota1' ? 'Nota 1' : 'Nota 2'} da Tabela 3</div>}
+                      <Pill key={o.tipo} centro active={h.tipo === o.tipo} onClick={() => setH({ tipo: o.tipo, rti: o.rti, tipoVariante: 0 })}>
+                        Tipo {o.tipo} — RTI {fmtNum(o.rti)} m³
                       </Pill>
                     ))}
                   </div>
                 </div>
               )}
 
-              {escolhida?.nota && (
-                <div className="ibox amber mb-4">
-                  <Icon name="info" size={13} color="var(--color-amber)" className="shrink-0"/>
-                  <span className="text-xs">{escolhida.nota}</span>
+              {/* Nota de rebaixamento (Tabela 3, Nota 1 ou 2): só permite, nunca impõe. */}
+              {opcoes.some(o => o.nota) && <Nota>{opcoes.find(o => o.nota).nota}</Nota>}
+
+              {dadosTipo && variantes.length > 1 && (
+                <div className="mb-4">
+                  <Field label={`Mangueira do Tipo ${h.tipo}`}/>
+                  <div className="grid grid-cols-2 gap-2 mt-1 max-[600px]:grid-cols-1">
+                    {variantes.map((v, i) => (
+                      <Pill key={i} centro active={(h.tipoVariante || 0) === i} onClick={() => setH({ tipoVariante: i })}>
+                        Esguicho DN{v.esguicho} — mangueira DN{v.mangueiraDn} — {v.pressaoMin} mca
+                      </Pill>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {dadosTipo && (
-                <div className="border border-solid border-border rounded-md p-4 bg-bg">
-                  <div className="text-[15px] font-bold text-ink mb-3">{dadosTipo.label} · RTI {h.rti} m³</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Resultado label="Vazão mínima" value={`${dadosTipo.vazaoMin} L/min`}/>
-                    <Resultado label="Pressão mínima" value={`${dadosTipo.pressaoMin} mca`}/>
-                    <Resultado label="Esguicho / mangueira" value={`DN${dadosTipo.esguicho} / DN${dadosTipo.mangueiraDn} × ${dadosTipo.mangueiraComprimento} m`}/>
-                    <Resultado label="Expedições" value={dadosTipo.expedicoes === 'duplo' ? 'Duplo' : 'Simples'}/>
-                  </div>
-                  {variantes.length > 1 && (
-                    <div className="mt-4">
-                      <div className="text-[10px] text-ink-faint uppercase tracking-[.06em] mb-1.5">Variante do Tipo {h.tipo}</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {variantes.map((v, i) => (
-                          <Pill key={i} active={(h.tipoVariante || 0) === i} onClick={() => setH({ tipoVariante: i })}>
-                            Esguicho DN{v.esguicho} · mangueira DN{v.mangueiraDn} · {v.pressaoMin} mca
-                          </Pill>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Colunas na largura do conteúdo, igualmente espaçadas (mesmo bloco do formulário padrão). */}
+              <div className="flex flex-wrap justify-between gap-x-8 gap-y-3 bg-surface-2 border border-solid border-border rounded-lg p-4 mt-4">
+                <Resultado label="Tipo" value={h.tipo ? `Tipo ${h.tipo}` : '—'}/>
+                {dadosTipo && (
+                  <>
+                    <Resultado label="Esguicho" value={`DN${dadosTipo.esguicho}`}/>
+                    <Resultado label="Mangueira" value={`DN${dadosTipo.mangueiraDn}`}/>
+                    <Resultado label="RTI" value={h.rti ? `${fmtNum(h.rti, 2, h.rti)} m³` : '—'}/>
+                    <Resultado label="Expedições" value={dadosTipo.expedicoes} className="capitalize"/>
+                    <Resultado label="Vazão mín." value={`${dadosTipo.vazaoMin} L/min`}/>
+                    <Resultado label="Pressão mín." value={`${dadosTipo.pressaoMin} mca`}/>
+                  </>
+                )}
+              </div>
             </>
           )}
         </FormSection>
