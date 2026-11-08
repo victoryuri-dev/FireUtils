@@ -474,10 +474,10 @@ function ProjectLayout() {
 
   return (
     <>
-      {!soHidrantes && <ProjectAside
+      <ProjectAside
         activePage={activePage}
         onNavigate={handleNavigate}
-      />}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage/>
         {/* Conflito de edição: banner fixo (não some sozinho) — perder as
