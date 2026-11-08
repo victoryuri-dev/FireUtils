@@ -277,7 +277,7 @@ function ProjectCard({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
 
       {/* Números-chave */}
       <dl className="m-0 grid grid-cols-[auto_auto_auto] justify-start gap-x-6">
-        <StatBloco label="UF" value={proj.uf || '—'}/>
+        <StatBloco label="UF" value={proj.avulso ? 'Avulso' : (proj.uf || '—')}/>
         <StatBloco label="Projeto" value={rotuloProjeto(proj)}/>
         <StatBloco label="A.C.T." value={fmtArea(totalArea(proj))}/>
       </dl>
@@ -362,7 +362,7 @@ function ProjectRow({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
       <Chip tone="red">{ocup}</Chip>
 
       {/* UF */}
-      <span className="text-[13px] font-bold text-ink whitespace-nowrap">{proj.uf || '—'}</span>
+      <span className="text-[13px] font-bold text-ink whitespace-nowrap">{proj.avulso ? 'Avulso' : (proj.uf || '—')}</span>
 
       {/* A.C.T. */}
       <span className="text-[13px] font-bold text-ink whitespace-nowrap">{fmtArea(totalArea(proj))}</span>
@@ -386,6 +386,9 @@ function ProjectRow({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
 // a norma usada em todo o wizard e o modelo de documento gerado no fim
 // (memorial em texto corrido do MA x formulário oficial do CBMPB). Só ficam
 // habilitados os estados com norma cadastrada pro tipo de projeto escolhido.
+// Valor especial de "estado" do projeto de hidrantes avulso (ver App.jsx).
+const UF_AVULSO = 'AVULSO'
+
 function EscolhaEstadoModal({ tipo, onEscolher, onCancel }) {
   // Disponibilidade de cada estado = catálogo da base normativa (Supabase).
   const { recarregarNormas } = useProjeto()
@@ -426,6 +429,19 @@ function EscolhaEstadoModal({ tipo, onEscolher, onCancel }) {
           </div>
         ) : (
         <div className="flex flex-col gap-2 mb-5">
+          {tipo === 'hidrantes' && (
+            <button
+              type="button"
+              disabled={!estados.some(e => e.ativoHidrantes)}
+              onClick={() => onEscolher(UF_AVULSO)}
+              className="flex items-center justify-between gap-3 py-3 px-4 rounded-md border border-solid border-border bg-transparent text-left cursor-pointer transition-colors hover:border-red-border hover:bg-red-dim disabled:cursor-not-allowed disabled:bg-surface-2"
+            >
+              <span className="flex flex-col gap-0.5">
+                <span className="font-heading text-[14px] font-medium text-ink">Avulso</span>
+                <span className="text-[11px] text-ink-faint">Sem estado — escolha direto o Tipo do sistema e a RTI</span>
+              </span>
+            </button>
+          )}
           {estados.map(e => {
             const ok = disponivel(e)
             return (

@@ -7,7 +7,7 @@ import { ProjetoProvider, useProjeto, newIds } from './context/ProjetoContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 import { statusNormas } from './lib/normasRemote'
-import { getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
+import { getEstadosDisponiveis, getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
 import { usePerfil, nomeDeUsuario } from './hooks/usePerfil'
 import LoginPage, { RedefinirSenhaPage } from './pages/LoginPage'
 import LandingPage    from './pages/LandingPage'
@@ -134,7 +134,7 @@ function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
           </button>
           {state.uf && <>
             <span className="text-ink-hint">/</span>
-            <span className="text-ink-muted">{state.uf}</span>
+            <span className="text-ink-muted">{state.avulso ? 'Avulso' : state.uf}</span>
           </>}
           <span className="text-ink-hint">/</span>
           <span className="text-ink font-medium truncate">{state.nome || 'Sem nome'}</span>
@@ -335,7 +335,13 @@ function ProjetosRoute() {
 
   const handleNewProject = (tipo = 'completo', uf) => {
     const ids = newIds()
-    dispatch({ type: 'NEW_PROJECT', ...ids, tipo, uf })
+    // Hidrantes "avulso": sem estado. A UF gravada só serve de fonte dos
+    // dados-padrão dos Tipos (iguais em todo estado) — o 1º estado com a
+    // norma de hidrantes cadastrada.
+    const avulso = uf === 'AVULSO'
+    const ufNorma = avulso ? getEstadosDisponiveis().find(e => e.ativoHidrantes)?.uf : uf
+    if (!ufNorma) return
+    dispatch({ type: 'NEW_PROJECT', ...ids, tipo, uf: ufNorma, avulso })
     navigate(`/projeto/${ids.id}/config`)
   }
 

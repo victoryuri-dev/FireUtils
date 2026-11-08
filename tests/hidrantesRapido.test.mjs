@@ -87,3 +87,12 @@ test('a auditoria (usada pelo CnaeBusca/Obrigatorio) não quebra num projeto de 
   const state = { ...projeto(), sistemas: {}, sistemasPorEstrutura: {}, riscosEspeciaisPorEstrutura: {}, riscosOutrosDescPorEstrutura: {}, memorialPB: {} }
   assert.doesNotThrow(() => camposObrigatorios(state, []))
 })
+
+test('avulso: completude é só nome, Tipo e RTI (sem área/ocupação/carga)', () => {
+  const p = { nome: 'Avulso', avulso: true, estruturas: [{ id: 'e1', areaTotal: '' }], pavimentos: [], cargaState: {}, hidrantes: {} }
+  assert.equal(completudeHidrantesRapido(p), 33)
+  p.hidrantes = { tipo: 4, rti: '' }
+  assert.equal(completudeHidrantesRapido(p), 67)
+  p.hidrantes = { tipo: 4, rti: '25' }
+  assert.equal(completudeHidrantesRapido(p), 100)
+})

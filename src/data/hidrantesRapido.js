@@ -89,6 +89,11 @@ export function analisarHidrantesRapido(state, norma, extNorma) {
  *  carregadas (usada nos cards de "Meus projetos"): nome, área, ocupação,
  *  carga de cada divisão e a classificação (Tipo) definida. */
 export function completudeHidrantesRapido(state) {
+  // Avulso: só nome, Tipo e RTI.
+  if (state.avulso) {
+    const c = [!!String(state.nome || '').trim(), !!state.hidrantes?.tipo, (parseFloat(state.hidrantes?.rti) || 0) > 0]
+    return Math.round((c.filter(Boolean).length / c.length) * 100)
+  }
   const checks = [!!String(state.nome || '').trim()]
   state.estruturas.forEach(est => {
     checks.push((parseFloat(est.areaTotal) || 0) > 0)

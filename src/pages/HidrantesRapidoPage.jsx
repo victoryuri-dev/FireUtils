@@ -52,7 +52,7 @@ function RiscoBox({ carga, limiares }) {
 function Identificacao() {
   const { state, dispatch } = useProjeto()
   const { uf } = useNorma()
-  const estado = getEstadosDisponiveis().find(e => e.uf === uf)?.nome || uf
+  const estado = state.avulso ? 'Avulso' : (getEstadosDisponiveis().find(e => e.uf === uf)?.nome || uf)
   return (
     <FormSection title="Identificação">
       <div className="g2">
@@ -159,12 +159,33 @@ function ClassificacaoEdificacao({ est }) {
   )
 }
 
+// Faixa de resultados do Tipo (mesmo bloco do formulário padrão): colunas na
+// largura do conteúdo, igualmente espaçadas.
+function FaixaResultado({ h, dadosTipo }) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-8 gap-y-3 bg-surface-2 border border-solid border-border rounded-lg p-4 mt-4">
+      <Resultado label="Tipo" value={h.tipo ? `Tipo ${h.tipo}` : '—'}/>
+      {dadosTipo && (
+        <>
+          <Resultado label="Esguicho" value={`DN${dadosTipo.esguicho}`}/>
+          <Resultado label="Mangueira" value={`DN${dadosTipo.mangueiraDn}`}/>
+          <Resultado label="RTI" value={h.rti ? `${fmtNum(h.rti, 2, h.rti)} m³` : '—'}/>
+          <Resultado label="Expedições" value={dadosTipo.expedicoes} className="capitalize"/>
+          <Resultado label="Vazão mín." value={`${dadosTipo.vazaoMin} L/min`}/>
+          <Resultado label="Pressão mín." value={`${dadosTipo.pressaoMin} mca`}/>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function HidrantesRapidoPage() {
   const { state, dispatch } = useProjeto()
   const navigate = useNavigate()
   const { hidrantes: norma, extintores: extNorma } = useNorma()
   const h = state.hidrantes
   const setH = changes => dispatch({ type: 'SET_HIDRANTES', changes })
+  const avulso = !!state.avulso
 
   const analise = useMemo(
     () => analisarHidrantesRapido(state, norma, extNorma),
@@ -196,6 +217,7 @@ export default function HidrantesRapidoPage() {
   // (coluna 1, ou rebaixamento pelas Notas 1/2) o RT escolhe e a escolha só
   // é preservada enquanto continuar válida. Sem opção, limpa.
   useEffect(() => {
+    if (avulso) return // avulso: Tipo e RTI escolhidos direto, sem Tabela 3
     if (opcoes.length === 0) {
       if (h.tipo || h.rti) setH({ tipo: '', rti: '', tipoVariante: 0 })
       return
@@ -211,7 +233,7 @@ export default function HidrantesRapidoPage() {
     if (!atual) { if (h.tipo || h.rti) setH({ tipo: '', rti: '', tipoVariante: 0 }) }
     else if (Number(h.rti) !== Number(atual.rti)) setH({ rti: atual.rti })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opcoes, h.tipo, h.rti, h.tipoVariante])
+  }, [avulso, opcoes, h.tipo, h.rti, h.tipoVariante])
 
   // Campos que o plugin lê e que são derivados da norma/classificação
   // (método de cálculo e nº de entradas do recalque), como no projeto completo.
@@ -243,16 +265,58 @@ export default function HidrantesRapidoPage() {
     <div className="flex-1 overflow-y-auto">
       <div className={S.section}>
         <div className="mb-8">
-          <div className={S.stepLbl}>Dimensionamento de hidrantes · {state.uf}</div>
+          <div className={S.stepLbl}>Dimensionamento de hidrantes · {avulso ? 'Avulso' : state.uf}</div>
           <h1 className="flex flex-wrap items-center gap-2 font-heading text-[22px] font-bold text-ink mb-1.5">
             <Icon name="hidranteMedida" size={20} color="var(--color-red)" className="shrink-0"/>
-            Classificação do sistema de hidrantes
+            {avulso ? 'Sistema de hidrantes' : 'Classificação do sistema de hidrantes'}
             <LinkNorma sistema="hidrantes"/>
           </h1>
         </div>
 
         <Identificacao/>
 
+        {avulso ? (
+          <FormSection title="Tipo do sistema e RTI">
+            <Field label="Tipo do sistema"/>
+            <div className="grid grid-cols-5 gap-2 mt-1 mb-4 max-[600px]:grid-cols-2">
+              {Object.keys(norma.TIPOS_SISTEMA).map(k => (
+                <Pill key={k} centro active={h.tipo === Number(k)} onClick={() => setH({ tipo: Number(k), tipoVariante: 0 })}>
+                  Tipo {k}
+                </Pill>
+              ))}
+            </div>
+
+            {dadosTipo && variantes.length > 1 && (
+              <div className="mb-4">
+                <Field label={`Mangueira do Tipo ${h.tipo}`}/>
+                <div className="grid grid-cols-2 gap-2 mt-1 max-[600px]:grid-cols-1">
+                  {variantes.map((v, i) => (
+                    <Pill key={i} centro active={(h.tipoVariante || 0) === i} onClick={() => setH({ tipoVariante: i })}>
+                      Esguicho DN{v.esguicho} — mangueira DN{v.mangueiraDn} — {v.pressaoMin} mca
+                    </Pill>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="max-w-[240px]">
+              <div className="fg">
+                <label>Volume da RTI (m³) <span className="req shrink-0" title="Campo obrigatório" aria-label="obrigatório"> *</span></label>
+                <input type="number" min="0" step="any" value={h.rti ?? ''} placeholder="0"
+                  onChange={e => setH({ rti: e.target.value })}/>
+              </div>
+            </div>
+
+            {h.tipo && !(parseFloat(h.rti) > 0) && (
+              <div className="ibox amber mt-3">
+                <Icon name="info" size={14} color="var(--color-amber)" className="shrink-0"/>
+                <span className="text-xs">Informe o volume da RTI.</span>
+              </div>
+            )}
+
+            <FaixaResultado h={h} dadosTipo={dadosTipo}/>
+          </FormSection>
+        ) : (<>
         <ClassificacaoEdificacao est={state.estruturas[0]}/>
 
         <FormSection title="Chuveiros automáticos">
@@ -315,23 +379,11 @@ export default function HidrantesRapidoPage() {
                 </div>
               )}
 
-              {/* Colunas na largura do conteúdo, igualmente espaçadas (mesmo bloco do formulário padrão). */}
-              <div className="flex flex-wrap justify-between gap-x-8 gap-y-3 bg-surface-2 border border-solid border-border rounded-lg p-4 mt-4">
-                <Resultado label="Tipo" value={h.tipo ? `Tipo ${h.tipo}` : '—'}/>
-                {dadosTipo && (
-                  <>
-                    <Resultado label="Esguicho" value={`DN${dadosTipo.esguicho}`}/>
-                    <Resultado label="Mangueira" value={`DN${dadosTipo.mangueiraDn}`}/>
-                    <Resultado label="RTI" value={h.rti ? `${fmtNum(h.rti, 2, h.rti)} m³` : '—'}/>
-                    <Resultado label="Expedições" value={dadosTipo.expedicoes} className="capitalize"/>
-                    <Resultado label="Vazão mín." value={`${dadosTipo.vazaoMin} L/min`}/>
-                    <Resultado label="Pressão mín." value={`${dadosTipo.pressaoMin} mca`}/>
-                  </>
-                )}
-              </div>
+              <FaixaResultado h={h} dadosTipo={dadosTipo}/>
             </>
           )}
         </FormSection>
+        </>)}
 
         <div className="flex items-center justify-between gap-3 border-t border-solid border-border pt-6">
           <div className="text-xs text-ink-faint flex items-center gap-1.5">

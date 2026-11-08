@@ -5,6 +5,8 @@ import Icon from './Icon'
 
 export default function LinkNorma({ sistema }) {
   const { state } = useProjeto()
+  // Projeto avulso não tem estado — sem link de norma de um estado.
+  if (state.avulso) return null
   const links = resolverLinksNormas(state.uf, sistema, getNormaRemota(state.uf, 'links_normas'))
   if (!links.length) return null
   return <span className="no-print ml-2 inline-flex flex-wrap items-center gap-2 shrink-0 text-xs font-normal">

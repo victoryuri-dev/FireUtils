@@ -423,6 +423,9 @@ const INITIAL_STATE = {
   // necessário pra dimensionar Saída de Emergência, Hidrantes e Chuveiros
   // Automáticos (ver ConfiguracaoPage.jsx e Step6.jsx).
   tipoProjeto: 'completo',
+  // Projeto de hidrantes "avulso": sem relação ocupação → Tipo/RTI. O RT escolhe
+  // direto o Tipo e a RTI; `uf` só guarda de onde vêm os dados-padrão dos Tipos.
+  avulso: false,
   nome: '', dataInicio: '', fase: 'Em desenvolvimento',
   endereco: '', numero: '', complemento: '', bairro: '', cidade: '', uf: 'MA', cep: '',
   situacao: 'nova',
@@ -1184,6 +1187,7 @@ function reducer(state, action) {
         ...INITIAL_STATE,
         id: action.id, createdAt: action.createdAt,
         tipoProjeto: action.tipo || 'completo',
+        avulso: !!action.avulso,
         uf: action.uf || INITIAL_STATE.uf,
         estruturas: [est], pavimentos: [terreo], saveReady: true,
         ...(action.tipo === 'hidrantes' ? { sistemasPorEstrutura: { [est.id]: { hidrantes: true } } } : {}),
