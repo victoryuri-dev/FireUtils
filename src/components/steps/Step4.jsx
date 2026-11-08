@@ -85,6 +85,9 @@ export function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, on
   const handleClear  = () => { setQuery(''); onSelect({ cnae:'', descricao:'', cargaIncendio:null }); setOpen(false) }
 
   const selectedData = value ? cnaesDiv(divisao)[value] : null
+  // Com o campo em repouso (fechado e sem edição), o input mostra "número —
+  // descrição"; ao focar ou digitar, volta a ser a caixa de busca.
+  const mostrarDescricao = !!selectedData && !open && query === value
   // `results` só é populado quando o usuário interage com o campo (foco/
   // digitação — ver populate()) — quando o CNAE chega por fora (ex.: botão
   // "Usar esta classificação" de BuscaCnaePorCnpj, que despacha direto no
@@ -104,9 +107,10 @@ export function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, on
         </label>
         <div className="relative">
           <Icon name="search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"/>
-          <input value={query} onChange={handleInput} onFocus={handleFocus}
+          <input value={mostrarDescricao ? `${value} — ${selectedData.descricao}` : query} onChange={handleInput} onFocus={handleFocus}
             placeholder="Buscar por número ou descrição…"
-            className={`pl-8 ${query ? 'pr-[30px]' : 'pr-3'}`}/>
+            title={mostrarDescricao ? `${value} — ${selectedData.descricao}` : undefined}
+            className={`pl-8 text-ellipsis ${query ? 'pr-[30px]' : 'pr-3'}`}/>
           {query && (
             <button onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-ink-faint cursor-pointer p-0.5">
               <Icon name="x" size={12}/>
@@ -132,12 +136,6 @@ export function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, on
           </div>
         )}
       </div>
-      {selectedData && (
-        <div className="mt-2 text-[12px] text-ink-muted leading-[1.5] py-2 px-3 bg-surface-2 rounded-md border border-solid border-border">
-          <span className="tabular-nums text-ink mr-2">{value}</span>
-          {selectedData.descricao}
-        </div>
-      )}
       {naoEncontrado && (
         <div className="fg mt-2">
           <label>CNAE não encontrado — descreva a atividade <Obrigatorio id={`${auditPrefix}.cnaeDesc`}/></label>
@@ -180,14 +178,13 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
   }
 
   if (!resultado && !loading && !error) {
+    // Sem CNPJ válido na Etapa 1 não há o que buscar: o atalho nem aparece.
+    if (cnpjDigits.length !== 14) return null
     return (
       <div className="mb-5">
-        <button type="button" className="btn-ghost" disabled={cnpjDigits.length !== 14} onClick={() => buscar(state.respCNPJ)}>
+        <button type="button" className="btn-ghost" onClick={() => buscar(state.respCNPJ)}>
           <Icon name="search" size={12}/> Preencher do CNPJ
         </button>
-        {cnpjDigits.length !== 14 && (
-          <div className="text-xs text-ink-faint mt-1.5">Informe o CNPJ na identificação do projeto para usar este atalho.</div>
-        )}
       </div>
     )
   }
@@ -231,6 +228,21 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
 }
 
 // ── Linha de ocupação subsidiária ─────────────────────────────────────
+// Carga de incêndio (MJ/m²) tabelada do CNAE escolhido — só leitura; vem da
+// base normativa, a mesma usada na Etapa 5.
+function CargaCnaeBox({ divisao, cnae }) {
+  const { cnaesDiv } = useNorma()
+  const carga = cnae ? cnaesDiv(divisao)[cnae]?.cargaIncendio : null
+  return (
+    <div className="fg">
+      <label>Carga de incêndio</label>
+      <div className={`h-10 flex items-center border border-solid border-border rounded-md bg-surface px-3 text-[13px] tabular-nums ${carga ? 'text-ink' : 'text-ink-faint'}`}>
+        {carga ? fmtUn(carga, 'MJ/m²', 0) : '—'}
+      </div>
+    </div>
+  )
+}
+
 function AcessRow({ pav, acess, index, usadas, classificacao }) {
   const { dispatch } = useProjeto()
   const { ocupacoes, grupos } = useNorma()
@@ -253,25 +265,27 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
     dispatch({ type:'UPDATE_ACESS', id:pav.id, index, changes:{ divisao:found.divisao, cnae:found.cnae, cnaeDesc:found.descricao } })
   }
 
+  // Texto do tooltip do badge: a mensagem de classificação (ou, sem área, a regra).
+  const textoClassificacao = areaPreenchida && classificacao?.percentual != null
+    ? `Esta atividade ocupa ${fmtNum(classificacao.percentual)}% da área construída total.\n${classificacao.isMista ? 'Quando a área da atividade ultrapassa o limite de 750 m² ou de 10% da área total da edificação, enquadra-se como ocupação secundária.' : 'Quando a área da atividade não ultrapassa o limite de 750 m² ou de 10% da área total da edificação, enquadra-se como ocupação subsidiária (atividade de apoio à atividade principal).'}`
+    : 'A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista. Informe a área para classificar.'
+
   return (
-    <div className="border border-solid border-border rounded-lg p-4 bg-bg">
+    <div className="border border-solid border-border rounded-lg p-4 bg-bg [&_input]:h-10 [&_select]:h-10 [&_input]:bg-surface [&_select]:bg-surface">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[12px] font-medium text-ink">Ocupação {index + 2}</span>
-          <span className={`text-[11px] rounded-full px-2 py-1 border border-solid ${classificacao?.isMista ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
+          <span className={`inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid [&_svg]:!text-current ${classificacao?.isMista && areaPreenchida ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
             {classificacao?.percentual == null || !areaPreenchida ? 'Classificação a definir' : classificacao.isMista ? 'Secundária' : 'Subsidiária'}
+            <InfoTip text={textoClassificacao}/>
           </span>
-          <InfoTip text="A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista."/>
         </div>
         <button className="btn-del" title="Remover ocupação adicional" aria-label="Remover ocupação adicional"
           onClick={() => dispatch({ type:'REMOVE_ACESS', id:pav.id, index })}>
           <Icon name="trash" size={13}/>
         </button>
       </div>
-      {areaPreenchida && classificacao?.percentual != null && <p className={`text-xs mb-3 ${classificacao.isMista ? 'text-amber' : 'text-ink-muted'}`}>
-        Esta atividade ocupa {fmtNum(classificacao.percentual)}% da área construída da estrutura, somando todos os pavimentos.{classificacao.isMista ? ' Como ocupa mais de 10%, é uma ocupação secundária: a edificação passa a ser classificada pelos seus diferentes usos (ocupação mista).' : ' Como ocupa até 10%, é uma ocupação subsidiária: um uso de apoio à atividade principal.'}
-      </p>}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3 mb-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
         <div className="fg">
           <label>Grupo <Obrigatorio id={`${pav.id}.acess.${index}.grupo`}/></label>
           <select value={grupoAtual} onChange={e => setGrupo(e.target.value)}>
@@ -289,14 +303,15 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
             })}
           </select>
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
-        <CnaeBusca auditPrefix={`${pav.id}.acess.${index}`} divisao={acess.divisao} value={acess.cnae || ''} descValue={acess.cnaeDesc || ''}
-          onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
         <div className="fg">
           <label>Área (m²) <Obrigatorio id={`${pav.id}.acess.${index}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
           <input type="number" value={acess.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
         </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
+        <CnaeBusca auditPrefix={`${pav.id}.acess.${index}`} divisao={acess.divisao} value={acess.cnae || ''} descValue={acess.cnaeDesc || ''}
+          onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
+        <CargaCnaeBox divisao={acess.divisao} cnae={acess.cnae}/>
       </div>
     </div>
   )
@@ -366,13 +381,16 @@ function PavModal({ pav, onClose }) {
 
           {/* Ocupação principal */}
           <div className="flex flex-col gap-3">
-          <div className="border border-solid border-border rounded-lg p-4 bg-bg">
+          <div className="border border-solid border-border rounded-lg p-4 bg-bg [&_input]:h-10 [&_select]:h-10 [&_input]:bg-surface [&_select]:bg-surface">
             <div className="flex items-center gap-2 mb-3.5">
-              <span className="text-[12px] font-medium text-ink">Ocupação principal <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
-              <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
+              <span className="text-[12px] font-medium text-ink">Ocupação 1 <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid text-green border-green-border bg-green-dim [&_svg]:!text-current">
+                Principal
+                <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3 mb-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
               <div className="fg">
                 <label>Grupo <Obrigatorio id={`${pav.id}.grupo`}/></label>
                 <select value={pav.grupo} onChange={e => setGrupo(e.target.value)}>
@@ -390,15 +408,16 @@ function PavModal({ pav, onClose }) {
                   })}
                 </select>
               </div>
+              <div className="fg">
+                <label>Área (m²) <Obrigatorio id={`${pav.id}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
+                <input type="number" value={pav.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
               <CnaeBusca auditPrefix={pav.id} divisao={pav.divisao} value={pav.cnae} descValue={pav.cnaeDesc}
                 onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
-              <div className="fg">
-                <label>Área (m²) <Obrigatorio id={`${pav.id}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
-                <input type="number" value={pav.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
-              </div>
+              <CargaCnaeBox divisao={pav.divisao} cnae={pav.cnae}/>
             </div>
           </div>
 
@@ -423,6 +442,31 @@ function PavModal({ pav, onClose }) {
 }
 
 // ── Card resumo do pavimento ──────────────────────────────────────────
+// Box de uma ocupação (principal ou secundária) dentro do card do pavimento.
+const TOM_BADGE = {
+  principal:  'text-green border-green-border bg-green-dim',
+  secundaria: 'text-amber border-amber-border bg-amber-dim',
+}
+function OcupacaoBox({ badge, tom, descricao, cnae, area, divisao, grupoLabel }) {
+  return (
+    <div className="border border-solid border-border rounded-md bg-bg py-3 px-3.5 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <span className={`inline-block text-[11px] rounded-full px-2 py-0.5 border border-solid mb-2 ${TOM_BADGE[tom]}`}>{badge}</span>
+        <div className="text-[14px] font-semibold text-ink leading-[1.4]">{descricao}</div>
+        <div className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-faint mt-1.5">
+          {cnae && <span>CNAE <span className="tabular-nums text-ink-muted">{cnae}</span></span>}
+          {cnae && area && <span aria-hidden="true">·</span>}
+          {area && <span>{fmtUn(area, 'm²', 2, `${area} m²`)}</span>}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        {grupoLabel && <span className="hidden sm:block text-[12px] text-ink-faint text-right leading-[1.35] max-w-[170px]">{grupoLabel}</span>}
+        <span className="tabular-nums text-[14px] font-bold text-ink py-1 px-2.5 rounded-md bg-surface border border-solid border-border">{divisao}</span>
+      </div>
+    </div>
+  )
+}
+
 function PavCard({ pav, classificacao, onOpen }) {
   const { ocupacoes, temCNAE, cnaesDiv, grupos } = useNorma()
   const divisoes = ocupacoes[pav.grupo]?.divisoes || {}
@@ -435,76 +479,37 @@ function PavCard({ pav, classificacao, onOpen }) {
   // So ocupacoes secundarias (>10% da area construida) aparecem no card; subsidiarias ficam ocultas aqui.
   const acessSecundarias = pav.acess.filter(a => classificacao?.subsidiariasRaw?.find(c => c.divisao === a.divisao)?.isMista)
 
+  const grupoDe = d => grupos?.[d?.charAt(0)] || ''
+
   return (
     <div
       onClick={onOpen}
       className={`bg-surface rounded-lg mb-2 cursor-pointer transition-colors duration-150 border border-solid hover:border-ink-hint ${configured ? 'border-border' : 'border-dashed border-border-2'}`}
     >
-      <div className="flex items-center justify-between gap-5 py-3.5 px-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-ink-faint uppercase tracking-[.06em] leading-none mb-1.5">
-            <Icon name="stair" size={13}/>{pav.label}
-          </div>
-
-          {configured ? (
-            <>
-              {/* CNAE: o que o pavimento faz (principal) */}
-              {pav.cnae ? (
-                <div className="text-[14px] font-semibold text-ink leading-[1.4]">
-                  {cnaeDesc || 'Atividade sem descrição'}
-                </div>
-              ) : (
-                <div className="text-[14px] font-semibold text-ink leading-[1.4]">{divLabel}</div>
-              )}
-              <div className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-faint mt-1.5">
-                {pav.cnae && <span>CNAE <span className="tabular-nums text-ink-muted">{pav.cnae}</span></span>}
-                {pav.cnae && pav.area && <span aria-hidden="true">·</span>}
-                {pav.area && <span>{fmtUn(pav.area, 'm²', 2, `${pav.area} m²`)}</span>}
-              </div>
-            </>
-          ) : (
-            <div className="text-[13px] text-ink-faint">Clique para classificar</div>
-          )}
-
-          {/* Ocupacoes secundarias (subsidiarias ficam ocultas no card) */}
-          {acessSecundarias.length > 0 && (
-            <div className="mt-3 pt-2.5 border-t border-solid border-border-2 flex flex-col gap-2">
-              <div className="text-[10px] font-medium text-ink-faint uppercase tracking-[.08em]">
-                {acessSecundarias.length === 1 ? 'Ocupação secundária' : 'Ocupações secundárias'}
-              </div>
-              {acessSecundarias.map((a, i) => {
-                const aDivLabel = (ocupacoes[a.divisao?.charAt(0)]?.divisoes || {})[a.divisao]
-                const aCnaeDesc = a.cnae ? (a.cnaeDesc || cnaesDiv(a.divisao)[a.cnae]?.descricao || '') : ''
-                return (
-                  <div key={i} className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 text-[14px] font-semibold text-ink leading-[1.4]">
-                      {aCnaeDesc || aDivLabel || a.divisao}
-                      <div className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-faint mt-1.5">
-                        {a.cnae && <span>CNAE <span className="tabular-nums text-ink-muted">{a.cnae}</span></span>}
-                        {a.cnae && a.area && <span aria-hidden="true">·</span>}
-                        {a.area && <span>{fmtUn(a.area, 'm²', 2, `${a.area} m²`)}</span>}
-                      </div>
-                    </div>
-                    <span className="tabular-nums text-[11px] font-semibold text-ink-muted py-0.5 px-2 rounded bg-surface-2 border border-solid border-border shrink-0">{a.divisao}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+      <div className="flex items-center justify-between gap-3 py-3 px-4">
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-ink-faint uppercase tracking-[.06em] leading-none">
+          <Icon name="stair" size={13}/>{pav.label}
         </div>
+        <span className="text-ink-faint"><Icon name="chevD" size={14} className="-rotate-90"/></span>
+      </div>
 
-        {/* Grupo e, ao lado, a divisao (resultado, em destaque) */}
-        <div className="flex items-center gap-3 shrink-0">
-          {configured && pav.divisao && (
-            <div className="flex items-center gap-3">
-              {grupoLabel && (
-                <span className="text-[12px] text-ink-faint text-right leading-[1.35] max-w-[170px]">Grupo {pav.divisao?.charAt(0) || pav.grupo} — {grupoLabel}</span>
-              )}
-              <span className="tabular-nums text-[16px] font-bold text-ink py-1 px-3 rounded-md bg-red-dim border border-solid border-red-border">{pav.divisao}</span>
-            </div>
-          )}
-          <span className="text-ink-faint"><Icon name="chevD" size={14} className="-rotate-90"/></span>
-        </div>
+      <div className="flex flex-col gap-2 px-4 pb-4">
+        {configured ? (
+          <OcupacaoBox
+            badge="Principal" tom="principal"
+            descricao={pav.cnae ? (cnaeDesc || 'Atividade sem descrição') : divLabel}
+            cnae={pav.cnae} area={pav.area} divisao={pav.divisao} grupoLabel={grupoLabel ? `Grupo ${pav.divisao?.charAt(0) || pav.grupo} — ${grupoLabel}` : ''}/>
+        ) : (
+          <div className="border border-dashed border-border-2 rounded-md bg-bg py-3 px-3.5 text-[13px] text-ink-faint">Clique para classificar</div>
+        )}
+
+        {/* Ocupacoes secundarias (subsidiarias ficam ocultas no card) */}
+        {acessSecundarias.map((a, i) => (
+          <OcupacaoBox key={i}
+            badge="Secundária" tom="secundaria"
+            descricao={(a.cnae ? (a.cnaeDesc || cnaesDiv(a.divisao)[a.cnae]?.descricao || '') : '') || (ocupacoes[a.divisao?.charAt(0)]?.divisoes || {})[a.divisao] || a.divisao}
+            cnae={a.cnae} area={a.area} divisao={a.divisao} grupoLabel={grupoDe(a.divisao) ? `Grupo ${a.divisao?.charAt(0)} — ${grupoDe(a.divisao)}` : ''}/>
+        ))}
       </div>
     </div>
   )

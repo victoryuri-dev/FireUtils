@@ -70,7 +70,7 @@ export default function InfoTip({ text, side = 'top', align = 'center' }) {
           role="tooltip"
           ref={caixa => { if (caixa && gatilhoRef.current) posicionar(caixa, gatilhoRef.current, side, align) }}
           style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden' }}
-          className="pointer-events-none z-[2000] block w-64 max-w-[80vw] rounded-md border border-solid border-border bg-surface py-2.5 px-3 text-left text-[12px] font-normal normal-case tracking-normal text-ink leading-[1.55] shadow-[var(--shadow-md)]"
+          className="pointer-events-none z-[2000] block whitespace-pre-line w-64 max-w-[80vw] rounded-md border border-solid border-border bg-surface py-2.5 px-3 text-left text-[12px] font-normal normal-case tracking-normal text-ink leading-[1.55] shadow-[var(--shadow-md)]"
         >
           {text}
         </span>,
