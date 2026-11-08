@@ -17,7 +17,6 @@ import { getEstadosDisponiveis } from '../data/normas/index'
 import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
-import { fmtNum } from '../utils/numero'
 
 const S = {
   section: 'max-w-[980px] mx-auto pt-8 px-10 pb-20',
@@ -170,7 +169,7 @@ export default function HidrantesRapidoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.nome, state.estruturas, state.pavimentos, state.cargaState, h.chuveiros, norma, extNorma],
   )
-  const { pendencias, areaTotal, sugestao, maiorCarga, risco, semClassificacao } = analise
+  const { pendencias, sugestao, semClassificacao } = analise
   const opcoes = sugestao.opcoes
 
   // Chuveiros e hidrantes → toggles manuais de sistema por estrutura: é o que
@@ -287,13 +286,6 @@ export default function HidrantesRapidoPage() {
 
           {opcoes.length > 0 && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                <Resultado label="Área total" value={`${fmtNum(areaTotal)} m²`}/>
-                <Resultado label="Ocupação de referência" value={sugestao.divisao}/>
-                <Resultado label="Carga máxima" value={maiorCarga != null ? `${fmtNum(maiorCarga)} MJ/m²` : '—'}/>
-                <Resultado label="Risco" value={risco ? RISCO_NOME[risco] : '—'}/>
-              </div>
-
               {opcoes.length > 1 && (
                 <div className="mb-4">
                   <div className="text-[10px] text-ink-faint uppercase tracking-[.06em] mb-1.5">
