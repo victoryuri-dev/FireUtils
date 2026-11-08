@@ -265,7 +265,7 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
 
   // Texto do tooltip do badge: a mensagem de classificação (ou, sem área, a regra).
   const textoClassificacao = areaPreenchida && classificacao?.percentual != null
-    ? `Esta atividade ocupa ${fmtNum(classificacao.percentual)}% da área construída da estrutura, somando todos os pavimentos.${classificacao.isMista ? ' Como ocupa mais de 10%, é uma ocupação secundária: a edificação passa a ser classificada pelos seus diferentes usos (ocupação mista).' : ' Como ocupa até 10%, é uma ocupação subsidiária: um uso de apoio à atividade principal.'}`
+    ? `Esta atividade ocupa ${fmtNum(classificacao.percentual)}% da área construída total.\n${classificacao.isMista ? 'Quando a área da atividade ultrapassa o limite de 750 m² ou de 10% da área total da edificação, enquadra-se como ocupação secundária.' : 'Quando a área da atividade não ultrapassa o limite de 750 m² ou de 10% da área total da edificação, enquadra-se como ocupação subsidiária (atividade de apoio à atividade principal).'}`
     : 'A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista. Informe a área para classificar.'
 
   return (
