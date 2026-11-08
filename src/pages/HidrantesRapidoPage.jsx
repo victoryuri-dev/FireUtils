@@ -249,18 +249,13 @@ export default function HidrantesRapidoPage() {
             Classificação do sistema de hidrantes
             <LinkNorma sistema="hidrantes"/>
           </h1>
-          <p className={S.desc}>
-            Informe só o que a classificação precisa ({norma.NORMA?.nome || 'norma do estado'}): área, ocupação,
-            carga de incêndio e chuveiros automáticos. O Tipo do sistema e a RTI saem no fim da página e o
-            projeto fica salvo para ser conectado no plugin Revit.
-          </p>
         </div>
 
         <Identificacao/>
 
         <ClassificacaoEdificacao est={state.estruturas[0]}/>
 
-        <FormSection title="Chuveiros automáticos" description="Mudam a classificação nas colunas 3 e 4 da Tabela 3 (rebaixamento permitido pelas Notas 1 e 2).">
+        <FormSection title="Chuveiros automáticos">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {OPCOES_CHUVEIROS.map(o => (
               <Pill key={o.key} active={(h.chuveiros || 'nao') === o.key} onClick={() => setH({ chuveiros: o.key })}>
@@ -271,7 +266,7 @@ export default function HidrantesRapidoPage() {
           </div>
         </FormSection>
 
-        <FormSection title="Classificação do sistema" description="Resultado da Tabela 3 para a área total e a ocupação de maior carga de incêndio.">
+        <FormSection title="Classificação do sistema">
           {pendencias.length > 0 && (
             <div className="ibox amber">
               <Icon name="info" size={14} color="var(--color-amber)" className="shrink-0"/>
