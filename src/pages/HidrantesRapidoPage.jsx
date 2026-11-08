@@ -13,6 +13,7 @@ import FormSection from '../components/ui/FormSection'
 import { Pill, Resultado } from '../components/hidrantes/formUi'
 import { CnaeBusca, CargaCnaeBox } from '../components/steps/Step4'
 import InfoTip from '../components/ui/InfoTip'
+import LinkNorma from '../components/ui/LinkNorma'
 import { getEstadosDisponiveis } from '../data/normas/index'
 import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
@@ -160,7 +161,7 @@ function ClassificacaoEdificacao({ est }) {
 export default function HidrantesRapidoPage() {
   const { state, dispatch } = useProjeto()
   const navigate = useNavigate()
-  const { hidrantes: norma, extintores: extNorma, info } = useNorma()
+  const { hidrantes: norma, extintores: extNorma } = useNorma()
   const h = state.hidrantes
   const setH = changes => dispatch({ type: 'SET_HIDRANTES', changes })
 
@@ -243,9 +244,13 @@ export default function HidrantesRapidoPage() {
       <div className={S.section}>
         <div className="mb-8">
           <div className={S.stepLbl}>Dimensionamento de hidrantes · {state.uf}</div>
-          <h1 className={S.title}>Classificação do sistema de hidrantes</h1>
+          <h1 className="flex flex-wrap items-center gap-2 font-heading text-[22px] font-bold text-ink mb-1.5">
+            <Icon name="hidranteMedida" size={20} color="var(--color-red)" className="shrink-0"/>
+            Classificação do sistema de hidrantes
+            <LinkNorma sistema="hidrantes"/>
+          </h1>
           <p className={S.desc}>
-            Informe só o que a classificação precisa ({info?.nome || 'norma do estado'}): área, ocupação,
+            Informe só o que a classificação precisa ({norma.NORMA?.nome || 'norma do estado'}): área, ocupação,
             carga de incêndio e chuveiros automáticos. O Tipo do sistema e a RTI saem no fim da página e o
             projeto fica salvo para ser conectado no plugin Revit.
           </p>
