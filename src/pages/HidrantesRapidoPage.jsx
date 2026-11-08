@@ -14,6 +14,7 @@ import { Pill, Resultado } from '../components/hidrantes/formUi'
 import { CnaeBusca, CargaCnaeBox } from '../components/steps/Step4'
 import InfoTip from '../components/ui/InfoTip'
 import { getEstadosDisponiveis } from '../data/normas/index'
+import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
 import { fmtNum } from '../utils/numero'
@@ -29,6 +30,22 @@ const RISCO_NOME = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
 
 const AREA_TIP = 'Área construída total da edificação — é a área usada para escolher a faixa da Tabela 3 (RTI).'
 const REQ = <span className="req shrink-0" title="Campo obrigatório" aria-label="obrigatório"> *</span>
+
+const RISCO_TOM = { baixo: 'text-green', medio: 'text-amber', alto: 'text-red' }
+
+// Risco de incêndio da carga (limiares da norma de extintores do estado —
+// os mesmos do resto do site), no mesmo formato da caixa de carga.
+function RiscoBox({ carga, limiares }) {
+  const risco = carga != null && limiares ? classificarRisco(carga, limiares) : null
+  return (
+    <div className="fg">
+      <label>Risco de incêndio</label>
+      <div className={`h-10 flex items-center border border-solid border-border rounded-md bg-surface px-3 text-[13px] font-medium ${risco ? RISCO_TOM[risco] : 'text-ink-faint'}`}>
+        {risco ? RISCO_NOME[risco] : '—'}
+      </div>
+    </div>
+  )
+}
 
 // ── Identificação: nome do projeto (igual ao formulário principal) ─────
 function Identificacao() {
@@ -59,12 +76,13 @@ function Identificacao() {
 // (ex.: J-1) pede a carga por levantamento.
 function ClassificacaoEdificacao({ est }) {
   const { state, dispatch } = useProjeto()
-  const { ocupacoes, grupos, cnaesDiv } = useNorma()
+  const { ocupacoes, grupos, cnaesDiv, extintores } = useNorma()
   const pav = state.pavimentos.find(p => p.estruturaId === est.id)
   const grupo = pav?.grupo || ''
   const divisao = pav?.divisao || ''
   const divisoesGrp = ocupacoes[grupo]?.divisoes || {}
   const st = state.cargaState[est.id]?.[divisao]
+  const carga = divisao ? cargaDaDivisao(divisao, state.cargaState[est.id]) : null
   const temCnae = Object.keys(cnaesDiv(divisao)).length > 0
 
   const setPav = changes => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes })
@@ -115,12 +133,13 @@ function ClassificacaoEdificacao({ est }) {
 
         {/* CNAE sempre visível: sem divisão, digitar o CNAE completo já preenche
             grupo e divisão; com divisão, lista/filtra os CNAEs dela. */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_140px] gap-3 items-start">
             {temCnae || !divisao ? (
               <>
                 <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
                   onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
                 <CargaCnaeBox divisao={divisao} cnae={pav?.cnae}/>
+                <RiscoBox carga={carga} limiares={extintores?.LIMIARES_RISCO}/>
               </>
             ) : (
               <>
@@ -130,6 +149,7 @@ function ClassificacaoEdificacao({ est }) {
                   <input type="number" min="0" placeholder="0" value={st?.valorManual ?? ''}
                     onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
                 </div>
+                <RiscoBox carga={carga} limiares={extintores?.LIMIARES_RISCO}/>
               </>
             )}
           </div>
