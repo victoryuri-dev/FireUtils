@@ -230,6 +230,7 @@ function pavimentosLabel(proj) {
 // memorial). '—' enquanto as normas da UF não carregaram ou falta área/altura.
 function rotuloProjeto(proj) {
   if (proj.tipoProjeto === 'dimensionamento') return 'Dimensionamento'
+  if (proj.tipoProjeto === 'hidrantes') return 'Hidrantes'
   const { tipo } = enquadrarTipoProjeto(proj.uf, proj.estruturas)
   return tipo === 'simplificado' ? 'Simplificado' : tipo === 'tecnico' ? 'Técnico' : '—'
 }
@@ -390,7 +391,7 @@ function EscolhaEstadoModal({ tipo, onEscolher, onCancel }) {
   const { recarregarNormas } = useProjeto()
   const catalogo = statusCatalogo()
   const estados = getEstadosDisponiveis()
-  const disponivel = e => (tipo === 'dimensionamento' ? e.ativo || e.ativoDimensionamento : e.ativo)
+  const disponivel = e => (tipo === 'hidrantes' ? e.ativoHidrantes : tipo === 'dimensionamento' ? e.ativo || e.ativoDimensionamento : e.ativo)
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onCancel() }
@@ -565,6 +566,13 @@ function NovoProjetoBotao({ onNewProject }) {
             <span className="font-heading text-[13px] font-medium text-ink">Apenas dimensionamento</span>
             <span className="text-[11px] text-ink-faint leading-[1.4]">Gera apenas memorial de cálculo</span>
           </button>
+          <button
+            className="w-full text-left px-3.5 py-2.5 bg-transparent border-none cursor-pointer hover:bg-surface-2 flex flex-col gap-0.5"
+            onClick={() => { setAberto(false); onNewProject('hidrantes') }}
+          >
+            <span className="font-heading text-[13px] font-medium text-ink">Dimensionamento de hidrantes</span>
+            <span className="text-[11px] text-ink-faint leading-[1.4]">Um formulário só: classifica o Tipo e a RTI</span>
+          </button>
         </div>
       )}
     </div>
@@ -659,7 +667,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
   // Tipo de projeto ('completo' | 'dimensionamento') aguardando a escolha do
   // estado — null = modal fechado (ver EscolhaEstadoModal).
   const [novoTipo, setNovoTipo] = useState(null)
-  const pedirEstado = tipo => setNovoTipo(tipo === 'dimensionamento' ? 'dimensionamento' : 'completo')
+  const pedirEstado = tipo => setNovoTipo(tipo === 'dimensionamento' || tipo === 'hidrantes' ? tipo : 'completo')
   // Lista em cache (por usuario) so pra nao piscar o loader ao voltar pra
   // esta tela: mostra a ultima lista de imediato e atualiza em segundo plano.
   const cache = user ? cacheProjetos.get(user.id) : null

@@ -18,6 +18,8 @@ import ProjectAside   from './components/layout/ProjectAside'
 import { paginaDaMedida } from './estados/registro'
 import DashboardPage  from './pages/DashboardPage'
 import ConfiguracaoPage from './pages/ConfiguracaoPage'
+import HidrantesRapidoPage from './pages/HidrantesRapidoPage'
+import { ehProjetoHidrantes } from './data/hidrantesRapido'
 import ProjetosPage   from './pages/ProjetosPage'
 import PerfilPage     from './pages/PerfilPage'
 import DocumentosPage from './pages/DocumentosPage'
@@ -156,7 +158,7 @@ function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
       {/* Direita — conta */}
       <div className="flex items-center gap-5 sm:gap-6 relative shrink-0">
         <div className="flex items-center gap-2">
-          {isProjectPage && <button type="button" className="btn-ghost text-xs" onClick={() => navigate(`/projeto/${state.id}/auditoria`)}>
+          {isProjectPage && !ehProjetoHidrantes(state) && <button type="button" className="btn-ghost text-xs" onClick={() => navigate(`/projeto/${state.id}/auditoria`)}>
             <Icon name="search" size={14}/><span className="hidden sm:inline">Auditar projeto</span>
             <span className="sm:hidden">Auditar</span>
           </button>}
@@ -297,6 +299,9 @@ function DashboardRoute() {
 function ConfigRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { state } = useProjeto()
+  // "Dimensionamento de hidrantes": formulário único, sem wizard nem dashboard.
+  if (ehProjetoHidrantes(state)) return <HidrantesRapidoPage/>
   return <ConfiguracaoPage onGoDashboard={() => navigate(`/projeto/${id}/dashboard`)}/>
 }
 
@@ -308,7 +313,7 @@ function ProjetosRoute() {
 
   const handleOpenProject = (proj) => {
     dispatch({ type: 'LOAD', payload: proj })
-    navigate(`/projeto/${proj.id}/dashboard`)
+    navigate(`/projeto/${proj.id}/${ehProjetoHidrantes(proj) ? 'config' : 'dashboard'}`)
   }
 
   const handleNewProject = (tipo = 'completo', uf) => {
@@ -442,12 +447,17 @@ function ProjectLayout() {
   const normas = statusNormas(state.uf)
   if (normas !== 'ok') return <NormasIndisponiveis status={normas} uf={state.uf}/>
 
+  // "Dimensionamento de hidrantes" só tem o formulário (config): sem menu
+  // lateral, dashboard, auditoria, documentos nem páginas de medida.
+  const soHidrantes = ehProjetoHidrantes(state)
+  if (soHidrantes && rest[0] !== 'config') return <Navigate to={`/projeto/${id}/config`} replace/>
+
   return (
     <>
-      <ProjectAside
+      {!soHidrantes && <ProjectAside
         activePage={activePage}
         onNavigate={handleNavigate}
-      />
+      />}
       <div className="flex-1 flex flex-col overflow-hidden">
         <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage/>
         {/* Conflito de edição: banner fixo (não some sozinho) — perder as

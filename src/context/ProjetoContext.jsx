@@ -525,6 +525,11 @@ const INITIAL_STATE = {
     // Vazio = ainda não ajustado manualmente, usa o default automático
     // (estruturas onde hidrantes é exigido/ativo) — ver FormularioSistema.
     estruturasSelecionadas: [],
+    // Chuveiros automáticos informados direto no projeto "Dimensionamento de
+    // hidrantes" (tipoProjeto 'hidrantes', ver data/hidrantesRapido.js):
+    // 'nao' | 'exigido' (Nota 1) | 'instalado' sem ser exigido (Nota 2).
+    // Nos demais projetos isso vem do motor de medidas obrigatórias.
+    chuveiros: 'nao',
     tipo: '', tipoVariante: 0, rti: '',
     reservatorioMaterial: '', reservatorioExclusivo: true, reservatorioVolumeTotal: '',
     // Posição em relação ao nível do solo (elevado/nível do solo/
@@ -1170,12 +1175,17 @@ function reducer(state, action) {
       return { ...hydrateState(action.payload), saveReady: true }
     case 'NEW_PROJECT': {
       const est = novaEstrutura('Estrutura 1')
+      // "Dimensionamento de hidrantes": a ocupação nasce vazia — o térreo
+      // padrão (E-1) classificaria o sistema sozinho, sem o RT escolher.
+      const terreo = action.tipo === 'hidrantes'
+        ? { ...pavimentoTerreo(est.id), grupo: '', divisao: '' }
+        : pavimentoTerreo(est.id)
       return {
         ...INITIAL_STATE,
         id: action.id, createdAt: action.createdAt,
         tipoProjeto: action.tipo || 'completo',
         uf: action.uf || INITIAL_STATE.uf,
-        estruturas: [est], pavimentos: [pavimentoTerreo(est.id)], saveReady: true,
+        estruturas: [est], pavimentos: [terreo], saveReady: true,
       }
     }
     default: return state

@@ -43,7 +43,10 @@ const ESTADOS_BASE = [
 function disponibilidadeEstado(uf) {
   const ativo = sistemaExisteNoCatalogo(uf, 'ocupacoes') && sistemaExisteNoCatalogo(uf, 'medidas_seguranca')
   const ativoDimensionamento = ativo || sistemaExisteNoCatalogo(uf, 'saida_emergencia')
-  return { ativo, ativoDimensionamento }
+  // "Dimensionamento de hidrantes": precisa da Tabela 3 ('hidrantes'), das
+  // ocupações (lista de divisões) e da carga de incêndio por atividade.
+  const ativoHidrantes = sistemaExisteNoCatalogo(uf, 'hidrantes') && sistemaExisteNoCatalogo(uf, 'ocupacoes')
+  return { ativo, ativoDimensionamento, ativoHidrantes }
 }
 
 /** Lista de estados pro seletor, com `ativo`/`ativoDimensionamento`
