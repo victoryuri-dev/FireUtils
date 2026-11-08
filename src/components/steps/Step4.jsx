@@ -234,7 +234,7 @@ function CargaCnaeBox({ divisao, cnae }) {
   return (
     <div className="fg">
       <label>Carga de incêndio</label>
-      <div className={`border border-solid border-border rounded-md bg-surface-2 py-[10px] px-3 text-[13px] tabular-nums ${carga ? 'text-ink' : 'text-ink-faint'}`}>
+      <div className={`h-10 flex items-center border border-solid border-border rounded-md bg-surface px-3 text-[13px] tabular-nums ${carga ? 'text-ink' : 'text-ink-faint'}`}>
         {carga ? fmtUn(carga, 'MJ/m²', 0) : '—'}
       </div>
     </div>
@@ -269,11 +269,11 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
     : 'A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista. Informe a área para classificar.'
 
   return (
-    <div className="border border-solid border-border rounded-lg p-4 bg-bg">
+    <div className="border border-solid border-border rounded-lg p-4 bg-bg [&_input]:h-10 [&_select]:h-10 [&_input]:bg-surface [&_select]:bg-surface">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[12px] font-medium text-ink">Ocupação {index + 2}</span>
-          <span className={`inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid ${classificacao?.isMista && areaPreenchida ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
+          <span className={`inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid [&_svg]:!text-current ${classificacao?.isMista && areaPreenchida ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
             {classificacao?.percentual == null || !areaPreenchida ? 'Classificação a definir' : classificacao.isMista ? 'Secundária' : 'Subsidiária'}
             <InfoTip text={textoClassificacao}/>
           </span>
@@ -379,10 +379,10 @@ function PavModal({ pav, onClose }) {
 
           {/* Ocupação principal */}
           <div className="flex flex-col gap-3">
-          <div className="border border-solid border-border rounded-lg p-4 bg-bg">
+          <div className="border border-solid border-border rounded-lg p-4 bg-bg [&_input]:h-10 [&_select]:h-10 [&_input]:bg-surface [&_select]:bg-surface">
             <div className="flex items-center gap-2 mb-3.5">
               <span className="text-[12px] font-medium text-ink">Ocupação 1 <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full pl-2 pr-1.5 py-1 border border-solid border-red bg-red text-white [&_svg]:text-white">
+              <span className="inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid text-green border-green-border bg-green-dim [&_svg]:!text-current">
                 Principal
                 <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
               </span>
