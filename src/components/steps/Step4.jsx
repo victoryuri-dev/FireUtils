@@ -228,6 +228,21 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
 }
 
 // ── Linha de ocupação subsidiária ─────────────────────────────────────
+// Carga de incêndio (MJ/m²) tabelada do CNAE escolhido — só leitura; vem da
+// base normativa, a mesma usada na Etapa 5.
+function CargaCnaeBox({ divisao, cnae }) {
+  const { cnaesDiv } = useNorma()
+  const carga = cnae ? cnaesDiv(divisao)[cnae]?.cargaIncendio : null
+  return (
+    <div className="fg">
+      <label>Carga de incêndio</label>
+      <div className={`border border-solid border-border rounded-md bg-surface-2 py-[10px] px-3 text-[13px] tabular-nums ${carga ? 'text-ink' : 'text-ink-faint'}`}>
+        {carga ? fmtUn(carga, 'MJ/m²', 0) : '—'}
+      </div>
+    </div>
+  )
+}
+
 function AcessRow({ pav, acess, index, usadas, classificacao }) {
   const { dispatch } = useProjeto()
   const { ocupacoes, grupos } = useNorma()
@@ -268,7 +283,7 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
       {areaPreenchida && classificacao?.percentual != null && <p className={`text-xs mb-3 ${classificacao.isMista ? 'text-amber' : 'text-ink-muted'}`}>
         Esta atividade ocupa {fmtNum(classificacao.percentual)}% da área construída da estrutura, somando todos os pavimentos.{classificacao.isMista ? ' Como ocupa mais de 10%, é uma ocupação secundária: a edificação passa a ser classificada pelos seus diferentes usos (ocupação mista).' : ' Como ocupa até 10%, é uma ocupação subsidiária: um uso de apoio à atividade principal.'}
       </p>}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3 mb-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
         <div className="fg">
           <label>Grupo <Obrigatorio id={`${pav.id}.acess.${index}.grupo`}/></label>
           <select value={grupoAtual} onChange={e => setGrupo(e.target.value)}>
@@ -286,14 +301,15 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
             })}
           </select>
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
-        <CnaeBusca auditPrefix={`${pav.id}.acess.${index}`} divisao={acess.divisao} value={acess.cnae || ''} descValue={acess.cnaeDesc || ''}
-          onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
         <div className="fg">
           <label>Área (m²) <Obrigatorio id={`${pav.id}.acess.${index}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
           <input type="number" value={acess.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
         </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
+        <CnaeBusca auditPrefix={`${pav.id}.acess.${index}`} divisao={acess.divisao} value={acess.cnae || ''} descValue={acess.cnaeDesc || ''}
+          onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
+        <CargaCnaeBox divisao={acess.divisao} cnae={acess.cnae}/>
       </div>
     </div>
   )
@@ -365,11 +381,12 @@ function PavModal({ pav, onClose }) {
           <div className="flex flex-col gap-3">
           <div className="border border-solid border-border rounded-lg p-4 bg-bg">
             <div className="flex items-center gap-2 mb-3.5">
-              <span className="text-[12px] font-medium text-ink">Ocupação principal <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
+              <span className="text-[12px] font-medium text-ink">Ocupação 1 <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
+              <span className="text-[11px] rounded-full px-2 py-1 border border-solid border-red-border text-red bg-red-dim">Principal</span>
               <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3 mb-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
               <div className="fg">
                 <label>Grupo <Obrigatorio id={`${pav.id}.grupo`}/></label>
                 <select value={pav.grupo} onChange={e => setGrupo(e.target.value)}>
@@ -387,15 +404,16 @@ function PavModal({ pav, onClose }) {
                   })}
                 </select>
               </div>
+              <div className="fg">
+                <label>Área (m²) <Obrigatorio id={`${pav.id}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
+                <input type="number" value={pav.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
               <CnaeBusca auditPrefix={pav.id} divisao={pav.divisao} value={pav.cnae} descValue={pav.cnaeDesc}
                 onSelect={setCNAE} onDescChange={setCnaeDesc} onAutoFill={handleAutoFill}/>
-              <div className="fg">
-                <label>Área (m²) <Obrigatorio id={`${pav.id}.area`}/><InfoTip text={AREA_OCUPACAO_TIP}/></label>
-                <input type="number" value={pav.area} onChange={e => setArea(e.target.value)} placeholder="0"/>
-              </div>
+              <CargaCnaeBox divisao={pav.divisao} cnae={pav.cnae}/>
             </div>
           </div>
 
