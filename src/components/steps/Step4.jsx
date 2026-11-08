@@ -83,6 +83,9 @@ function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescCha
   const handleClear  = () => { setQuery(''); onSelect({ cnae:'', descricao:'', cargaIncendio:null }); setOpen(false) }
 
   const selectedData = value ? cnaesDiv(divisao)[value] : null
+  // Com o campo em repouso (fechado e sem edição), o input mostra "número —
+  // descrição"; ao focar ou digitar, volta a ser a caixa de busca.
+  const mostrarDescricao = !!selectedData && !open && query === value
   // `results` só é populado quando o usuário interage com o campo (foco/
   // digitação — ver populate()) — quando o CNAE chega por fora (ex.: botão
   // "Usar esta classificação" de BuscaCnaePorCnpj, que despacha direto no
@@ -102,9 +105,10 @@ function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescCha
         </label>
         <div className="relative">
           <Icon name="search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"/>
-          <input value={query} onChange={handleInput} onFocus={handleFocus}
+          <input value={mostrarDescricao ? `${value} — ${selectedData.descricao}` : query} onChange={handleInput} onFocus={handleFocus}
             placeholder="Buscar por número ou descrição…"
-            className={`pl-8 ${query ? 'pr-[30px]' : 'pr-3'}`}/>
+            title={mostrarDescricao ? `${value} — ${selectedData.descricao}` : undefined}
+            className={`pl-8 text-ellipsis ${query ? 'pr-[30px]' : 'pr-3'}`}/>
           {query && (
             <button onClick={handleClear} className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none text-ink-faint cursor-pointer p-0.5">
               <Icon name="x" size={12}/>
@@ -130,12 +134,6 @@ function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescCha
           </div>
         )}
       </div>
-      {selectedData && (
-        <div className="mt-2 text-[12px] text-ink-muted leading-[1.5] py-2 px-3 bg-surface-2 rounded-md border border-solid border-border">
-          <span className="tabular-nums text-ink mr-2">{value}</span>
-          {selectedData.descricao}
-        </div>
-      )}
       {naoEncontrado && (
         <div className="fg mt-2">
           <label>CNAE não encontrado — descreva a atividade <Obrigatorio id={`${auditPrefix}.cnaeDesc`}/></label>
@@ -265,24 +263,26 @@ function AcessRow({ pav, acess, index, usadas, classificacao }) {
     dispatch({ type:'UPDATE_ACESS', id:pav.id, index, changes:{ divisao:found.divisao, cnae:found.cnae, cnaeDesc:found.descricao } })
   }
 
+  // Texto do tooltip do badge: a mensagem de classificação (ou, sem área, a regra).
+  const textoClassificacao = areaPreenchida && classificacao?.percentual != null
+    ? `Esta atividade ocupa ${fmtNum(classificacao.percentual)}% da área construída da estrutura, somando todos os pavimentos.${classificacao.isMista ? ' Como ocupa mais de 10%, é uma ocupação secundária: a edificação passa a ser classificada pelos seus diferentes usos (ocupação mista).' : ' Como ocupa até 10%, é uma ocupação subsidiária: um uso de apoio à atividade principal.'}`
+    : 'A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista. Informe a área para classificar.'
+
   return (
     <div className="border border-solid border-border rounded-lg p-4 bg-bg">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[12px] font-medium text-ink">Ocupação {index + 2}</span>
-          <span className={`text-[11px] rounded-full px-2 py-1 border border-solid ${classificacao?.isMista ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
+          <span className={`inline-flex items-center gap-1.5 text-[11px] rounded-full pl-2 pr-1.5 py-1 border border-solid ${classificacao?.isMista && areaPreenchida ? 'text-amber border-amber-border bg-amber-dim' : 'text-ink-muted border-border'}`}>
             {classificacao?.percentual == null || !areaPreenchida ? 'Classificação a definir' : classificacao.isMista ? 'Secundária' : 'Subsidiária'}
+            <InfoTip text={textoClassificacao}/>
           </span>
-          <InfoTip text="A classificação é automática: até 10% da área construída da estrutura, este uso é subsidiário; acima de 10%, é secundário e entra na ocupação mista."/>
         </div>
         <button className="btn-del" title="Remover ocupação adicional" aria-label="Remover ocupação adicional"
           onClick={() => dispatch({ type:'REMOVE_ACESS', id:pav.id, index })}>
           <Icon name="trash" size={13}/>
         </button>
       </div>
-      {areaPreenchida && classificacao?.percentual != null && <p className={`text-xs mb-3 ${classificacao.isMista ? 'text-amber' : 'text-ink-muted'}`}>
-        Esta atividade ocupa {fmtNum(classificacao.percentual)}% da área construída da estrutura, somando todos os pavimentos.{classificacao.isMista ? ' Como ocupa mais de 10%, é uma ocupação secundária: a edificação passa a ser classificada pelos seus diferentes usos (ocupação mista).' : ' Como ocupa até 10%, é uma ocupação subsidiária: um uso de apoio à atividade principal.'}
-      </p>}
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
         <div className="fg">
           <label>Grupo <Obrigatorio id={`${pav.id}.acess.${index}.grupo`}/></label>
@@ -382,8 +382,10 @@ function PavModal({ pav, onClose }) {
           <div className="border border-solid border-border rounded-lg p-4 bg-bg">
             <div className="flex items-center gap-2 mb-3.5">
               <span className="text-[12px] font-medium text-ink">Ocupação 1 <Obrigatorio id={`${pav.estruturaId}.pavimentos`}/></span>
-              <span className="text-[11px] rounded-full px-2 py-1 border border-solid border-red-border text-red bg-red-dim">Principal</span>
-              <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-full pl-2 pr-1.5 py-1 border border-solid border-red bg-red text-white [&_svg]:text-white">
+                Principal
+                <InfoTip text="Atividade ou uso principal exercido na edificação ou área de risco (ocupação predominante)."/>
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
