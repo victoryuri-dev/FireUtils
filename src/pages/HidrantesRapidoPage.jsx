@@ -70,71 +70,81 @@ function DadosEdificacao({ est }) {
 
   return (
     <FormSection title="Edificação">
-      <div className="mb-4 max-w-[320px]">
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_72px_minmax(0,1fr)] gap-3 mb-5">
+        <Field label="Nome do projeto">
+          <input className={inputClass} value={state.nome} placeholder="Ex.: Edifício Aurora"
+            onChange={e => dispatch({ type: 'SET_FIELD', field: 'nome', value: e.target.value })}/>
+        </Field>
+        <Resultado label="Estado" value={state.uf}/>
         <Field label="Área construída total (m²)">
           <input className={inputClass} type="number" min="0" value={est.areaTotal}
             onChange={e => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: 'areaTotal', value: e.target.value })}/>
         </Field>
       </div>
 
-      <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Ocupação</div>
-      <div className="g2 mb-3">
-        <div className="fg">
-          <label>Grupo</label>
-          <select value={grupo} onChange={e => setGrupo(e.target.value)}>
-            <option value="">Selecione o grupo…</option>
-            {Object.keys(ocupacoes).map(g => <option key={g} value={g}>{g} — {grupos[g] || g}</option>)}
-          </select>
-        </div>
-        <div className="fg">
-          <label>Divisão</label>
-          <select value={divisao} onChange={e => setDivisao(e.target.value)} disabled={!grupo}
-            title={divisoesGrp[divisao] ? `${divisao} — ${divisoesGrp[divisao]}` : undefined}>
-            <option value="">Selecione a divisão…</option>
-            {Object.entries(divisoesGrp).map(([code, label]) => <option key={code} value={code}>{code} — {label}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {divisao && temCnae && (
-        <div className="mb-4">
-          <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
-            onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
-        </div>
-      )}
-
-      {divisao && (
-        <div className="mt-4">
-          <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Carga de incêndio</div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {temCnae ? (
-              <div className="inline-flex p-0.5 rounded-md bg-surface-2 border border-solid border-border" role="group" aria-label="Método de determinação da carga">
-                {[['tabela', 'Tabela', 'Por tabela normativa (CNAE)'], ['levantamento', 'Levantamento', 'Por levantamento']].map(([valor, rotulo, dica]) => (
-                  <button key={valor} type="button" title={dica} aria-pressed={metodo === valor}
-                    onClick={() => setCarga(divisao, valor === 'tabela'
-                      ? { metodo: 'tabela', valorManual: '', cargaIncendio: pav?.cnae ? (cnaesDiv(divisao)[pav.cnae]?.cargaIncendio ?? null) : null }
-                      : { metodo: 'levantamento' })}
-                    className={`py-1 px-3 rounded text-[11px] font-medium border-0 cursor-pointer transition-colors duration-150 ${metodo === valor ? 'bg-surface text-ink' : 'bg-transparent text-ink-faint hover:text-ink-muted'}`}>{rotulo}</button>
-                ))}
-              </div>
-            ) : <span className="text-[12px] text-ink-faint">Esta divisão não tem CNAE na norma — informe a carga por levantamento.</span>}
-
-            <div className="flex items-center gap-3">
-              {cls && <span className={`carga-class ${cls}`}>{getLbl(carga)}</span>}
-              <div className="flex items-baseline gap-1.5">
-                {metodo === 'levantamento' ? (
-                  <input type="number" min="0" className="w-[96px] text-right" placeholder="0" aria-label={`Carga de incêndio de ${divisao}`}
-                    value={st?.valorManual ?? ''} onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
-                ) : (
-                  <span className={`text-[22px] font-bold leading-none tabular-nums ${!cls ? 'text-ink-faint' : cls === 'low' ? 'text-green' : cls === 'med' ? 'text-amber' : 'text-red'}`}>{carga != null ? fmtNum(carga, 2, carga) : '—'}</span>
-                )}
-                <span className="text-[11px] text-ink-faint whitespace-nowrap">MJ/m²</span>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-x-8 gap-y-6">
+        {/* Ocupação */}
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Ocupação</div>
+          <div className="g2 mb-3">
+            <div className="fg">
+              <label>Grupo</label>
+              <select value={grupo} onChange={e => setGrupo(e.target.value)}>
+                <option value="">Selecione o grupo…</option>
+                {Object.keys(ocupacoes).map(g => <option key={g} value={g}>{g} — {grupos[g] || g}</option>)}
+              </select>
+            </div>
+            <div className="fg">
+              <label>Divisão</label>
+              <select value={divisao} onChange={e => setDivisao(e.target.value)} disabled={!grupo}
+                title={divisoesGrp[divisao] ? `${divisao} — ${divisoesGrp[divisao]}` : undefined}>
+                <option value="">Selecione a divisão…</option>
+                {Object.entries(divisoesGrp).map(([code, label]) => <option key={code} value={code}>{code} — {label}</option>)}
+              </select>
             </div>
           </div>
-          {metodo === 'tabela' && !pav?.cnae && <div className="text-[12px] text-amber mt-2">Escolha o CNAE acima para trazer a carga de incêndio.</div>}
+          {divisao && temCnae && (
+            <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
+              onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
+          )}
         </div>
-      )}
+
+        {/* Carga de incêndio */}
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Carga de incêndio</div>
+          {!divisao ? (
+            <div className="text-[12px] text-ink-faint">Escolha a ocupação para definir a carga de incêndio.</div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {temCnae ? (
+                <div className="inline-flex self-start p-0.5 rounded-md bg-surface-2 border border-solid border-border" role="group" aria-label="Método de determinação da carga">
+                  {[['tabela', 'Tabela', 'Por tabela normativa (CNAE)'], ['levantamento', 'Levantamento', 'Por levantamento']].map(([valor, rotulo, dica]) => (
+                    <button key={valor} type="button" title={dica} aria-pressed={metodo === valor}
+                      onClick={() => setCarga(divisao, valor === 'tabela'
+                        ? { metodo: 'tabela', valorManual: '', cargaIncendio: pav?.cnae ? (cnaesDiv(divisao)[pav.cnae]?.cargaIncendio ?? null) : null }
+                        : { metodo: 'levantamento' })}
+                      className={`py-1 px-3 rounded text-[11px] font-medium border-0 cursor-pointer transition-colors duration-150 ${metodo === valor ? 'bg-surface text-ink' : 'bg-transparent text-ink-faint hover:text-ink-muted'}`}>{rotulo}</button>
+                  ))}
+                </div>
+              ) : <span className="text-[12px] text-ink-faint">Esta divisão não tem CNAE na norma — informe a carga por levantamento.</span>}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-baseline gap-1.5">
+                  {metodo === 'levantamento' ? (
+                    <input type="number" min="0" className="w-[96px] text-right" placeholder="0" aria-label={`Carga de incêndio de ${divisao}`}
+                      value={st?.valorManual ?? ''} onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
+                  ) : (
+                    <span className={`text-[22px] font-bold leading-none tabular-nums ${!cls ? 'text-ink-faint' : cls === 'low' ? 'text-green' : cls === 'med' ? 'text-amber' : 'text-red'}`}>{carga != null ? fmtNum(carga, 2, carga) : '—'}</span>
+                  )}
+                  <span className="text-[11px] text-ink-faint whitespace-nowrap">MJ/m²</span>
+                </div>
+                {cls && <span className={`carga-class ${cls}`}>{getLbl(carga)}</span>}
+              </div>
+              {metodo === 'tabela' && !pav?.cnae && <div className="text-[12px] text-amber">Escolha o CNAE para trazer a carga de incêndio.</div>}
+            </div>
+          )}
+        </div>
+      </div>
     </FormSection>
   )
 }
@@ -228,15 +238,7 @@ export default function HidrantesRapidoPage() {
           </p>
         </div>
 
-        <FormSection title="Projeto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Nome do projeto">
-              <input className={inputClass} value={state.nome} placeholder="Ex.: Edifício Aurora"
-                onChange={e => dispatch({ type: 'SET_FIELD', field: 'nome', value: e.target.value })}/>
-            </Field>
-            <Resultado label="Estado" value={state.uf}/>
-          </div>
-        </FormSection>
+        <DadosEdificacao est={state.estruturas[0]}/>
 
         <FormSection title="Chuveiros automáticos" description="Mudam a classificação nas colunas 3 e 4 da Tabela 3 (rebaixamento permitido pelas Notas 1 e 2).">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -248,8 +250,6 @@ export default function HidrantesRapidoPage() {
             ))}
           </div>
         </FormSection>
-
-        <DadosEdificacao est={state.estruturas[0]}/>
 
         <FormSection title="Classificação do sistema" description="Resultado da Tabela 3 para a área total e a ocupação de maior carga de incêndio.">
           {pendencias.length > 0 && (
