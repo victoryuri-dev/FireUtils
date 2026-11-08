@@ -44,7 +44,9 @@ const NIVEL_MAXIMO_SUMARIO = 1
 // PreviewPaginado) divide o documento em folhas A4 reais, com margem de 25mm,
 // e parte as secoes longas entre paginas — na tela e na impressao. Aqui a
 // secao e so um bloco de conteudo, sem largura, sombra ou margem de folha.
-const FOLHA = 'memorial-secao relative flex flex-col w-full bg-white text-black'
+// Exportados também para o memorial de cálculo (MemorialCalculoPage.jsx).
+// eslint-disable-next-line react-refresh/only-export-components
+export const FOLHA = 'memorial-secao relative flex flex-col w-full bg-white text-black'
 
 // CSS processado pelo Paged.js: pagina A4 com margem de 25mm, quebra de
 // pagina por secao (inclusive entre uma medida de seguranca e a seguinte —
@@ -57,7 +59,8 @@ const FOLHA = 'memorial-secao relative flex flex-col w-full bg-white text-black'
 // rente ao fim da folha estourava a pagina em poucos px invisiveis. O Paged.js
 // tratava isso como transbordo e, ao corrigir, descartava as ultimas celulas
 // da ultima linha da tabela.
-const CSS_PAGINA = `
+// eslint-disable-next-line react-refresh/only-export-components
+export const CSS_PAGINA = `
 @page { size: A4 portrait; margin: 25mm; @bottom-right { content: counter(page); } }
 @page pretextual { @bottom-right { content: none; } }
 .memorial-pretextual { page: pretextual; }
@@ -533,7 +536,7 @@ function Assinatura({ state }) {
   )
 }
 
-function SecaoMedida({ secao, numeroSecao, state, ultima }) {
+export function SecaoMedida({ secao, numeroSecao, state, ultima }) {
   return (
     <div className={FOLHA}>
       <Titulo nivel={1} numero={String(numeroSecao)}>{secao.titulo}</Titulo>

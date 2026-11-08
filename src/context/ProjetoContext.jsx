@@ -1186,6 +1186,7 @@ function reducer(state, action) {
         tipoProjeto: action.tipo || 'completo',
         uf: action.uf || INITIAL_STATE.uf,
         estruturas: [est], pavimentos: [terreo], saveReady: true,
+        ...(action.tipo === 'hidrantes' ? { sistemasPorEstrutura: { [est.id]: { hidrantes: true } } } : {}),
       }
     }
     default: return state

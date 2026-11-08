@@ -164,13 +164,18 @@ export default function HidrantesRapidoPage() {
   const { pendencias, areaTotal, sugestao, maiorCarga, risco, semClassificacao } = analise
   const opcoes = sugestao.opcoes
 
-  // Chuveiros → toggle manual de sprinklers por estrutura (é o que o plugin
-  // lê em sistemasPorEstrutura pra saber se há chuveiros).
+  // Chuveiros e hidrantes → toggles manuais de sistema por estrutura: é o que
+  // o plugin (sprinklers) e as telas de dimensionamento/bomba (hidrantes
+  // "ativo" → estruturas consideradas na classificação) leem.
   const comChuveiros = (h.chuveiros || 'nao') !== 'nao'
   useEffect(() => {
     state.estruturas.forEach(est => {
-      if (!!state.sistemasPorEstrutura[est.id]?.sprinklers !== comChuveiros) {
+      const manual = state.sistemasPorEstrutura[est.id] || {}
+      if (!!manual.sprinklers !== comChuveiros) {
         dispatch({ type: 'TOGGLE_SISTEMA_ESTRUTURA', estruturaId: est.id, key: 'sprinklers', value: comChuveiros })
+      }
+      if (manual.hidrantes !== true) {
+        dispatch({ type: 'TOGGLE_SISTEMA_ESTRUTURA', estruturaId: est.id, key: 'hidrantes', value: true })
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
