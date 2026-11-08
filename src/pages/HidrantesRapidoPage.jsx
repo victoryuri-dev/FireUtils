@@ -113,9 +113,10 @@ function ClassificacaoEdificacao({ est }) {
           </div>
         </div>
 
-        {divisao && (
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
-            {temCnae ? (
+        {/* CNAE sempre visível: sem divisão, digitar o CNAE completo já preenche
+            grupo e divisão; com divisão, lista/filtra os CNAEs dela. */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
+            {temCnae || !divisao ? (
               <>
                 <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
                   onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
@@ -132,7 +133,6 @@ function ClassificacaoEdificacao({ est }) {
               </>
             )}
           </div>
-        )}
       </div>
     </FormSection>
   )
