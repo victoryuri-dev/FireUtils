@@ -230,7 +230,8 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
 // ── Linha de ocupação subsidiária ─────────────────────────────────────
 // Carga de incêndio (MJ/m²) tabelada do CNAE escolhido — só leitura; vem da
 // base normativa, a mesma usada na Etapa 5.
-function CargaCnaeBox({ divisao, cnae }) {
+// Exportado também para o formulário de "Dimensionamento de hidrantes".
+export function CargaCnaeBox({ divisao, cnae }) {
   const { cnaesDiv } = useNorma()
   const carga = cnae ? cnaesDiv(divisao)[cnae]?.cargaIncendio : null
   return (

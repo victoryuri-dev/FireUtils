@@ -10,9 +10,10 @@ import { useProjeto } from '../context/ProjetoContext'
 import { useNorma } from '../hooks/useNorma'
 import Icon from '../components/ui/Icon'
 import FormSection from '../components/ui/FormSection'
-import { Field, Pill, Resultado, inputClass } from '../components/hidrantes/formUi'
-import { CnaeBusca } from '../components/steps/Step4'
-import { cargaDaDivisao } from '../data/extintores_calc'
+import { Pill, Resultado } from '../components/hidrantes/formUi'
+import { CnaeBusca, CargaCnaeBox } from '../components/steps/Step4'
+import InfoTip from '../components/ui/InfoTip'
+import { getEstadosDisponiveis } from '../data/normas/index'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
 import { fmtNum } from '../utils/numero'
@@ -26,14 +27,37 @@ const S = {
 
 const RISCO_NOME = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
 
-const getCls = q => q <= 300 ? 'low' : q <= 1200 ? 'med' : 'high'
-const getLbl = q => q <= 300 ? 'Baixo — Classe I' : q <= 1200 ? 'Médio — Classe II' : 'Alto — Classe III/IV'
+const AREA_TIP = 'Área construída total da edificação — é a área usada para escolher a faixa da Tabela 3 (RTI).'
+const REQ = <span className="req shrink-0" title="Campo obrigatório" aria-label="obrigatório"> *</span>
 
-// ── Edificação: área + ocupação (grupo → divisão → CNAE) + carga ───────
-// Mesma escolha de ocupação do formulário completo (Etapa 4) e mesma carga
-// de incêndio (Etapa 5: pela tabela do CNAE ou por levantamento). Uma só
-// edificação (estrutura única por baixo, no formato do projeto completo).
-function DadosEdificacao({ est }) {
+// ── Identificação: nome do projeto (igual ao formulário principal) ─────
+function Identificacao() {
+  const { state, dispatch } = useProjeto()
+  const { uf } = useNorma()
+  const estado = getEstadosDisponiveis().find(e => e.uf === uf)?.nome || uf
+  return (
+    <FormSection title="Identificação">
+      <div className="g2">
+        <div className="fg">
+          <label>Nome do projeto {REQ}</label>
+          <input value={state.nome} placeholder="Ex: Edificio Comercial Centro"
+            onChange={e => dispatch({ type: 'SET_FIELD', field: 'nome', value: e.target.value })}/>
+        </div>
+        <div className="fg">
+          <label>Estado</label>
+          <input value={estado} disabled title="Definido na criação do projeto — não pode ser alterado"/>
+        </div>
+      </div>
+    </FormSection>
+  )
+}
+
+// ── Classificação da edificação: mesmo bloco da Etapa 4 do formulário
+// principal (Grupo / Divisão / Área, CNAE + carga de incêndio). Uma só
+// ocupação, uma só edificação (estrutura única por baixo, no formato do
+// projeto completo). A carga vem do CNAE; divisão sem CNAE na norma
+// (ex.: J-1) pede a carga por levantamento.
+function ClassificacaoEdificacao({ est }) {
   const { state, dispatch } = useProjeto()
   const { ocupacoes, grupos, cnaesDiv } = useNorma()
   const pav = state.pavimentos.find(p => p.estruturaId === est.id)
@@ -42,19 +66,14 @@ function DadosEdificacao({ est }) {
   const divisoesGrp = ocupacoes[grupo]?.divisoes || {}
   const st = state.cargaState[est.id]?.[divisao]
   const temCnae = Object.keys(cnaesDiv(divisao)).length > 0
-  // Divisão sem CNAE na norma (ex.: J-1) só admite levantamento.
-  const metodo = !temCnae ? 'levantamento' : (st?.metodo || 'tabela')
 
   const setPav = changes => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes })
   const setCarga = (code, changes) => dispatch({ type: 'SET_CARGA', estruturaId: est.id, code, changes })
-  const cargaVazia = d => ({ cnae: '', descricao: '', cargaIncendio: null, valorManual: '', metodo: Object.keys(cnaesDiv(d)).length > 0 ? 'tabela' : 'levantamento' })
 
-  const setGrupo = g => {
-    setPav({ grupo: g, divisao: '', cnae: '', cnaeDesc: '', acess: [] })
-  }
+  const setGrupo = g => setPav({ grupo: g, divisao: '', cnae: '', cnaeDesc: '', acess: [] })
   const setDivisao = d => {
     setPav({ divisao: d, cnae: '', cnaeDesc: '', acess: [] })
-    setCarga(d, cargaVazia(d))
+    setCarga(d, { cnae: '', descricao: '', cargaIncendio: null, valorManual: '', metodo: Object.keys(cnaesDiv(d)).length > 0 ? 'tabela' : 'levantamento' })
   }
   const setCNAE = item => {
     setPav({ cnae: item.cnae, cnaeDesc: item.descricao })
@@ -64,81 +83,56 @@ function DadosEdificacao({ est }) {
     setPav({ grupo: f.grupo, divisao: f.divisao, cnae: f.cnae, cnaeDesc: f.descricao, acess: [] })
     setCarga(f.divisao, { cnae: f.cnae, descricao: f.descricao, cargaIncendio: f.cargaIncendio ?? null, metodo: 'tabela', valorManual: '' })
   }
-
-  const carga = cargaDaDivisao(divisao, state.cargaState[est.id])
-  const cls = carga ? getCls(carga) : null
-
-  const rotulo = 'text-[10px] text-ink-faint uppercase tracking-[.06em]'
+  const setArea = v => {
+    dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: 'areaTotal', value: v })
+    setPav({ area: v })
+  }
 
   return (
-    <FormSection title="Edificação" extra={<span className="text-[11px] font-semibold text-ink-muted border border-solid border-border rounded px-2 py-1">{state.uf}</span>}>
-      {/* Uma grade só, duas colunas iguais: tudo alinha de cima a baixo. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-        <Field label="Nome do projeto">
-          <input className={inputClass} value={state.nome} placeholder="Ex.: Edifício Aurora"
-            onChange={e => dispatch({ type: 'SET_FIELD', field: 'nome', value: e.target.value })}/>
-        </Field>
-        <Field label="Área construída total (m²)">
-          <input className={inputClass} type="number" min="0" value={est.areaTotal}
-            onChange={e => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: 'areaTotal', value: e.target.value })}/>
-        </Field>
-
-        <div className="fg !mb-0">
-          <label>Grupo de ocupação</label>
-          <select value={grupo} onChange={e => setGrupo(e.target.value)}>
-            <option value="">Selecione o grupo…</option>
-            {Object.keys(ocupacoes).map(g => <option key={g} value={g}>{g} — {grupos[g] || g}</option>)}
-          </select>
-        </div>
-        <div className="fg !mb-0">
-          <label>Divisão</label>
-          <select value={divisao} onChange={e => setDivisao(e.target.value)} disabled={!grupo}
-            title={divisoesGrp[divisao] ? `${divisao} — ${divisoesGrp[divisao]}` : undefined}>
-            <option value="">Selecione a divisão…</option>
-            {Object.entries(divisoesGrp).map(([code, label]) => <option key={code} value={code}>{code} — {label}</option>)}
-          </select>
+    <FormSection title="Classificação da edificação" description="Ocupação e área da edificação — definem a coluna e a faixa da Tabela 3.">
+      <div className="border border-solid border-border rounded-lg p-4 bg-bg [&_input]:h-10 [&_select]:h-10 [&_input]:bg-surface [&_select]:bg-surface">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_140px] gap-3 mb-3.5">
+          <div className="fg">
+            <label>Grupo {REQ}</label>
+            <select value={grupo} onChange={e => setGrupo(e.target.value)}>
+              <option value="">Selecione…</option>
+              {Object.keys(ocupacoes).map(g => <option key={g} value={g}>{g} — {grupos[g] || g}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label>Divisão {REQ}</label>
+            <select value={divisao} onChange={e => setDivisao(e.target.value)} disabled={!grupo}
+              title={divisoesGrp[divisao] ? `${divisao} — ${divisoesGrp[divisao]}` : undefined}>
+              <option value="">Selecione…</option>
+              {Object.entries(divisoesGrp).map(([code, label]) => <option key={code} value={code}>{code} — {label}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label>Área (m²) {REQ}<InfoTip text={AREA_TIP}/></label>
+            <input type="number" min="0" value={est.areaTotal} onChange={e => setArea(e.target.value)} placeholder="0"/>
+          </div>
         </div>
 
-        {/* CNAE à esquerda, carga de incêndio à direita — mesma altura */}
-        <div className="min-w-0">
-          {divisao && temCnae ? (
-            <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
-              onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
-          ) : (
-            <Field label="CNAE">
-              <div className={`${inputClass} text-ink-faint`}>{divisao ? 'Sem CNAE na norma para esta divisão' : 'Escolha a divisão primeiro'}</div>
-            </Field>
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1 min-h-[22px]">
-            <div className={rotulo}>Carga de incêndio (MJ/m²)</div>
-            {divisao && temCnae && (
-              <div className="inline-flex p-0.5 rounded-md bg-surface-2 border border-solid border-border" role="group" aria-label="Método de determinação da carga">
-                {[['tabela', 'Tabela', 'Por tabela normativa (CNAE)'], ['levantamento', 'Levantamento', 'Por levantamento']].map(([valor, nome, dica]) => (
-                  <button key={valor} type="button" title={dica} aria-pressed={metodo === valor}
-                    onClick={() => setCarga(divisao, valor === 'tabela'
-                      ? { metodo: 'tabela', valorManual: '', cargaIncendio: pav?.cnae ? (cnaesDiv(divisao)[pav.cnae]?.cargaIncendio ?? null) : null }
-                      : { metodo: 'levantamento' })}
-                    className={`py-0.5 px-2.5 rounded text-[10px] font-medium border-0 cursor-pointer transition-colors duration-150 ${metodo === valor ? 'bg-surface text-ink' : 'bg-transparent text-ink-faint hover:text-ink-muted'}`}>{nome}</button>
-                ))}
-              </div>
+        {divisao && (
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-3 items-start">
+            {temCnae ? (
+              <>
+                <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
+                  onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
+                <CargaCnaeBox divisao={divisao} cnae={pav?.cnae}/>
+              </>
+            ) : (
+              <>
+                <div className="text-[12px] text-ink-faint self-center">Esta divisão não tem CNAE na norma — informe a carga de incêndio por levantamento.</div>
+                <div className="fg">
+                  <label>Carga de incêndio (MJ/m²) {REQ}</label>
+                  <input type="number" min="0" placeholder="0" value={st?.valorManual ?? ''}
+                    onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
+                </div>
+              </>
             )}
           </div>
-          {metodo === 'levantamento' && divisao ? (
-            <input className={inputClass} type="number" min="0" placeholder="Informe a carga" aria-label={`Carga de incêndio de ${divisao}`}
-              value={st?.valorManual ?? ''} onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
-          ) : (
-            <div className={`${inputClass} flex items-center justify-between gap-3`}>
-              <span className={`font-bold tabular-nums ${!cls ? 'text-ink-faint font-normal' : cls === 'low' ? 'text-green' : cls === 'med' ? 'text-amber' : 'text-red'}`}>
-                {carga != null ? fmtNum(carga, 2, carga) : divisao ? 'Escolha o CNAE' : '—'}
-              </span>
-              {cls && <span className={`carga-class ${cls}`}>{getLbl(carga)}</span>}
-            </div>
-          )}
-          {metodo === 'levantamento' && cls && <div className="mt-1.5"><span className={`carga-class ${cls}`}>{getLbl(carga)}</span></div>}
-        </div>
+        )}
       </div>
     </FormSection>
   )
@@ -238,7 +232,9 @@ export default function HidrantesRapidoPage() {
           </p>
         </div>
 
-        <DadosEdificacao est={state.estruturas[0]}/>
+        <Identificacao/>
+
+        <ClassificacaoEdificacao est={state.estruturas[0]}/>
 
         <FormSection title="Chuveiros automáticos" description="Mudam a classificação nas colunas 3 e 4 da Tabela 3 (rebaixamento permitido pelas Notas 1 e 2).">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
