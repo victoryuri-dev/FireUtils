@@ -11,6 +11,8 @@ import { useNorma } from '../hooks/useNorma'
 import Icon from '../components/ui/Icon'
 import FormSection from '../components/ui/FormSection'
 import { Field, Pill, Resultado, inputClass } from '../components/hidrantes/formUi'
+import { CnaeBusca } from '../components/steps/Step4'
+import { cargaDaDivisao } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
 import { fmtNum } from '../utils/numero'
@@ -24,80 +26,115 @@ const S = {
 
 const RISCO_NOME = { baixo: 'Baixo', medio: 'Médio', alto: 'Alto' }
 
-// ── Seletor de divisão (agrupado por grupo de ocupação) ────────────────
-function SeletorDivisao({ value, onChange, ocupacoes, usadas }) {
-  return (
-    <select className={inputClass} value={value || ''} onChange={e => onChange(e.target.value)}>
-      <option value="">Selecione a ocupação…</option>
-      {Object.entries(ocupacoes).map(([grupo, g]) => (
-        <optgroup key={grupo} label={`${grupo} — ${g.descricao || grupo}`}>
-          {Object.entries(g.divisoes || {}).map(([code, label]) => (
-            <option key={code} value={code} disabled={usadas.has(code) && code !== value}>
-              {code} — {label}{usadas.has(code) && code !== value ? ' (já utilizada)' : ''}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  )
-}
+const getCls = q => q <= 300 ? 'low' : q <= 1200 ? 'med' : 'high'
+const getLbl = q => q <= 300 ? 'Baixo — Classe I' : q <= 1200 ? 'Médio — Classe II' : 'Alto — Classe III/IV'
 
-// ── Carga de incêndio de uma divisão (MJ/m²) ───────────────────────────
-// Digitada, ou preenchida pelo CNAE (tabela da norma). Sempre guardada como
-// "levantamento" — o valor vira o dado, editável depois.
-function CampoCarga({ estruturaId, divisao, cargaState, cnaes, dispatch }) {
-  const st = cargaState?.[divisao]
-  const valor = st?.metodo === 'levantamento' ? (st.valorManual ?? '') : (st?.cargaIncendio ?? '')
-  const set = changes => dispatch({ type: 'SET_CARGA', estruturaId, code: divisao, changes: { metodo: 'levantamento', ...changes } })
-  const listaCnae = Object.entries(cnaes)
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <Field label={`Carga de incêndio ${divisao} (MJ/m²)`}>
-        <input className={inputClass} type="number" min="0" value={valor}
-          onChange={e => set({ valorManual: e.target.value, cargaIncendio: null })} placeholder="Ex.: 300"/>
-      </Field>
-      {listaCnae.length > 0 && (
-        <Field label="Ou preencher pela atividade (CNAE)">
-          <select className={inputClass} value={st?.cnae || ''}
-            onChange={e => {
-              const item = cnaes[e.target.value]
-              if (!item) return
-              set({ cnae: e.target.value, descricao: item.descricao || '', valorManual: String(item.cargaIncendio ?? ''), cargaIncendio: item.cargaIncendio ?? null })
-            }}>
-            <option value="">Selecione para preencher a carga…</option>
-            {listaCnae.map(([cnae, d]) => (
-              <option key={cnae} value={cnae}>{cnae} — {d.descricao} ({d.cargaIncendio} MJ/m²)</option>
-            ))}
-          </select>
-        </Field>
-      )}
-    </div>
-  )
-}
-
-// ── Edificação: área + ocupação + carga de incêndio ────────────────────
-// Uma só (estrutura única por baixo, no mesmo formato do projeto completo).
+// ── Edificação: área + ocupação (grupo → divisão → CNAE) + carga ───────
+// Mesma escolha de ocupação do formulário completo (Etapa 4) e mesma carga
+// de incêndio (Etapa 5: pela tabela do CNAE ou por levantamento). Uma só
+// edificação (estrutura única por baixo, no formato do projeto completo).
 function DadosEdificacao({ est }) {
   const { state, dispatch } = useProjeto()
-  const { ocupacoes, cnaesDiv } = useNorma()
+  const { ocupacoes, grupos, cnaesDiv } = useNorma()
   const pav = state.pavimentos.find(p => p.estruturaId === est.id)
+  const grupo = pav?.grupo || ''
   const divisao = pav?.divisao || ''
-  const cargaState = state.cargaState[est.id] || {}
-  const setPrincipal = d => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes: { divisao: d, grupo: d.charAt(0), cnae: '', cnaeDesc: '', acess: [] } })
+  const divisoesGrp = ocupacoes[grupo]?.divisoes || {}
+  const st = state.cargaState[est.id]?.[divisao]
+  const temCnae = Object.keys(cnaesDiv(divisao)).length > 0
+  // Divisão sem CNAE na norma (ex.: J-1) só admite levantamento.
+  const metodo = !temCnae ? 'levantamento' : (st?.metodo || 'tabela')
+
+  const setPav = changes => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes })
+  const setCarga = (code, changes) => dispatch({ type: 'SET_CARGA', estruturaId: est.id, code, changes })
+  const cargaVazia = d => ({ cnae: '', descricao: '', cargaIncendio: null, valorManual: '', metodo: Object.keys(cnaesDiv(d)).length > 0 ? 'tabela' : 'levantamento' })
+
+  const setGrupo = g => {
+    setPav({ grupo: g, divisao: '', cnae: '', cnaeDesc: '', acess: [] })
+  }
+  const setDivisao = d => {
+    setPav({ divisao: d, cnae: '', cnaeDesc: '', acess: [] })
+    setCarga(d, cargaVazia(d))
+  }
+  const setCNAE = item => {
+    setPav({ cnae: item.cnae, cnaeDesc: item.descricao })
+    setCarga(divisao, { cnae: item.cnae, descricao: item.descricao, cargaIncendio: item.cargaIncendio ?? null, metodo: 'tabela', valorManual: '' })
+  }
+  const autoPreencher = f => {
+    setPav({ grupo: f.grupo, divisao: f.divisao, cnae: f.cnae, cnaeDesc: f.descricao, acess: [] })
+    setCarga(f.divisao, { cnae: f.cnae, descricao: f.descricao, cargaIncendio: f.cargaIncendio ?? null, metodo: 'tabela', valorManual: '' })
+  }
+
+  const carga = cargaDaDivisao(divisao, state.cargaState[est.id])
+  const cls = carga ? getCls(carga) : null
 
   return (
     <FormSection title="Edificação">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      <div className="mb-4 max-w-[320px]">
         <Field label="Área construída total (m²)">
           <input className={inputClass} type="number" min="0" value={est.areaTotal}
             onChange={e => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: 'areaTotal', value: e.target.value })}/>
         </Field>
-        <Field label="Ocupação">
-          <SeletorDivisao value={divisao} onChange={setPrincipal} ocupacoes={ocupacoes} usadas={new Set()}/>
-        </Field>
       </div>
-      {divisao && <CampoCarga estruturaId={est.id} divisao={divisao} cargaState={cargaState} cnaes={cnaesDiv(divisao)} dispatch={dispatch}/>}
+
+      <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Ocupação</div>
+      <div className="g2 mb-3">
+        <div className="fg">
+          <label>Grupo</label>
+          <select value={grupo} onChange={e => setGrupo(e.target.value)}>
+            <option value="">Selecione o grupo…</option>
+            {Object.keys(ocupacoes).map(g => <option key={g} value={g}>{g} — {grupos[g] || g}</option>)}
+          </select>
+        </div>
+        <div className="fg">
+          <label>Divisão</label>
+          <select value={divisao} onChange={e => setDivisao(e.target.value)} disabled={!grupo}
+            title={divisoesGrp[divisao] ? `${divisao} — ${divisoesGrp[divisao]}` : undefined}>
+            <option value="">Selecione a divisão…</option>
+            {Object.entries(divisoesGrp).map(([code, label]) => <option key={code} value={code}>{code} — {label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {divisao && temCnae && (
+        <div className="mb-4">
+          <CnaeBusca auditPrefix="hidrantes" divisao={divisao} value={pav?.cnae || ''} descValue={pav?.cnaeDesc || ''}
+            onSelect={setCNAE} onDescChange={v => setPav({ cnaeDesc: v })} onAutoFill={autoPreencher}/>
+        </div>
+      )}
+
+      {divisao && (
+        <div className="mt-4">
+          <div className="text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border">Carga de incêndio</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {temCnae ? (
+              <div className="inline-flex p-0.5 rounded-md bg-surface-2 border border-solid border-border" role="group" aria-label="Método de determinação da carga">
+                {[['tabela', 'Tabela', 'Por tabela normativa (CNAE)'], ['levantamento', 'Levantamento', 'Por levantamento']].map(([valor, rotulo, dica]) => (
+                  <button key={valor} type="button" title={dica} aria-pressed={metodo === valor}
+                    onClick={() => setCarga(divisao, valor === 'tabela'
+                      ? { metodo: 'tabela', valorManual: '', cargaIncendio: pav?.cnae ? (cnaesDiv(divisao)[pav.cnae]?.cargaIncendio ?? null) : null }
+                      : { metodo: 'levantamento' })}
+                    className={`py-1 px-3 rounded text-[11px] font-medium border-0 cursor-pointer transition-colors duration-150 ${metodo === valor ? 'bg-surface text-ink' : 'bg-transparent text-ink-faint hover:text-ink-muted'}`}>{rotulo}</button>
+                ))}
+              </div>
+            ) : <span className="text-[12px] text-ink-faint">Esta divisão não tem CNAE na norma — informe a carga por levantamento.</span>}
+
+            <div className="flex items-center gap-3">
+              {cls && <span className={`carga-class ${cls}`}>{getLbl(carga)}</span>}
+              <div className="flex items-baseline gap-1.5">
+                {metodo === 'levantamento' ? (
+                  <input type="number" min="0" className="w-[96px] text-right" placeholder="0" aria-label={`Carga de incêndio de ${divisao}`}
+                    value={st?.valorManual ?? ''} onChange={e => setCarga(divisao, { metodo: 'levantamento', valorManual: e.target.value })}/>
+                ) : (
+                  <span className={`text-[22px] font-bold leading-none tabular-nums ${!cls ? 'text-ink-faint' : cls === 'low' ? 'text-green' : cls === 'med' ? 'text-amber' : 'text-red'}`}>{carga != null ? fmtNum(carga, 2, carga) : '—'}</span>
+                )}
+                <span className="text-[11px] text-ink-faint whitespace-nowrap">MJ/m²</span>
+              </div>
+            </div>
+          </div>
+          {metodo === 'tabela' && !pav?.cnae && <div className="text-[12px] text-amber mt-2">Escolha o CNAE acima para trazer a carga de incêndio.</div>}
+        </div>
+      )}
     </FormSection>
   )
 }

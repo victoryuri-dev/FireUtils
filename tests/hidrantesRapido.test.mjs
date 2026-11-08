@@ -81,3 +81,9 @@ test('completude: 100% só com tudo preenchido e o Tipo definido', () => {
   p.hidrantes.tipo = 4
   assert.equal(completudeHidrantesRapido(p), 100)
 })
+
+test('a auditoria (usada pelo CnaeBusca/Obrigatorio) não quebra num projeto de hidrantes', async () => {
+  const { camposObrigatorios } = await server.ssrLoadModule('/src/data/auditoriaProjeto.js')
+  const state = { ...projeto(), sistemas: {}, sistemasPorEstrutura: {}, riscosEspeciaisPorEstrutura: {}, riscosOutrosDescPorEstrutura: {}, memorialPB: {} }
+  assert.doesNotThrow(() => camposObrigatorios(state, []))
+})

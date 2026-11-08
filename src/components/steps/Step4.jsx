@@ -30,7 +30,9 @@ function findGlobally(cargaMap, cnae) {
 }
 
 // ── CNAE Autocomplete ─────────────────────────────────────────────────
-function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescChange, onAutoFill }) {
+// Exportado também para o formulário de "Dimensionamento de hidrantes"
+// (pages/HidrantesRapidoPage.jsx), que usa a mesma busca de CNAE.
+export function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescChange, onAutoFill }) {
   const { cnaesDiv, cargaMap } = useNorma()
   const [query, setQuery]     = useState(value || '')
   const [open, setOpen]       = useState(false)
