@@ -11,7 +11,7 @@ import { useNorma } from '../hooks/useNorma'
 import Icon from '../components/ui/Icon'
 import FormSection from '../components/ui/FormSection'
 import { Field, Pill, Resultado, inputClass } from '../components/hidrantes/formUi'
-import { OPCOES_CHUVEIROS, analisarHidrantesRapido, divisoesDaEstruturaRapido } from '../data/hidrantesRapido'
+import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
 import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
 import { fmtNum } from '../utils/numero'
 
@@ -76,68 +76,28 @@ function CampoCarga({ estruturaId, divisao, cargaState, cnaes, dispatch }) {
   )
 }
 
-// ── Uma estrutura (torre/bloco): área + ocupações + cargas ─────────────
-function EstruturaCard({ est, index, podeRemover }) {
+// ── Edificação: área + ocupação + carga de incêndio ────────────────────
+// Uma só (estrutura única por baixo, no mesmo formato do projeto completo).
+function DadosEdificacao({ est }) {
   const { state, dispatch } = useProjeto()
   const { ocupacoes, cnaesDiv } = useNorma()
   const pav = state.pavimentos.find(p => p.estruturaId === est.id)
-  const divisoes = divisoesDaEstruturaRapido(state, est.id)
-  const usadas = new Set(divisoes)
+  const divisao = pav?.divisao || ''
   const cargaState = state.cargaState[est.id] || {}
-
-  const setPav = changes => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes })
-  const setPrincipal = divisao => setPav({ divisao, grupo: divisao.charAt(0), cnae: '', cnaeDesc: '' })
-  const setSubsidiaria = (i, divisao) => setPav({ acess: pav.acess.map((a, j) => j === i ? { ...a, divisao } : a) })
-  const addSubsidiaria = () => setPav({ acess: [...(pav.acess || []), { divisao: '', cnae: '', cnaeDesc: '', area: '' }] })
-  const removeSubsidiaria = i => setPav({ acess: pav.acess.filter((_, j) => j !== i) })
+  const setPrincipal = d => pav && dispatch({ type: 'UPDATE_PAV', id: pav.id, changes: { divisao: d, grupo: d.charAt(0), cnae: '', cnaeDesc: '', acess: [] } })
 
   return (
-    <FormSection
-      title={est.nome || `Estrutura ${index + 1}`}
-      extra={podeRemover && (
-        <button type="button" className="btn-ghost text-xs" onClick={() => dispatch({ type: 'REMOVE_ESTRUTURA', id: est.id })}>
-          <Icon name="trash" size={13}/> Remover
-        </button>
-      )}
-    >
+    <FormSection title="Edificação">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <Field label="Nome da estrutura">
-          <input className={inputClass} value={est.nome}
-            onChange={e => dispatch({ type: 'RENAME_ESTRUTURA', id: est.id, nome: e.target.value })}/>
-        </Field>
         <Field label="Área construída total (m²)">
           <input className={inputClass} type="number" min="0" value={est.areaTotal}
             onChange={e => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: est.id, field: 'areaTotal', value: e.target.value })}/>
         </Field>
-      </div>
-
-      <div className="mb-4">
-        <Field label="Ocupação principal">
-          <SeletorDivisao value={pav?.divisao} onChange={setPrincipal} ocupacoes={ocupacoes} usadas={usadas}/>
+        <Field label="Ocupação">
+          <SeletorDivisao value={divisao} onChange={setPrincipal} ocupacoes={ocupacoes} usadas={new Set()}/>
         </Field>
       </div>
-
-      {(pav?.acess || []).map((a, i) => (
-        <div key={i} className="mb-4 flex items-end gap-2">
-          <div className="flex-1">
-            <Field label={`Ocupação subsidiária ${i + 1}`}>
-              <SeletorDivisao value={a.divisao} onChange={d => setSubsidiaria(i, d)} ocupacoes={ocupacoes} usadas={usadas}/>
-            </Field>
-          </div>
-          <button type="button" className="btn-ghost p-2" title="Remover ocupação subsidiária" onClick={() => removeSubsidiaria(i)}>
-            <Icon name="x" size={13}/>
-          </button>
-        </div>
-      ))}
-      <button type="button" className="btn-ghost text-xs mb-4" onClick={addSubsidiaria}>
-        <Icon name="plus" size={13}/> Ocupação subsidiária
-      </button>
-
-      {divisoes.map(d => (
-        <div key={d} className="mb-3">
-          <CampoCarga estruturaId={est.id} divisao={d} cargaState={cargaState} cnaes={cnaesDiv(d)} dispatch={dispatch}/>
-        </div>
-      ))}
+      {divisao && <CampoCarga estruturaId={est.id} divisao={divisao} cargaState={cargaState} cnaes={cnaesDiv(divisao)} dispatch={dispatch}/>}
     </FormSection>
   )
 }
@@ -215,13 +175,6 @@ export default function HidrantesRapidoPage() {
     )
   }
 
-  const addEstrutura = () => {
-    const id = `est-${Date.now().toString(36)}`
-    dispatch({ type: 'ADD_ESTRUTURA', id })
-    // O térreo novo nasce com E-1 — zera pra o RT escolher a ocupação.
-    dispatch({ type: 'UPDATE_PAV', id: `${id}-P1`, changes: { grupo: '', divisao: '' } })
-  }
-
   const variantes = h.tipo ? (norma.TIPOS_SISTEMA[h.tipo]?.variantes || []) : []
   const escolhida = opcoes.find(o => o.tipo === h.tipo)
 
@@ -259,12 +212,7 @@ export default function HidrantesRapidoPage() {
           </div>
         </FormSection>
 
-        {state.estruturas.map((est, i) => (
-          <EstruturaCard key={est.id} est={est} index={i} podeRemover={state.estruturas.length > 1}/>
-        ))}
-        <button type="button" className="btn-ghost mb-6" onClick={addEstrutura}>
-          <Icon name="plus" size={13}/> Adicionar estrutura
-        </button>
+        <DadosEdificacao est={state.estruturas[0]}/>
 
         <FormSection title="Classificação do sistema" description="Resultado da Tabela 3 para a área total e a ocupação de maior carga de incêndio.">
           {pendencias.length > 0 && (
