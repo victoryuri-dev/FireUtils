@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import {
   Routes, Route, Navigate, Outlet,
   useNavigate, useParams, useLocation,
@@ -21,6 +21,8 @@ import ConfiguracaoPage from './pages/ConfiguracaoPage'
 import ProjetosPage   from './pages/ProjetosPage'
 import PerfilPage     from './pages/PerfilPage'
 import DocumentosPage from './pages/DocumentosPage'
+// Carregada sob demanda: traz o pdf.js, que não deve pesar no resto do app.
+const AssinaturasPage = lazy(() => import('./pages/AssinaturasPage'))
 import MedidaPage            from './pages/MedidaPage'
 import SaidaEmergenciaPage   from './pages/medidas/SaidaEmergenciaPage'
 import HidrantesPage          from './pages/medidas/HidrantesPage'
@@ -340,6 +342,20 @@ function PerfilRoute() {
   )
 }
 
+// ── AssinaturasRoute ──────────────────────────────────────────────────
+// Ferramenta de assinatura em lote — independente de projeto, como o perfil.
+function AssinaturasRoute() {
+  const navigate = useNavigate()
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage={false} showProjectsLink/>
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader size={32}/></div>}>
+        <AssinaturasPage/>
+      </Suspense>
+    </div>
+  )
+}
+
 // ── ProjectLayout ─────────────────────────────────────────────────────
 // Envolve as rotas de um projeto aberto (/projeto/:id/*). Garante que o
 // projeto correto esteja carregado no contexto antes de renderizar — isso
@@ -558,6 +574,7 @@ function AppInner() {
         <Route path="/" element={<Navigate to="/projetos" replace/>}/>
         <Route path="/projetos" element={<ProjetosRoute/>}/>
         <Route path="/perfil" element={<PerfilRoute/>}/>
+        <Route path="/assinaturas" element={<AssinaturasRoute/>}/>
 
         <Route path="/projeto/:id" element={<ProjectLayout/>}>
           <Route index element={<Navigate to="dashboard" replace/>}/>
