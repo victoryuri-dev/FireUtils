@@ -445,58 +445,54 @@ const TOM_BADGE = {
   principal:  'text-green border-green-border bg-green-dim',
   secundaria: 'text-amber border-amber-border bg-amber-dim',
 }
-function OcupacaoBox({ badge, tom, descricao, cnae, area, divisao, grupoLabel }) {
+function OcupacaoBox({ badge, tom, descricao, cnae, area, divisao }) {
   return (
-    <div className="border border-solid border-border rounded-md bg-bg py-3 px-3.5 flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <span className={`inline-block text-[11px] rounded-full px-2 py-0.5 border border-solid mb-2 ${TOM_BADGE[tom]}`}>{badge}</span>
-        <div className="text-[14px] font-semibold text-ink leading-[1.4]">{descricao}</div>
-        <div className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-faint mt-1.5">
-          {cnae && <span>CNAE <span className="tabular-nums text-ink-muted">{cnae}</span></span>}
-          {cnae && area && <span aria-hidden="true">·</span>}
-          {area && <span>{fmtUn(area, 'm²', 2, `${area} m²`)}</span>}
-        </div>
+    <div className="border border-solid border-border rounded-md bg-bg py-2 px-3 flex items-center gap-3">
+      <span className={`shrink-0 text-[11px] rounded-full px-2 py-0.5 border border-solid ${TOM_BADGE[tom]}`}>{badge}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-semibold text-ink leading-[1.35]">{descricao}</div>
+        {(cnae || area) && (
+          <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-ink-faint mt-0.5">
+            {cnae && <span>CNAE <span className="tabular-nums text-ink-muted">{cnae}</span></span>}
+            {cnae && area && <span aria-hidden="true">·</span>}
+            {area && <span>{fmtUn(area, 'm²', 2, `${area} m²`)}</span>}
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        {grupoLabel && <span className="hidden sm:block text-[12px] text-ink-faint text-right leading-[1.35] max-w-[170px]">{grupoLabel}</span>}
-        <span className="tabular-nums text-[14px] font-bold text-ink py-1 px-2.5 rounded-md bg-surface border border-solid border-border">{divisao}</span>
-      </div>
+      <span className="shrink-0 tabular-nums text-[13px] font-bold text-ink py-0.5 px-2 rounded-md bg-surface border border-solid border-border">{divisao}</span>
     </div>
   )
 }
 
 function PavCard({ pav, classificacao, onOpen }) {
-  const { ocupacoes, temCNAE, cnaesDiv, grupos } = useNorma()
+  const { ocupacoes, temCNAE, cnaesDiv } = useNorma()
   const divisoes = ocupacoes[pav.grupo]?.divisoes || {}
   const divLabel = divisoes[pav.divisao] || pav.divisao || '—'
   // Divisoes sem nenhum CNAE cadastrado (ex: J-1..J-4) nunca terao pav.cnae
   // preenchido — contam como classificadas so com a divisao definida.
   const configured = !!(pav.divisao && (pav.cnae || !temCNAE(pav.divisao)))
-  const grupoLabel = grupos?.[pav.divisao?.charAt(0) || pav.grupo] || ''
   const cnaeDesc = pav.cnae ? (pav.cnaeDesc || cnaesDiv(pav.divisao)[pav.cnae]?.descricao || '') : ''
   // So ocupacoes secundarias (>10% da area construida) aparecem no card; subsidiarias ficam ocultas aqui.
   const acessSecundarias = pav.acess.filter(a => classificacao?.subsidiariasRaw?.find(c => c.divisao === a.divisao)?.isMista)
-
-  const grupoDe = d => grupos?.[d?.charAt(0)] || ''
 
   return (
     <div
       onClick={onOpen}
       className={`bg-surface rounded-lg mb-2 cursor-pointer transition-colors duration-150 border border-solid hover:border-ink-hint ${configured ? 'border-border' : 'border-dashed border-border-2'}`}
     >
-      <div className="flex items-center justify-between gap-3 py-3 px-4">
+      <div className="flex items-center justify-between gap-3 py-2 px-3">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-ink-faint uppercase tracking-[.06em] leading-none">
           <Icon name="stair" size={13}/>{pav.label}
         </div>
         <span className="text-ink-faint"><Icon name="chevD" size={14} className="-rotate-90"/></span>
       </div>
 
-      <div className="flex flex-col gap-2 px-4 pb-4">
+      <div className="flex flex-col gap-1.5 px-3 pb-3">
         {configured ? (
           <OcupacaoBox
             badge="Principal" tom="principal"
             descricao={pav.cnae ? (cnaeDesc || 'Atividade sem descrição') : divLabel}
-            cnae={pav.cnae} area={pav.area} divisao={pav.divisao} grupoLabel={grupoLabel ? `Grupo ${pav.divisao?.charAt(0) || pav.grupo} — ${grupoLabel}` : ''}/>
+            cnae={pav.cnae} area={pav.area} divisao={pav.divisao}/>
         ) : (
           <div className="border border-dashed border-border-2 rounded-md bg-bg py-3 px-3.5 text-[13px] text-ink-faint">Clique para classificar</div>
         )}
@@ -506,7 +502,7 @@ function PavCard({ pav, classificacao, onOpen }) {
           <OcupacaoBox key={i}
             badge="Secundária" tom="secundaria"
             descricao={(a.cnae ? (a.cnaeDesc || cnaesDiv(a.divisao)[a.cnae]?.descricao || '') : '') || (ocupacoes[a.divisao?.charAt(0)]?.divisoes || {})[a.divisao] || a.divisao}
-            cnae={a.cnae} area={a.area} divisao={a.divisao} grupoLabel={grupoDe(a.divisao) ? `Grupo ${a.divisao?.charAt(0)} — ${grupoDe(a.divisao)}` : ''}/>
+            cnae={a.cnae} area={a.area} divisao={a.divisao}/>
         ))}
       </div>
     </div>
