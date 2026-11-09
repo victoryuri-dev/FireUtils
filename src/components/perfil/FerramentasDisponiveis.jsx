@@ -32,6 +32,7 @@ export default function FerramentasDisponiveis() {
   }
 
   const memorial = temAcesso(licencas, 'memorial')
+  const assinaturas = temAcesso(licencas, 'assinaturas')
   const plugin = temAcesso(licencas, 'hidrantes') || temAcesso(licencas, 'saidas')
 
   async function baixarPlugin() {
@@ -47,7 +48,7 @@ export default function FerramentasDisponiveis() {
     window.location.assign(r.url)
   }
 
-  if (!memorial && !plugin) {
+  if (!memorial && !plugin && !assinaturas) {
     return <p className="profile-empty-text">Nenhuma ferramenta liberada. Assim que uma licença estiver ativa, os atalhos aparecem aqui.</p>
   }
 
@@ -61,6 +62,17 @@ export default function FerramentasDisponiveis() {
         >
           <Link to="/projetos" className="btn-ghost">
             <Icon name="right" size={13}/> Abrir plataforma
+          </Link>
+        </Atalho>
+      )}
+      {assinaturas && (
+        <Atalho
+          icone="signature"
+          titulo="Assinaturas"
+          descricao="Assine pranchas e documentos em PDF em lote, com o campo de assinatura definido por grupo de arquivos."
+        >
+          <Link to="/assinaturas" className="btn-ghost">
+            <Icon name="right" size={13}/> Abrir assinaturas
           </Link>
         </Atalho>
       )}

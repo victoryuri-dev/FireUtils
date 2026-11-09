@@ -37,3 +37,10 @@ test('suspensão do PRO bloqueia todos os módulos', () => {
   assert.equal(temAcesso({ pro: suspensa }, 'memorial', hoje), false)
   assert.equal(temAcesso({ pro: suspensa }, undefined, hoje), false)
 })
+
+test('módulo Assinaturas: licença própria ou PRO libera; outro módulo não', () => {
+  assert.equal(temAcesso({ assinaturas: base }, 'assinaturas', hoje), true)
+  assert.equal(temAcesso({ pro: base }, 'assinaturas', hoje), true)
+  assert.equal(temAcesso({ memorial: base }, 'assinaturas', hoje), false)
+  assert.equal(temAcesso({}, 'assinaturas', hoje), false)
+})

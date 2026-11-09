@@ -27,6 +27,12 @@ export const MODULOS = [
     icon: 'saidaEmergenciaMedida',
     descricao: 'Dimensionamento das saídas de emergência no Revit: população por pavimento e ambiente, larguras e distâncias de percurso.',
   },
+  {
+    key: 'assinaturas',
+    nome: 'Assinaturas',
+    icon: 'signature',
+    descricao: 'Assinatura de PDFs em lote na plataforma Web: defina o campo de assinatura uma vez por grupo de arquivos e assine pranchas e documentos de uma só vez.',
+  },
 ]
 
 // Faltando este tanto (ou menos) pra vencer, a licença ativa já avisa.
