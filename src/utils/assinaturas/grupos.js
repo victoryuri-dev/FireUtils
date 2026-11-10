@@ -8,13 +8,14 @@
 // objetos File já prontos. Os PDFs ficam só na memória do navegador.
 
 import { CAMPO_PADRAO } from './geometria.js'
+import { SELO_PADRAO } from './selo.js'
 
 export function novoId() {
   return globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 export function novoGrupo(id, nome) {
-  return { id, nome, campo: { ...CAMPO_PADRAO }, pagina: { modo: 'ultima', numero: 1 } }
+  return { id, nome, campo: { ...CAMPO_PADRAO }, pagina: { modo: 'ultima', numero: 1 }, selo: { ...SELO_PADRAO } }
 }
 
 export function estadoInicial(idGrupo = novoId()) {
@@ -88,7 +89,7 @@ export function reducer(state, action) {
       const base = state.grupos.find(g => g.id === state.grupoAtivoId)
       const grupo = {
         ...novoGrupo(action.id, action.nome || `Grupo ${state.grupos.length + 1}`),
-        ...(base ? { campo: { ...base.campo }, pagina: { ...base.pagina } } : {}),
+        ...(base ? { campo: { ...base.campo }, pagina: { ...base.pagina }, selo: { ...base.selo } } : {}),
       }
       return { ...state, grupos: [...state.grupos, grupo], grupoAtivoId: grupo.id }
     }
@@ -115,6 +116,13 @@ export function reducer(state, action) {
       return {
         ...state,
         grupos: state.grupos.map(g => (g.id === action.id ? { ...g, campo: { ...g.campo, ...action.campo } } : g)),
+      }
+
+    case 'DEFINIR_SELO':
+      // `selo` parcial: mescla com o atual.
+      return {
+        ...state,
+        grupos: state.grupos.map(g => (g.id === action.id ? { ...g, selo: { ...g.selo, ...action.selo } } : g)),
       }
 
     case 'DEFINIR_PAGINA':

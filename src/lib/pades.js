@@ -23,6 +23,7 @@ import {
   EncryptedPDFError,
 } from 'pdf-lib'
 import { retanguloPdf, indiceDaPagina, normalizarRotacao } from '../utils/assinaturas/geometria.js'
+import { normalizarSelo } from '../utils/assinaturas/selo.js'
 import { NOME_DA_CIFRA } from './pkcs12Legado.js'
 import { lerPfx, ErroPfx } from './pkcs12.js'
 
@@ -244,34 +245,158 @@ function dataPdf(d) {
   return `D:${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${sinal}${p(Math.floor(Math.abs(off) / 60))}'${p(Math.abs(off) % 60)}'`
 }
 
-/**
- * Conteúdo do selo: borda fina e três linhas (rótulo, titular, data), com a
- * fonte reduzida até caber no campo.
- */
-function conteudoDoSelo(largura, altura, titular, quando, fonteNormal, fonteNegrito) {
-  const pad = 3
-  const linhas = [
-    { texto: 'Assinado digitalmente por', fonte: 'F1', fonteObj: fonteNormal, escala: 0.85 },
-    { texto: winAnsi(titular), fonte: 'F2', fonteObj: fonteNegrito, escala: 1 },
-    { texto: `Data: ${dataParaSelo(quando)}`, fonte: 'F1', fonteObj: fonteNormal, escala: 0.85 },
-  ]
-  let tam = Math.min(9, (altura - 2 * pad) / (linhas.length * 1.25))
-  const cabe = t => linhas.every(l => l.fonteObj.widthOfTextAtSize(l.texto, t * l.escala) <= largura - 2 * pad)
-  while (tam > 4 && !cabe(tam)) tam -= 0.25
-  // Ainda largo (nome muito longo): corta o nome com reticências.
-  const nome = linhas[1]
-  while (nome.texto.length > 4 && nome.fonteObj.widthOfTextAtSize(nome.texto, tam) > largura - 2 * pad) {
-    nome.texto = nome.texto.slice(0, -1)
-    if (nome.fonteObj.widthOfTextAtSize(nome.texto + '...', tam) <= largura - 2 * pad) { nome.texto += '...'; break }
-  }
+// Data como o Adobe Acrobat escreve: 2020.07.23 01:48:53 -03'00'
+function dataAdobe(d) {
+  const p = n => String(n).padStart(2, '0')
+  const off = -d.getTimezoneOffset()
+  const sinal = off >= 0 ? '+' : '-'
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${sinal}${p(Math.floor(Math.abs(off) / 60))}'${p(Math.abs(off) % 60)}'`
+}
 
-  let ops = `q 0.5 w 0.45 0.45 0.45 RG 0.25 0.25 ${(largura - 0.5).toFixed(2)} ${(altura - 0.5).toFixed(2)} re S Q\n`
+// Largura da maior palavra do texto no tamanho dado.
+function palavraMaior(texto, fonte, tamanho) {
+  return Math.max(0, ...texto.split(' ').filter(Boolean).map(p => fonte.widthOfTextAtSize(p, tamanho)))
+}
+
+// Quebra o texto em linhas de até `maximo` pontos (nas palavras; uma palavra maior
+// que a linha é partida por caracteres).
+function quebrarLinhas(texto, fonte, tamanho, maximo) {
+  const largura = t => fonte.widthOfTextAtSize(t, tamanho)
+  const linhas = []
+  let atual = ''
+  for (const palavra of texto.split(' ').filter(Boolean)) {
+    const tentativa = atual ? `${atual} ${palavra}` : palavra
+    if (largura(tentativa) <= maximo) { atual = tentativa; continue }
+    if (atual) linhas.push(atual)
+    let resto = palavra
+    while (largura(resto) > maximo && resto.length > 1) {
+      let n = resto.length - 1
+      while (n > 1 && largura(resto.slice(0, n)) > maximo) n--
+      linhas.push(resto.slice(0, n))
+      resto = resto.slice(n)
+    }
+    atual = resto
+  }
+  if (atual) linhas.push(atual)
+  return linhas
+}
+
+// Encurta o texto com reticências até caber em `maximo` pontos.
+function caberNaLargura(linha, tamanho, maximo) {
+  if (linha.obj.widthOfTextAtSize(linha.texto, tamanho) <= maximo) return
+  let corte = linha.texto
+  while (corte.length > 1 && linha.obj.widthOfTextAtSize(`${corte}...`, tamanho) > maximo) corte = corte.slice(0, -1)
+  linha.texto = `${corte}...`
+}
+
+/**
+ * Selo "simples": linhas opcionais (rótulo, titular, data, texto adicional), borda opcional,
+ * alinhamento à esquerda ou centralizado e tamanho de texto automático (o maior
+ * que cabe) ou fixo. O que passar do quadro é cortado pelo recorte do desenho.
+ */
+function conteudoSimples(largura, altura, titular, quando, fontes, selo) {
+  const pad = 3
+  const maximo = largura - 2 * pad
+  const linhas = []
+  if (selo.mostrarRotulo) linhas.push({ texto: 'Assinado digitalmente por', fonte: 'F1', obj: fontes.normal, escala: 0.85 })
+  linhas.push({ texto: winAnsi(titular), fonte: 'F2', obj: fontes.negrito, escala: 1 })
+  if (selo.mostrarData) linhas.push({ texto: `Data: ${dataParaSelo(quando)}`, fonte: 'F1', obj: fontes.normal, escala: 0.85 })
+  if (selo.textoExtra) linhas.push({ texto: winAnsi(selo.textoExtra), fonte: 'F1', obj: fontes.normal, escala: 0.85 })
+
+  let tam
+  if (selo.fonte === 'auto') {
+    // O maior tamanho (até 14 pt) em que as linhas cabem na altura e na largura.
+    tam = Math.min(14, (altura - 2 * pad) / (linhas.length * 1.25))
+    while (tam > 4 && !linhas.every(l => l.obj.widthOfTextAtSize(l.texto, tam * l.escala) <= maximo)) tam -= 0.25
+  } else {
+    tam = selo.fonte
+  }
+  for (const l of linhas) caberNaLargura(l, tam * l.escala, maximo)
+
+  const passo = tam * 1.25
+  const centralizado = selo.alinhamento === 'centro'
+  const topo = centralizado ? altura - Math.max(pad, (altura - passo * linhas.length) / 2) : altura - pad
+
+  let ops = ''
+  if (selo.borda) ops += `q 0.5 w 0.45 0.45 0.45 RG 0.25 0.25 ${(largura - 0.5).toFixed(2)} ${(altura - 0.5).toFixed(2)} re S Q\n`
+  ops += `q 0 0 ${largura.toFixed(2)} ${altura.toFixed(2)} re W n\n` // recorta o que passar do quadro
   linhas.forEach((l, i) => {
     const t = tam * l.escala
-    const y = altura - pad - tam * 0.95 - i * tam * 1.25
-    ops += `BT /${l.fonte} ${t.toFixed(2)} Tf 0.1 0.1 0.1 rg ${pad} ${y.toFixed(2)} Td ${literalPdf(l.texto)} Tj ET\n`
+    const x = centralizado ? (largura - l.obj.widthOfTextAtSize(l.texto, t)) / 2 : pad
+    const y = topo - tam * 0.95 - i * passo
+    ops += `BT /${l.fonte} ${t.toFixed(2)} Tf 0.1 0.1 0.1 rg ${x.toFixed(2)} ${y.toFixed(2)} Td ${literalPdf(l.texto)} Tj ET\n`
   })
-  return ops
+  return `${ops}Q\n`
+}
+
+/**
+ * Selo no estilo do Adobe Acrobat: o NOME em destaque na coluna da esquerda
+ * (quebrado em linhas, centralizado, no maior tamanho que cabe) e, na da direita,
+ * os detalhes pequenos: "Assinado de forma digital por NOME" e "Dados: AAAA.MM.DD
+ * hh:mm:ss -03'00'", mais o texto adicional, se houver.
+ */
+function conteudoAdobe(largura, altura, titular, quando, fontes, selo) {
+  const pad = 4
+  const nome = winAnsi(titular)
+  const temDetalhes = selo.mostrarRotulo || selo.mostrarData || Boolean(selo.textoExtra)
+  const colunaEsq = temDetalhes ? largura * 0.45 : largura // sem detalhes, o nome ocupa tudo
+  const larguraNome = colunaEsq - 2 * pad
+  const larguraDetalhes = largura - colunaEsq - pad - 2
+
+  // Nome: o maior tamanho (até 26 pt) em que nenhuma palavra precisa ser partida e
+  // as linhas cabem na altura da coluna (como o Acrobat: reduz a fonte, não parte palavras).
+  let tamNome = Math.min(26, altura * 0.5)
+  let linhasNome = quebrarLinhas(nome, fontes.normal, tamNome, larguraNome)
+  while (tamNome > 5 && (palavraMaior(nome, fontes.normal, tamNome) > larguraNome || linhasNome.length * tamNome * 1.15 > altura - 2 * pad)) {
+    tamNome -= 0.5
+    linhasNome = quebrarLinhas(nome, fontes.normal, tamNome, larguraNome)
+  }
+
+  // Detalhes: texto corrido em até 9 pt (ou o tamanho escolhido).
+  const textos = []
+  if (selo.mostrarRotulo) textos.push(`Assinado de forma digital por ${nome}`)
+  if (selo.mostrarData) textos.push(`Dados: ${dataAdobe(quando)}`)
+  if (selo.textoExtra) textos.push(winAnsi(selo.textoExtra))
+  const montar = t => textos.flatMap(x => quebrarLinhas(x, fontes.normal, t, larguraDetalhes))
+  let tamDet = selo.fonte === 'auto' ? 9 : selo.fonte
+  let linhasDet = montar(tamDet)
+  if (selo.fonte === 'auto') {
+    const maiorPalavra = t => Math.max(0, ...textos.map(x => palavraMaior(x, fontes.normal, t)))
+    while (tamDet > 4.5 && (maiorPalavra(tamDet) > larguraDetalhes || linhasDet.length * tamDet * 1.2 > altura - 2 * pad)) {
+      tamDet -= 0.25
+      linhasDet = montar(tamDet)
+    }
+  }
+
+  let ops = ''
+  if (selo.borda) ops += `q 0.5 w 0.45 0.45 0.45 RG 0.25 0.25 ${(largura - 0.5).toFixed(2)} ${(altura - 0.5).toFixed(2)} re S Q\n`
+  ops += `q 0 0 ${largura.toFixed(2)} ${altura.toFixed(2)} re W n\n`
+
+  // Coluna do nome: centralizada na horizontal e na vertical.
+  const passoNome = tamNome * 1.15
+  const topoNome = altura / 2 + (linhasNome.length * passoNome) / 2
+  linhasNome.forEach((linha, i) => {
+    const x = (colunaEsq - fontes.normal.widthOfTextAtSize(linha, tamNome)) / 2
+    const y = topoNome - tamNome * 0.85 - i * passoNome
+    ops += `BT /F1 ${tamNome.toFixed(2)} Tf 0.1 0.1 0.1 rg ${x.toFixed(2)} ${y.toFixed(2)} Td ${literalPdf(linha)} Tj ET\n`
+  })
+
+  // Coluna dos detalhes: alinhada à esquerda, centralizada na vertical.
+  const passoDet = tamDet * 1.2
+  const topoDet = altura / 2 + (linhasDet.length * passoDet) / 2
+  linhasDet.forEach((linha, i) => {
+    const y = topoDet - tamDet * 0.85 - i * passoDet
+    ops += `BT /F1 ${tamDet.toFixed(2)} Tf 0.1 0.1 0.1 rg ${(colunaEsq + pad).toFixed(2)} ${y.toFixed(2)} Td ${literalPdf(linha)} Tj ET\n`
+  })
+  return `${ops}Q\n`
+}
+
+/** Escolhe o estilo do selo conforme as opções do grupo (utils/assinaturas/selo.js). */
+function conteudoDoSelo(largura, altura, titular, quando, fontes, seloEntrada) {
+  const selo = normalizarSelo(seloEntrada)
+  return selo.estilo === 'simples'
+    ? conteudoSimples(largura, altura, titular, quando, fontes, selo)
+    : conteudoAdobe(largura, altura, titular, quando, fontes, selo)
 }
 
 // Matriz do formulário: o selo é desenhado em pé (orientação VISÍVEL); em
@@ -308,11 +433,11 @@ function jaTemAssinatura(pdfDoc) {
  *
  * @param {Uint8Array|ArrayBuffer} bytes   PDF original
  * @param {object} certificado             resultado de lerCertificado
- * @param {{ campo: object, pagina: { modo: string, numero?: number },
+ * @param {{ campo: object, pagina: { modo: string, numero?: number }, selo?: object,
  *           agora?: Date, motivo?: string, local?: string }} opcoes
  * @returns {Promise<{ pdf: Uint8Array, pagina: number }>}  `pagina` é base 1
  */
-export async function assinarPdf(bytes, certificado, { campo, pagina, agora = new Date(), motivo, local }) {
+export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agora = new Date(), motivo, local }) {
   let pdfDoc
   try {
     pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false })
@@ -348,7 +473,7 @@ export async function assinarPdf(bytes, certificado, { campo, pagina, agora = ne
   const largVisivel = girada ? ret.altura : ret.largura
   const altVisivel = girada ? ret.largura : ret.altura
   const aparencia = ctx.register(ctx.stream(
-    conteudoDoSelo(largVisivel, altVisivel, certificado.titular, agora, fonteNormal, fonteNegrito),
+    conteudoDoSelo(largVisivel, altVisivel, certificado.titular, agora, { normal: fonteNormal, negrito: fonteNegrito }, selo),
     {
       Type: 'XObject',
       Subtype: 'Form',

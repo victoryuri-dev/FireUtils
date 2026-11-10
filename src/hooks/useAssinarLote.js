@@ -80,7 +80,7 @@ export function useAssinarLote({ grupos, arquivos }) {
       await pausa()
       try {
         const bytes = new Uint8Array(await arquivo.arquivo.arrayBuffer())
-        const r = await assinarPdf(bytes, certificadoCompleto, { campo: grupo.campo, pagina: grupo.pagina })
+        const r = await assinarPdf(bytes, certificadoCompleto, { campo: grupo.campo, pagina: grupo.pagina, selo: grupo.selo })
         saidas[nomeAssinado(arquivo.nome, usados)] = r.pdf
         atualizar(arquivo.id, { status: 'ok', pagina: r.pagina })
       } catch (e) {

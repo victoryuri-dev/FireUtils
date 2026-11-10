@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ANCORAS, ROTULO_ANCORA, trocarAncora } from '../../utils/assinaturas/geometria'
 import { paraNumero } from '../../utils/numero'
+import PainelSelo from './PainelSelo'
 
 // Campo numérico que aceita digitação livre ("12,5") e só grava valores válidos.
 function CampoMm({ rotulo, valor, onMudar, min = 0, max = 2000 }) {
@@ -33,11 +34,11 @@ function CampoMm({ rotulo, valor, onMudar, min = 0, max = 2000 }) {
 }
 
 /**
- * Ajuste fino do campo do grupo: âncora, distâncias, tamanho e página.
+ * Ajuste fino do campo do grupo: âncora, distâncias, tamanho, página e aparência do selo.
  * `geometria` é a da página de referência (usada para trocar de âncora sem
  * mover o campo de lugar); pode ser ausente enquanto o PDF carrega.
  */
-export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, onPagina }) {
+export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, onPagina, onSelo }) {
   const { campo, pagina } = grupo
   const ancoraDireita = campo.ancora.endsWith('direita')
   const ancoraBaixo = campo.ancora.startsWith('inferior')
@@ -94,6 +95,8 @@ export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, o
         )}
         {totalPaginas ? <span className="text-[11px] text-ink-faint">O arquivo de referência tem {totalPaginas} {totalPaginas === 1 ? 'página' : 'páginas'}.</span> : null}
       </div>
+
+      <PainelSelo grupoId={grupo.id} selo={grupo.selo} onSelo={onSelo}/>
     </div>
   )
 }

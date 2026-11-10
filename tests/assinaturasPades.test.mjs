@@ -235,3 +235,54 @@ test('com bolsas extras, senha errada e MAC corrompido ainda são detectados com
   assert.throws(() => lerCertificado(pfxComBolsasExtras({ chaves, cert, senha: SENHA }), 'errada'), e => e.codigo === 'senha')
   assert.throws(() => lerCertificado(pfxComBolsasExtras({ chaves, cert, senha: SENHA, macCorrompido: true }), SENHA), e => e.codigo === 'senha')
 })
+
+// ── Aparência do selo ─────────────────────────────────────────────────
+import { PDFRawStream } from 'pdf-lib'
+
+// Texto do desenho do selo (o /AP /N do campo de assinatura) num PDF assinado.
+async function desenhoDoSelo(pdf) {
+  const doc = await PDFDocument.load(pdf)
+  const widget = doc.getPages()[0].node.Annots().lookup(0, PDFDict)
+  const normal = widget.lookup(PDFName.of('AP'), PDFDict).lookup(PDFName.of('N'), PDFRawStream)
+  return latin1(normal.contents)
+}
+
+const agoraFixo = new Date(2026, 10, 10, 8, 18, 5) // 10/11/2026 08:18:05, no fuso local
+const campoGrande = { ...campo, larguraMm: 140, alturaMm: 40 } // sem quebra de linha
+
+async function assinarComSelo(selo, c = campoGrande) {
+  const { pdf } = await assinarPdf(await pdfDeTeste(), certificado, { campo: c, pagina: ultima, selo, agora: agoraFixo })
+  return desenhoDoSelo(pdf)
+}
+
+test('selo padrão: estilo Adobe, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
+  const d = await assinarComSelo(undefined)
+  assert.match(d, /Assinado de forma digital por/)
+  assert.match(d, /Dados: 2026\.11\.10 08:18:05 [+-]\d{2}'\d{2}'/)
+  assert.ok(d.includes('(MARIA DA SILVA:00000000000)') || d.includes('MARIA'), 'o nome do titular aparece em destaque')
+  assert.ok(d.includes(' re S'), 'borda por padrão')
+})
+
+test('selo simples usa o texto e a data do estilo anterior', async () => {
+  const d = await assinarComSelo({ estilo: 'simples' })
+  assert.match(d, /Assinado digitalmente por/)
+  assert.match(d, /Data: 10\/11\/2026 08:18:05 [+-]\d{2}:\d{2}/)
+  assert.doesNotMatch(d, /Dados:/)
+})
+
+test('opções do selo: ocultar linhas e borda, texto adicional e tamanho fixo', async () => {
+  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, borda: false, textoExtra: 'CREA 1234-MA', fonte: 7 })
+  assert.doesNotMatch(sem, /Dados:/)
+  assert.doesNotMatch(sem, /Assinado de forma digital/)
+  assert.ok(!sem.includes(' re S'), 'sem borda')
+  assert.match(sem, /CREA 1234-MA/)
+  assert.match(sem, /\/F1 7\.00 Tf/, 'detalhes no tamanho escolhido')
+})
+
+test('o selo nunca parte palavras do nome e continua assinando com nome longo em quadro pequeno', async () => {
+  const c = lerCertificado(criarPfx().pfx, SENHA)
+  c.titular = 'FELLIPE ALVES DE SOUSA - CPF: 000.000.000-00'
+  const { pdf } = await assinarPdf(await pdfDeTeste(), c, { campo: { ...campo, larguraMm: 50, alturaMm: 20 }, pagina: ultima, agora: agoraFixo })
+  const d = latin1(new TextEncoder().encode(await desenhoDoSelo(pdf)))
+  for (const palavra of ['FELLIPE', 'ALVES', 'SOUSA', '000.000.000-00']) assert.ok(d.includes(palavra), `palavra inteira: ${palavra}`)
+})

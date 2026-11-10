@@ -134,6 +134,7 @@ function FerramentaAssinaturas() {
               totalPaginas={medidas.total}
               onCampo={campo => mudarCampo(grupo.id, campo)}
               onPagina={pagina => dispatch({ type: 'DEFINIR_PAGINA', id: grupo.id, pagina })}
+              onSelo={selo => dispatch({ type: 'DEFINIR_SELO', id: grupo.id, selo })}
             />
           ) : (
             <p className="m-0 text-[12px] text-ink-faint">O grupo “{grupo.nome}” está vazio. Arraste arquivos para ele para posicionar o campo.</p>
