@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useLargura } from '../../hooks/useMedidas'
+import { useAlvoGrupo } from '../../hooks/useArrastarArquivos'
 import {
   retanguloVisivel, campoDoRetanguloVisivel, dimensoesVisiveis,
 } from '../../utils/assinaturas/geometria'
@@ -14,7 +15,7 @@ import Icon from '../ui/Icon'
 const LARGURA_MAX_REFERENCIA = 560
 
 // O PDF de referência do grupo, com o campo arrastável por cima.
-function Referencia({ grupo, arquivos, arquivo, ativo, onEscolher, onCampo, onGeometria }) {
+function Referencia({ grupo, arquivo, ativo, onCampo, onGeometria }) {
   const caixa = useRef(null)
   const larguraCaixa = useLargura(caixa, LARGURA_MAX_REFERENCIA)
   const dados = usePaginaPdf(arquivo?.arquivo, grupo.pagina, Boolean(arquivo))
@@ -63,40 +64,30 @@ function Referencia({ grupo, arquivos, arquivo, ativo, onEscolher, onCampo, onGe
     corpo = <div className="py-16 grid place-items-center"><Loader size={28}/></div>
   }
 
-  return (
-    <div className="flex flex-col gap-2.5">
-      <label className="flex items-center gap-2 text-[12px] text-ink-faint min-w-0">
-        <span className="shrink-0">Arquivo de referência</span>
-        <select
-          value={arquivo.id}
-          onChange={e => onEscolher(e.target.value)}
-          className="h-8 min-w-0 py-0 px-2 text-[12px] rounded-md border border-solid border-border bg-bg text-ink"
-        >
-          {arquivos.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-        </select>
-      </label>
-      <div ref={caixa} className="w-full overflow-x-auto pb-1">{corpo}</div>
-    </div>
-  )
+  return <div ref={caixa} className="w-full overflow-x-auto pb-1">{corpo}</div>
 }
 
 /**
  * Um grupo de assinatura na área central: à esquerda o PDF de referência, onde
  * se posiciona o campo; à direita, as miniaturas de TODOS os PDFs do grupo em
  * grade alinhada, mostrando onde o campo cai em cada um. Tocar em qualquer
- * ponto da seção a torna o grupo em edição (o painel da direita acompanha).
+ * ponto da seção a torna o grupo em edição (o painel da direita acompanha) e
+ * soltar arquivos arrastados sobre ela os move para este grupo.
  */
 export default function SecaoGrupo({
-  grupo, arquivos, ativo, refId, onEscolherRef, onAtivar, onCampo, onGeometria,
+  grupo, arquivos, ativo, refId, selecionados, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
 }) {
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
+  // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
+  const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'secao')
 
   return (
     <section
+      ref={setNodeRef}
       aria-label={`Grupo ${grupo.nome}`}
       onPointerDownCapture={() => { if (!ativo) onAtivar(grupo.id) }}
       onFocusCapture={() => { if (!ativo) onAtivar(grupo.id) }}
-      className={`rounded-lg border border-solid bg-surface p-4 sm:p-5 ${ativo ? 'border-red-border' : 'border-border'}`}
+      className={`rounded-lg border border-solid p-4 sm:p-5 transition-colors ${isOver ? 'border-red bg-red-dim' : `bg-surface ${ativo ? 'border-red-border' : 'border-border'}`}`}
     >
       <header className="flex items-center gap-2.5 mb-4">
         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ativo ? 'bg-red' : 'border-2 border-solid border-ink-hint'}`} aria-hidden="true"/>
@@ -121,19 +112,14 @@ export default function SecaoGrupo({
           <div className="xl:w-[560px] shrink-0 min-w-0">
             <Referencia
               grupo={grupo}
-              arquivos={arquivos}
               arquivo={arquivoRef}
               ativo={ativo}
-              onEscolher={id => onEscolherRef(grupo.id, id)}
               onCampo={campo => onCampo(grupo.id, campo)}
               onGeometria={onGeometria}
             />
           </div>
 
           <div className="flex-1 min-w-0" aria-label="Conferência do grupo" role="group">
-            <p className="m-0 mb-3 text-[12px] text-ink-faint">
-              Arraste o campo no arquivo de referência: a posição vale para os {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'} abaixo. Clique numa miniatura para usá-la como referência.
-            </p>
             <div
               className="grid gap-x-4 gap-y-5 items-start"
               style={{ gridTemplateColumns: `repeat(auto-fill, ${LARGURA_QUADRO}px)` }}
@@ -144,7 +130,9 @@ export default function SecaoGrupo({
                   arquivo={a}
                   grupo={grupo}
                   referencia={a.id === arquivoRef?.id}
+                  selecionado={selecionados.includes(a.id)}
                   onEscolher={id => onEscolherRef(grupo.id, id)}
+                  onAlternarSelecao={onAlternarSelecao}
                 />
               ))}
             </div>

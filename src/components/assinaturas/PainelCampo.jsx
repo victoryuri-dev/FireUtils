@@ -44,12 +44,7 @@ export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, o
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="m-0 mb-2 text-[13px] font-semibold text-ink">Posição no grupo “{grupo.nome}”</h3>
-        <p className="m-0 text-[12px] text-ink-faint leading-relaxed">
-          A distância é medida a partir do canto escolhido, em milímetros. Assim o campo fica no mesmo lugar do carimbo mesmo em folhas de tamanhos diferentes.
-        </p>
-      </div>
+      <h3 className="m-0 text-[13px] font-semibold text-ink">Posição no grupo “{grupo.nome}”</h3>
 
       <label className="flex flex-col gap-1">
         <span className="text-[11px] text-ink-faint">Canto de referência</span>

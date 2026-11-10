@@ -7,6 +7,7 @@ import {
 import ListaGrupos from '../components/assinaturas/ListaGrupos'
 import PainelCampo from '../components/assinaturas/PainelCampo'
 import SecaoGrupo from '../components/assinaturas/SecaoGrupo'
+import ProvedorArrastar from '../components/assinaturas/ProvedorArrastar'
 import SemLicenca from '../components/perfil/SemLicenca'
 import Loader from '../components/ui/Loader'
 import Icon from '../components/ui/Icon'
@@ -34,6 +35,8 @@ function FerramentaAssinaturas() {
   const mudarCampo = useCallback((grupoId, campo) => dispatch({ type: 'DEFINIR_CAMPO', id: grupoId, campo }), [])
   const escolherRef = useCallback((grupoId, arquivoId) => setRefs(r => ({ ...r, [grupoId]: arquivoId })), [])
   const ativar = useCallback(id => dispatch({ type: 'SELECIONAR_GRUPO', id }), [])
+  const alternarSelecao = useCallback(id => dispatch({ type: 'ALTERNAR_SELECAO', id }), [])
+  const mover = useCallback((ids, grupoId) => dispatch({ type: 'MOVER_ARQUIVOS', ids, grupoId }), [])
 
   // A referência só reporta a geometria quando muda; evita laço de render.
   const aoMedir = useCallback((geometria, total) => {
@@ -49,6 +52,7 @@ function FerramentaAssinaturas() {
   const semArquivos = estado.arquivos.length === 0
 
   return (
+    <ProvedorArrastar arquivos={estado.arquivos} selecionados={estado.selecionados} onMover={mover}>
     <div
       className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-bg"
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setArrastando(true) } }}
@@ -68,9 +72,6 @@ function FerramentaAssinaturas() {
       <main className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
         <header className="mb-5">
           <h1 className="m-0 font-heading text-[22px] font-semibold text-ink tracking-[-0.02em]">Assinaturas em lote</h1>
-          <p className="m-0 mt-1 text-[13px] text-ink-faint">
-            Cada grupo reúne os PDFs assinados no mesmo lugar: posicione o campo uma vez por grupo. Os arquivos são lidos no seu navegador e não são enviados a nenhum servidor.
-          </p>
         </header>
 
         {semArquivos ? (
@@ -90,7 +91,9 @@ function FerramentaAssinaturas() {
                 arquivos={arquivosDoGrupo(estado, g.id)}
                 ativo={g.id === grupo.id}
                 refId={refs[g.id]}
+                selecionados={estado.selecionados}
                 onEscolherRef={escolherRef}
+                onAlternarSelecao={alternarSelecao}
                 onAtivar={ativar}
                 onCampo={mudarCampo}
                 onGeometria={aoMedir}
@@ -110,18 +113,25 @@ function FerramentaAssinaturas() {
         )}
       </main>
 
-      {!semArquivos && arquivos.length > 0 && (
+      {/* Sempre presente quando há arquivos: se o painel aparecesse e sumisse ao
+          trocar de grupo, a largura da área central mudaria no meio de um arrasto. */}
+      {!semArquivos && (
         <aside className="lg:w-[300px] shrink-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-solid border-border bg-surface p-4" aria-label="Posição do campo">
-          <PainelCampo
-            grupo={grupo}
-            geometria={medidas.geometria}
-            totalPaginas={medidas.total}
-            onCampo={campo => mudarCampo(grupo.id, campo)}
-            onPagina={pagina => dispatch({ type: 'DEFINIR_PAGINA', id: grupo.id, pagina })}
-          />
+          {arquivos.length > 0 ? (
+            <PainelCampo
+              grupo={grupo}
+              geometria={medidas.geometria}
+              totalPaginas={medidas.total}
+              onCampo={campo => mudarCampo(grupo.id, campo)}
+              onPagina={pagina => dispatch({ type: 'DEFINIR_PAGINA', id: grupo.id, pagina })}
+            />
+          ) : (
+            <p className="m-0 text-[12px] text-ink-faint">O grupo “{grupo.nome}” está vazio. Arraste arquivos para ele para posicionar o campo.</p>
+          )}
         </aside>
       )}
     </div>
+    </ProvedorArrastar>
   )
 }
 

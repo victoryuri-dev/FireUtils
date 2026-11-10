@@ -1,10 +1,12 @@
 import { useRef } from 'react'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useVisivel } from '../../hooks/useMedidas'
+import { useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
 import { retanguloVisivel, dimensoesVisiveis } from '../../utils/assinaturas/geometria'
 import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
 import Icon from '../ui/Icon'
+import Checkbox from '../ui/Checkbox'
 
 // Todas as miniaturas ocupam a mesma moldura, qualquer que seja o formato da
 // folha (A1 paisagem, A4 retrato...): assim a grade fica alinhada, com as
@@ -18,10 +20,11 @@ const BORDA = 2
  * calculado sobre a geometria DESTE arquivo (tamanho de folha e rotação
  * próprios). Só carrega quando chega perto da tela.
  */
-export default function MiniaturaArquivo({ arquivo, grupo, referencia, onEscolher }) {
+export default function MiniaturaArquivo({ arquivo, grupo, referencia, selecionado, onEscolher, onAlternarSelecao }) {
   const caixa = useRef(null)
   const noRadar = useVisivel(caixa)
   const dados = usePaginaPdf(arquivo.arquivo, grupo.pagina, noRadar)
+  const { setNodeRef, listeners, attributes, isDragging } = useArquivoArrastavel(arquivo.id, 'miniatura')
 
   let aviso = null
   let rect = null
@@ -41,14 +44,18 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, onEscolhe
   }
 
   return (
-    <figure ref={caixa} className="m-0" style={{ width: LARGURA_QUADRO }}>
+    <figure ref={caixa} className={`m-0 relative ${isDragging ? 'opacity-40' : ''}`} style={{ width: LARGURA_QUADRO }}>
       <button
+        ref={setNodeRef}
         type="button"
+        {...attributes}
+        {...listeners}
         onClick={() => onEscolher(arquivo.id)}
-        title="Usar como arquivo de referência"
+        title="Clique para usar como referência · arraste para outro grupo"
         aria-label={`Usar ${arquivo.nome} como referência`}
         aria-pressed={referencia}
-        className={`flex items-center justify-center w-full p-0 cursor-pointer rounded-md bg-surface-2 border-2 border-solid ${referencia ? 'border-red' : 'border-transparent hover:border-border'}`}
+        aria-roledescription="arrastável"
+        className={`flex items-center justify-center w-full p-0 cursor-grab active:cursor-grabbing rounded-md bg-surface-2 border-2 border-solid ${referencia ? 'border-red' : 'border-transparent hover:border-border'}`}
         style={{ height: ALTURA_QUADRO }}
       >
         {dados.status === 'ok' ? (
@@ -63,6 +70,9 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, onEscolhe
           </span>
         )}
       </button>
+      <span className="absolute top-2 left-2 rounded-[4px] bg-surface/90 p-0.5">
+        <Checkbox checked={selecionado} onChange={() => onAlternarSelecao(arquivo.id)} title={`Selecionar ${arquivo.nome}`}/>
+      </span>
       <figcaption className="mt-1.5">
         <div className="text-[11px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</div>
         {aviso && (
