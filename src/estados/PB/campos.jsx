@@ -2,7 +2,7 @@ import { useProjeto } from '../../context/ProjetoContext'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { getMemorialFormulario } from '../../data/normas/index'
 import {
-  ATESTOS_PB, atestoMarcado, resumoBrigadaPB, INTERVALO_SIMULADOS_PADRAO, ESTAGIOS_EXISTENTE, ESTAGIOS_COM_ADAPTACOES,
+  ATESTOS_PB, SPDA_CAMPOS, SPDA_EQUIPOTENCIAL, atestoMarcado, resumoBrigadaPB, INTERVALO_SIMULADOS_PADRAO, ESTAGIOS_EXISTENTE, ESTAGIOS_COM_ADAPTACOES,
   distanciaMaximaPontosPB, tiposIluminacaoPB, secoesIluminacaoPB, DETECTORES_PB,
   contextoFormularioPB, resultadoExtintoresPB, especiaisExtintoresPB, especialMarcado, ATESTOS_BOMBAS_MARCAVEIS,
 } from './formulario'
@@ -564,5 +564,47 @@ export function CamposAcessoViaturaPB() {
         </FormSection>
       )}
     </>
+  )
+}
+
+// 19 — SPDA: exigível ou não conforme o laudo (análise de risco da NBR 5419)
+// e, sendo exigível, as características do formulário.
+export function CamposSpdaPB() {
+  const { m, set } = useCamposPB()
+  const sp = m.spda || {}
+  const setSp = changes => set({ spda: { ...sp, ...changes } })
+  const exigivel = sp.exigivel !== 'nao'
+  const eq = sp.equipotencial || []
+  return (
+    <BoxPB item="19">
+      <div className="flex flex-col gap-2">
+        <Rotulo>Exigibilidade conforme o laudo</Rotulo>
+        <div className="flex gap-2">
+          <BotaoOpcao ativo={exigivel} onClick={() => setSp({ exigivel: 'sim' })}>Exigível</BotaoOpcao>
+          <BotaoOpcao ativo={!exigivel} onClick={() => setSp({ exigivel: 'nao' })}>Não exigível (conforme análise de risco anexa)</BotaoOpcao>
+        </div>
+      </div>
+      {exigivel && (
+        <>
+          <div className="g2">
+            {SPDA_CAMPOS.map(([key, label]) => (
+              <div key={key} className="fg">
+                <label>{label.replace(/:$/, '')}</label>
+                <input value={sp.campos?.[key] || ''} onChange={e => setSp({ campos: { ...(sp.campos || {}), [key]: e.target.value } })}/>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col">
+            <Rotulo>Seção mínima dos condutores de ligação equipotencial</Rotulo>
+            <div className="flex flex-col gap-0.5 -mx-2.5 mt-1.5">
+              {SPDA_EQUIPOTENCIAL.map(([key, label]) => (
+                <Marcador key={key} label={label} checked={eq.includes(key)}
+                  onChange={() => setSp({ equipotencial: eq.includes(key) ? eq.filter(k => k !== key) : [...eq, key] })}/>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </BoxPB>
   )
 }

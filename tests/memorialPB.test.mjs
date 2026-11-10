@@ -738,3 +738,18 @@ test('1. endereço da edificação: CEP depois do número', () => {
   const s = secao(gerar(projeto({ endereco: 'Rua A', numero: '300', cep: '58000-000', complemento: 'Bloco 2' })), '1.')
   assert.equal(valorCampo(s, 'Endereço da edificação:'), 'Rua A, 300, CEP 58000-000 — Bloco 2')
 })
+
+test('19. SPDA: com o SPDA marcado, exigível por padrão e preenchido; "não exigível" conforme laudo deixa o item em branco', () => {
+  const base = { sistemasPorEstrutura: { e1: { spda: true } } }
+  const cheio = projeto({ ...base, memorialPB: { spda: { campos: { tipoSistema: 'Gaiola de Faraday', nivelProtecao: 'III' }, equipotencial: ['cobre'] } } })
+  const s = secao(gerar(cheio), '19.')
+  assert.equal(s.linhas.find(l => l.tipo === 'exigivel').exigivel, true)
+  assert.equal(valorCampo(s, 'Tipo de sistema:'), 'Gaiola de Faraday')
+  assert.deepEqual(marcados(s), ['Cobre (16mm²)'])
+  const nao = projeto({ ...base, memorialPB: { spda: { exigivel: 'nao', campos: { tipoSistema: 'Gaiola' }, equipotencial: ['aco'] } } })
+  const s2 = secao(gerar(nao), '19.')
+  assert.equal(s2.linhas.find(l => l.tipo === 'exigivel').exigivel, false)
+  assert.equal(valorCampo(s2, 'Tipo de sistema:'), '')
+  assert.deepEqual(marcados(s2), [])
+  assert.equal(secao(gerar(projeto()), '19.').linhas.find(l => l.tipo === 'exigivel').exigivel, null)   // SPDA não marcado
+})

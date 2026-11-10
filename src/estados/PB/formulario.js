@@ -1113,19 +1113,38 @@ function secaoChuveiros(ctx) {
   }
 }
 
-function secaoSpda(ctx) {
+// 19 — campos do SPDA (preenchidos na página da PB) e ligação equipotencial.
+export const SPDA_CAMPOS = [
+  ['tipoSistema', 'Tipo de sistema:'],
+  ['nivelProtecao', 'Nível de proteção:'],
+  ['alturaCaptor', 'Altura de instalação do captor:'],
+  ['anguloProtecao', 'Angulo de proteção (método Franklin):'],
+  ['raioEsfera', 'Raio da esfera rolante (m) no método eletro geométrico:'],
+  ['afastamentoMalhas', 'Afastamento máximo dos condutores das malhas (m):'],
+  ['materialCondutores', 'Material dos condutores:'],
+  ['secaoSuperior20', 'Seção mínima (mm²) de Captores e descidas em estrutura superior a 20m:'],
+  ['secaoInferior20', 'Seção mínima (mm²) das descidas em estrutura inferior a 20m:'],
+  ['secaoAterramentoCobre', 'Seção mínima (mm²) do eletrodo de aterramento de cobre (mínimo 50mm²):'],
+  ['secaoAterramentoAco', 'Seção mínima (mm²) do eletrodo de aterramento de aço ou embutido (mínimo 80mm²):'],
+]
+export const SPDA_EQUIPOTENCIAL = [['cobre', 'Cobre (16mm²)'], ['aluminio', 'Alumínio (25mm²)'], ['aco', 'Aço (50mm²)']]
+
+function secaoSpda(state, ctx) {
   // O app não tem regra de exigência pro SPDA (depende da análise de risco
-  // da NBR 5419): só marca "exigível" quando o RT o adotou.
-  const exigivel = ctx.sistemas?.spda?.ativo ? true : null
+  // da NBR 5419): com o SPDA marcado nas medidas, o RT informa na página se
+  // é exigível ou não conforme o laudo (padrão: exigível).
+  const sp = state.memorialPB?.spda || {}
+  const exigivel = ctx.sistemas?.spda?.ativo ? sp.exigivel !== 'nao' : null
+  const v = key => (exigivel ? (sp.campos?.[key] || '').trim() : '')
+  const eq = new Set(exigivel ? sp.equipotencial || [] : [])
   return {
     titulo: '19. SISTEMA DE PROTEÇÃO CONTRA DESCARGAS ATMOSFÉRICAS', nota: '(Informe e/ou marque X nas características do SPDA, conforme NBR ABNT 5419)',
     linhas: [
       { tipo: 'exigivel', exigivel, rotuloNao: 'NÃO EXIGÍVEL (conforme análise de risco anexa)' },
-      ...['Tipo de sistema:', 'Nível de proteção:', 'Altura de instalação do captor:', 'Angulo de proteção (método Franklin):', 'Raio da esfera rolante (m) no método eletro geométrico:', 'Afastamento máximo dos condutores das malhas (m):', 'Material dos condutores:', 'Seção mínima (mm²) de Captores e descidas em estrutura superior a 20m:', 'Seção mínima (mm²) das descidas em estrutura inferior a 20m:', 'Seção mínima (mm²) do eletrodo de aterramento de cobre (mínimo 50mm²):', 'Seção mínima (mm²) do eletrodo de aterramento de aço ou embutido (mínimo 80mm²):']
-        .map(l => campo(l)),
+      ...SPDA_CAMPOS.map(([key, label]) => campo(label, v(key))),
       { tipo: 'texto', centro: true, negrito: true, texto: 'Seção mínima dos condutores de ligação equipotencial' },
-      ck(c('Cobre (16mm²)'), c('Alumínio (25mm²)'), c('Aço (50mm²)')),
-      obs('OBSERVAÇÕES LIVRES:'),
+      ck(...SPDA_EQUIPOTENCIAL.map(([key, label]) => ({ x: eq.has(key), label }))),
+      obs('OBSERVAÇÕES LIVRES:', exigivel === false ? '' : obsDe(state, 'spda')),
     ],
   }
 }
@@ -1195,7 +1214,7 @@ export function buildFormularioPB(state, sistemas, porEstrutura) {
       secaoExtintores(state, F, ctx),
       secaoHidrantes(state, ctx),
       secaoChuveiros(ctx),
-      secaoSpda(ctx),
+      secaoSpda(state, ctx),
       secaoIsolamento(),
     ]),
   }
