@@ -153,16 +153,25 @@ function FerramentaAssinaturas() {
           ))}
           <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
         </div>
-        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 px-4 py-3 bg-surface border-t border-solid border-border-2">
-          <button
-            type="button"
-            className="btn-primary w-full justify-center h-10"
-            disabled={semArquivos}
-            title={semArquivos ? 'Adicione PDFs para assinar' : undefined}
-            onClick={() => setAssinando(true)}
-          >
-            <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
-          </button>
+        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 bg-surface border-t border-solid border-border-2">
+          <div className="px-4 py-3">
+            <button
+              type="button"
+              className="btn-primary w-full justify-center h-10"
+              disabled={semArquivos}
+              title={semArquivos ? 'Adicione PDFs para assinar' : undefined}
+              onClick={() => setAssinando(true)}
+            >
+              <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
+            </button>
+          </div>
+          {/* Espaço reservado: o botão flutuante de feedback (fixo, 48 px, a 24 px do fundo e
+              colado na borda direita) sempre cairia em cima do canto do botão de assinar.
+              Em telas largas o botão sobe e o canto de baixo fica livre para ele; o aviso
+              ocupa o resto, sem passar por baixo do widget. */}
+          <div className="hidden lg:block h-[76px] px-4 pr-16 text-[11px] leading-snug text-ink-faint">
+            Os PDFs são assinados neste navegador e não são enviados a nenhum servidor.
+          </div>
         </div>
       </aside>
       {assinando && (
