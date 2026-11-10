@@ -77,7 +77,7 @@ function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
  * soltar arquivos arrastados sobre ela os move para este grupo.
  */
 export default function SecaoGrupo({
-  grupo, arquivos, ativo, refId, selecionados, titularPrevia, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
+  grupo, arquivos, ativo, refId, selecionados, titularPrevia, soltar, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
 }) {
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
   // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
@@ -87,10 +87,16 @@ export default function SecaoGrupo({
     <section
       ref={setNodeRef}
       aria-label={`Grupo ${grupo.nome}`}
+      {...soltar?.props}
       onPointerDownCapture={() => { if (!ativo) onAtivar(grupo.id) }}
       onFocusCapture={() => { if (!ativo) onAtivar(grupo.id) }}
-      className={`rounded-lg border border-solid p-4 sm:p-5 transition-colors ${isOver ? 'border-red bg-red-dim' : `bg-surface ${ativo ? 'border-red-border' : 'border-border'}`}`}
+      className={`relative rounded-lg border border-solid p-4 sm:p-5 transition-colors ${isOver || soltar?.alvo ? 'border-red bg-red-dim' : `bg-surface ${ativo ? 'border-red-border' : 'border-border'}`}`}
     >
+      {soltar?.alvo && (
+        <div className="absolute inset-2 z-10 rounded-md border-2 border-dashed border-red grid place-items-center pointer-events-none bg-surface/70" aria-hidden="true">
+          <span className="text-[14px] font-semibold text-red">Solte para adicionar ao {grupo.nome}</span>
+        </div>
+      )}
       <header className="flex items-center gap-2.5 mb-4">
         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ativo ? 'bg-red' : 'border-2 border-solid border-ink-hint'}`} aria-hidden="true"/>
         <h2 className="m-0 min-w-0 truncate font-heading text-[16px] font-semibold text-ink">{grupo.nome}</h2>

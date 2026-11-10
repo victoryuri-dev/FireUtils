@@ -55,12 +55,12 @@ function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
 }
 
 // Um grupo da lista: também é um alvo onde soltar arquivos arrastados.
-function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, dispatch, onRemoverArquivos }) {
+function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, dispatch, onRemoverArquivos }) {
   const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'lista')
-  const borda = isOver ? 'border-red bg-red-dim' : ativo ? 'border-red-border bg-surface' : 'border-border bg-surface'
+  const borda = isOver || soltar?.alvo ? 'border-red bg-red-dim' : ativo ? 'border-red-border bg-surface' : 'border-border bg-surface'
 
   return (
-    <li ref={setNodeRef} className={`rounded-lg border border-solid transition-colors ${borda}`}>
+    <li ref={setNodeRef} {...soltar?.props} className={`rounded-lg border border-solid transition-colors ${borda}`}>
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <button
           type="button"
@@ -118,7 +118,7 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, dispatch
  * arquivo (ou a miniatura) até o grupo de destino; se houver arquivos marcados,
  * arrastar um deles leva todos.
  */
-export default function ListaGrupos({ estado, dispatch, onAdicionar, onRemoverArquivos, onNovoGrupo }) {
+export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onRemoverArquivos, onNovoGrupo }) {
   const inputRef = useRef(null)
   const { grupos, selecionados, grupoAtivoId } = estado
 
@@ -160,6 +160,7 @@ export default function ListaGrupos({ estado, dispatch, onAdicionar, onRemoverAr
             ativo={grupo.id === grupoAtivoId}
             podeRemover={grupos.length > 1}
             selecionados={selecionados}
+            soltar={soltar?.(grupo.id)}
             dispatch={dispatch}
             onRemoverArquivos={onRemoverArquivos}
           />

@@ -7,6 +7,7 @@ import {
 import ListaGrupos from '../components/assinaturas/ListaGrupos'
 import SecaoCertificados from '../components/assinaturas/SecaoCertificados'
 import { useCertificadosSalvos } from '../hooks/useCertificadosSalvos'
+import { useSoltarArquivos } from '../hooks/useSoltarArquivos'
 import PainelCampo from '../components/assinaturas/PainelCampo'
 import SecaoGrupo from '../components/assinaturas/SecaoGrupo'
 import ProvedorArrastar from '../components/assinaturas/ProvedorArrastar'
@@ -23,7 +24,6 @@ function FerramentaAssinaturas() {
   const [estado, dispatch] = useReducer(reducer, undefined, () => estadoInicial())
   // Arquivo de referência de cada grupo: { [grupoId]: arquivoId }.
   const [refs, setRefs] = useState({})
-  const [arrastando, setArrastando] = useState(false)
   const [medidas, setMedidas] = useState({ geometria: null, total: null })
   const [assinando, setAssinando] = useState(false)
   // Nome do último certificado escolhido: a prévia do selo passa a mostrá-lo.
@@ -58,11 +58,13 @@ function FerramentaAssinaturas() {
     setMedidas(m => (m.geometria === geometria && m.total === total ? m : { geometria, total }))
   }, [])
 
-  function aoSoltar(e) {
-    e.preventDefault()
-    setArrastando(false)
-    adicionar(Array.from(e.dataTransfer.files), grupo.id)
-  }
+  // PDFs soltos do computador: entram no grupo sob o mouse, que passa a ser o grupo em edição.
+  const aoSoltarArquivos = useCallback((arquivos, grupoId) => {
+    adicionar(arquivos, grupoId)
+    dispatch({ type: 'SELECIONAR_GRUPO', id: grupoId })
+  }, [adicionar])
+  const { alvo: alvoDeArquivos, propsDoAlvo, propsDoFundo } = useSoltarArquivos(aoSoltarArquivos)
+  const soltarNoGrupo = grupoId => ({ alvo: alvoDeArquivos === grupoId, props: propsDoAlvo(grupoId) })
 
   const semArquivos = estado.arquivos.length === 0
 
@@ -70,14 +72,13 @@ function FerramentaAssinaturas() {
     <ProvedorArrastar arquivos={estado.arquivos} selecionados={estado.selecionados} onMover={mover}>
     <div
       className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-bg"
-      onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setArrastando(true) } }}
-      onDragLeave={e => { if (e.currentTarget === e.target) setArrastando(false) }}
-      onDrop={aoSoltar}
+      {...propsDoFundo}
     >
       <aside className="lg:w-[320px] shrink-0 lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-solid border-border bg-surface p-4" aria-label="Grupos e arquivos">
         <ListaGrupos
           estado={estado}
           dispatch={dispatch}
+          soltar={soltarNoGrupo}
           onAdicionar={adicionar}
           onRemoverArquivos={remover}
           onNovoGrupo={() => dispatch({ type: 'CRIAR_GRUPO', id: novoId() })}
@@ -102,8 +103,11 @@ function FerramentaAssinaturas() {
         </header>
 
         {semArquivos ? (
-          <div className="grid place-items-center text-center rounded-lg border-2 border-dashed border-border bg-surface px-6 py-16">
-            <div>
+          <div
+            {...propsDoAlvo(grupo.id)}
+            className={`grid place-items-center text-center rounded-lg border-2 border-dashed px-6 py-16 transition-colors ${alvoDeArquivos === grupo.id ? 'border-red bg-red-dim' : 'border-border bg-surface'}`}
+          >
+            <div className="pointer-events-none">
               <div className="mx-auto mb-3 w-11 h-11 rounded-full bg-surface-2 grid place-items-center text-ink-muted"><Icon name="upload" size={18}/></div>
               <p className="m-0 mb-1 text-[14px] font-semibold text-ink">Solte os PDFs aqui</p>
               <p className="m-0 text-[12px] text-ink-faint">ou use “Adicionar PDFs” na lateral. Pranchas e demais documentos, de uma vez.</p>
@@ -120,6 +124,7 @@ function FerramentaAssinaturas() {
                 refId={refs[g.id]}
                 selecionados={estado.selecionados}
                 titularPrevia={titularPrevia}
+                soltar={soltarNoGrupo(g.id)}
                 onEscolherRef={escolherRef}
                 onAlternarSelecao={alternarSelecao}
                 onAtivar={ativar}
@@ -127,12 +132,6 @@ function FerramentaAssinaturas() {
                 onGeometria={aoMedir}
               />
             ))}
-          </div>
-        )}
-
-        {arrastando && (
-          <div className="absolute inset-3 rounded-lg border-2 border-dashed border-red bg-red-dim grid place-items-center pointer-events-none" aria-hidden="true">
-            <span className="text-[14px] font-semibold text-red">Solte para adicionar ao grupo “{grupo.nome}”</span>
           </div>
         )}
       </main>
