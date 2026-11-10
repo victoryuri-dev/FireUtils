@@ -19,6 +19,10 @@ function Atalho({ icone, titulo, descricao, children }) {
   )
 }
 
+// Atalho "Abrir assinaturas" no perfil: oculto por enquanto. A ferramenta continua
+// acessível em /assinaturas (com login e licença); mude para `true` para mostrar o atalho.
+const MOSTRAR_ATALHO_ASSINATURAS = false
+
 // Seção "Ferramentas disponíveis" do perfil: atalhos para o que a conta pode
 // usar — só aparecem os que a licença libera. O plugin é para Revit
 // (Hidrantes/Saídas, ou o PRO); o Memorial roda aqui na plataforma.
@@ -32,7 +36,7 @@ export default function FerramentasDisponiveis() {
   }
 
   const memorial = temAcesso(licencas, 'memorial')
-  const assinaturas = temAcesso(licencas, 'assinaturas')
+  const assinaturas = MOSTRAR_ATALHO_ASSINATURAS && temAcesso(licencas, 'assinaturas')
   const plugin = temAcesso(licencas, 'hidrantes') || temAcesso(licencas, 'saidas')
 
   async function baixarPlugin() {
