@@ -77,9 +77,11 @@ export default function CampoAssinatura({ rect, escala, limite, onMudar, editave
       onPointerCancel={terminar}
       onKeyDown={teclado}
     >
-      <span className="absolute inset-0 grid place-items-center text-[11px] font-semibold text-red pointer-events-none overflow-hidden px-1 text-center">
-        {rotulo}
-      </span>
+      {estilo.width >= 70 && (
+        <span className="absolute inset-0 grid place-items-center text-[11px] font-semibold text-red pointer-events-none overflow-hidden px-1 text-center">
+          {rotulo}
+        </span>
+      )}
       {!pequeno && CANTOS.map(c => (
         <span
           key={c.modo}

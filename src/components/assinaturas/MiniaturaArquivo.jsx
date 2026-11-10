@@ -1,12 +1,17 @@
 import { useRef } from 'react'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useVisivel } from '../../hooks/useMedidas'
-import { retanguloVisivel } from '../../utils/assinaturas/geometria'
+import { retanguloVisivel, dimensoesVisiveis } from '../../utils/assinaturas/geometria'
 import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
 import Icon from '../ui/Icon'
 
-export const LARGURA_MINIATURA = 168
+// Todas as miniaturas ocupam a mesma moldura, qualquer que seja o formato da
+// folha (A1 paisagem, A4 retrato...): assim a grade fica alinhada, com as
+// legendas na mesma linha. A página é centralizada e encolhida para caber.
+export const LARGURA_QUADRO = 176
+export const ALTURA_QUADRO = 200
+const BORDA = 2
 
 /**
  * Miniatura de conferência: a página que será assinada, com o campo do grupo
@@ -20,9 +25,15 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, onEscolhe
 
   let aviso = null
   let rect = null
+  let larguraPx = 0
   if (dados.status === 'ok') {
     rect = retanguloVisivel(grupo.campo, dados.geometria)
     if (rect.fora) aviso = 'O campo não cabe nesta página'
+    const vis = dimensoesVisiveis(dados.geometria)
+    larguraPx = Math.floor(Math.min(
+      LARGURA_QUADRO - 2 * BORDA - 8,
+      ((ALTURA_QUADRO - 2 * BORDA - 8) * vis.largura) / vis.altura,
+    ))
   } else if (dados.status === 'sem-pagina') {
     aviso = `O arquivo tem ${dados.total} ${dados.total === 1 ? 'página' : 'páginas'}; a página escolhida não existe`
   } else if (dados.status === 'erro') {
@@ -30,24 +41,26 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, onEscolhe
   }
 
   return (
-    <figure ref={caixa} className="m-0" style={{ width: LARGURA_MINIATURA }}>
+    <figure ref={caixa} className="m-0" style={{ width: LARGURA_QUADRO }}>
       <button
         type="button"
         onClick={() => onEscolher(arquivo.id)}
         title="Usar como arquivo de referência"
         aria-label={`Usar ${arquivo.nome} como referência`}
-        className={`block w-full p-0 bg-transparent cursor-pointer rounded-sm border-2 border-solid ${referencia ? 'border-red' : 'border-transparent hover:border-border'}`}
+        aria-pressed={referencia}
+        className={`flex items-center justify-center w-full p-0 cursor-pointer rounded-md bg-surface-2 border-2 border-solid ${referencia ? 'border-red' : 'border-transparent hover:border-border'}`}
+        style={{ height: ALTURA_QUADRO }}
       >
         {dados.status === 'ok' ? (
-          <PaginaPdf pagina={dados.pagina} geometria={dados.geometria} larguraPx={LARGURA_MINIATURA - 4}>
+          <PaginaPdf pagina={dados.pagina} geometria={dados.geometria} larguraPx={larguraPx}>
             {({ escala, visivel }) => (
               <CampoAssinatura rect={rect} escala={escala} limite={visivel} editavel={false}/>
             )}
           </PaginaPdf>
         ) : (
-          <div className="grid place-items-center bg-surface-2 text-ink-faint text-[11px] text-center px-2" style={{ width: LARGURA_MINIATURA - 4, height: 110 }}>
+          <span className="grid place-items-center text-ink-faint text-[11px] text-center px-2">
             {dados.status === 'carregando' ? 'Carregando…' : aviso ? <Icon name="warn" size={18}/> : null}
-          </div>
+          </span>
         )}
       </button>
       <figcaption className="mt-1.5">
