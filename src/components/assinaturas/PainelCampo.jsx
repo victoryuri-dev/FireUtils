@@ -38,7 +38,7 @@ function CampoMm({ rotulo, valor, onMudar, min = 0, max = 2000 }) {
  * `geometria` é a da página de referência (usada para trocar de âncora sem
  * mover o campo de lugar); pode ser ausente enquanto o PDF carrega.
  */
-export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, onPagina, onSelo }) {
+export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSelo }) {
   const { campo, pagina } = grupo
   const ancoraDireita = campo.ancora.endsWith('direita')
   const ancoraBaixo = campo.ancora.startsWith('inferior')
@@ -93,7 +93,6 @@ export default function PainelCampo({ grupo, geometria, totalPaginas, onCampo, o
             />
           </label>
         )}
-        {totalPaginas ? <span className="text-[11px] text-ink-faint">O arquivo de referência tem {totalPaginas} {totalPaginas === 1 ? 'página' : 'páginas'}.</span> : null}
       </div>
 
       <PainelSelo grupoId={grupo.id} selo={grupo.selo} onSelo={onSelo}/>

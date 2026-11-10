@@ -69,7 +69,9 @@ export default function FeedbackWidget() {
   }
 
   return (
-    <div className="platform-theme fixed bottom-6 right-0 z-[900] flex flex-col items-end gap-5" data-theme="dark">
+    // Em telas largas, a página pode declarar uma lateral fixa à direita (--feedback-direita,
+    // ex.: 300px na ferramenta de assinaturas); o botão fica ao lado dela, e não por cima.
+    <div className="platform-theme fixed bottom-6 right-0 lg:right-[var(--feedback-direita,0px)] z-[900] flex flex-col items-end gap-5" data-theme="dark">
       {open && <div className="fixed inset-0 z-40" onClick={fechar}/>}
       {montado && (
         <form

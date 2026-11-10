@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useReducer, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useAcesso } from '../hooks/useLicencas'
 import { liberarPdf } from '../lib/pdfjs'
 import {
@@ -30,6 +30,13 @@ function FerramentaAssinaturas() {
   const [titularLido, setTitularLido] = useState(undefined)
   // Certificados salvos na conta; o selecionado é o usado ao assinar.
   const certificados = useCertificadosSalvos()
+  // A lateral direita ocupa 300 px à direita (a partir de lg). Declara isso para o botão
+  // flutuante de feedback (FeedbackWidget) ficar ao lado dela, e não por cima do botão de assinar.
+  useEffect(() => {
+    const raiz = document.documentElement
+    raiz.style.setProperty('--feedback-direita', '300px')
+    return () => raiz.style.removeProperty('--feedback-direita')
+  }, [])
   const [adicionandoCert, setAdicionandoCert] = useState(false)
   // A prévia do selo mostra o nome do certificado selecionado (ou do último que foi lido).
   const titularPrevia = certificados.selecionado?.titular ?? titularLido
@@ -135,7 +142,7 @@ function FerramentaAssinaturas() {
           sempre montada (também sem arquivos), para a largura da área central não mudar no
           meio de um arrasto. O botão fica fixo no rodapé, sempre à vista. */}
       <aside
-        className="lg:w-[300px] shrink-0 lg:overflow-y-auto flex flex-col border-t lg:border-t-0 lg:border-l border-solid border-border bg-surface p-4"
+        className="lg:w-[300px] shrink-0 lg:overflow-y-auto flex flex-col border-t lg:border-t-0 lg:border-l border-solid border-border bg-surface px-4 pt-4 pb-0"
         aria-label="Ajustes e assinatura"
       >
         <div className="flex flex-col gap-4 flex-1 pb-4">
@@ -143,7 +150,6 @@ function FerramentaAssinaturas() {
             <PainelCampo
               grupo={grupo}
               geometria={medidas.geometria}
-              totalPaginas={medidas.total}
               onCampo={campo => mudarCampo(grupo.id, campo)}
               onPagina={pagina => dispatch({ type: 'DEFINIR_PAGINA', id: grupo.id, pagina })}
               onSelo={selo => dispatch({ type: 'DEFINIR_SELO', id: grupo.id, selo })}
@@ -153,8 +159,8 @@ function FerramentaAssinaturas() {
           ))}
           <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
         </div>
-        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 bg-surface border-t border-solid border-border-2">
-          <div className="px-4 py-3">
+        <div className="sticky bottom-0 -mx-4 mt-4 bg-surface border-t border-solid border-border-2">
+          <div className="px-4 pt-3 pb-0">
             <button
               type="button"
               className="btn-primary w-full justify-center h-10"
@@ -164,13 +170,6 @@ function FerramentaAssinaturas() {
             >
               <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
             </button>
-          </div>
-          {/* Espaço reservado: o botão flutuante de feedback (fixo, 48 px, a 24 px do fundo e
-              colado na borda direita) sempre cairia em cima do canto do botão de assinar.
-              Em telas largas o botão sobe e o canto de baixo fica livre para ele; o aviso
-              ocupa o resto, sem passar por baixo do widget. */}
-          <div className="hidden lg:block h-[76px] px-4 pr-16 text-[11px] leading-snug text-ink-faint">
-            Os PDFs são assinados neste navegador e não são enviados a nenhum servidor.
           </div>
         </div>
       </aside>
