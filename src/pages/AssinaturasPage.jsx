@@ -23,6 +23,8 @@ function FerramentaAssinaturas() {
   const [arrastando, setArrastando] = useState(false)
   const [medidas, setMedidas] = useState({ geometria: null, total: null })
   const [assinando, setAssinando] = useState(false)
+  // Nome do último certificado escolhido: a prévia do selo passa a mostrá-lo.
+  const [titularPrevia, setTitularPrevia] = useState(undefined)
 
   const grupo = grupoAtivo(estado)
   const arquivos = useMemo(() => arquivosDoGrupo(estado, grupo.id), [estado, grupo.id])
@@ -106,6 +108,7 @@ function FerramentaAssinaturas() {
                 ativo={g.id === grupo.id}
                 refId={refs[g.id]}
                 selecionados={estado.selecionados}
+                titularPrevia={titularPrevia}
                 onEscolherRef={escolherRef}
                 onAlternarSelecao={alternarSelecao}
                 onAtivar={ativar}
@@ -143,7 +146,7 @@ function FerramentaAssinaturas() {
       )}
       {assinando && (
         <Suspense fallback={null}>
-          <ModalAssinar grupos={estado.grupos} arquivos={estado.arquivos} onFechar={() => setAssinando(false)}/>
+          <ModalAssinar grupos={estado.grupos} arquivos={estado.arquivos} onTitular={setTitularPrevia} onFechar={() => setAssinando(false)}/>
         </Suspense>
       )}
     </div>

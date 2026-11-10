@@ -18,8 +18,9 @@ const CANTOS = [
  * @param limite    { largura, altura } da página visível, em pt
  * @param onMudar   recebe o novo retângulo em pt
  * @param editavel  false = só mostra (miniaturas)
+ * @param previa    nó opcional (prévia do selo) mostrado dentro do campo
  */
-export default function CampoAssinatura({ rect, escala, limite, onMudar, editavel = true, rotulo = 'Assinatura' }) {
+export default function CampoAssinatura({ rect, escala, limite, onMudar, editavel = true, rotulo = 'Assinatura', previa = null }) {
   const arrasto = useRef(null)
   const minimo = { largura: mmParaPt(MIN_MM.largura), altura: mmParaPt(MIN_MM.altura) }
 
@@ -77,7 +78,10 @@ export default function CampoAssinatura({ rect, escala, limite, onMudar, editave
       onPointerCancel={terminar}
       onKeyDown={teclado}
     >
-      {estilo.width >= 70 && (
+      {previa ? (
+        // Prévia do selo (a assinatura como vai sair no PDF) no lugar do rótulo.
+        <span className="absolute inset-0 pointer-events-none overflow-hidden">{previa}</span>
+      ) : estilo.width >= 70 && (
         <span className="absolute inset-0 grid place-items-center text-[11px] font-semibold text-red pointer-events-none overflow-hidden px-1 text-center">
           {rotulo}
         </span>

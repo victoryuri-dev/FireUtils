@@ -30,7 +30,7 @@ const ROTULO_STATUS = { aguardando: 'Aguardando', assinando: 'Assinando…', ok:
  * Diálogo de assinatura em lote. O certificado (.pfx) e a senha ficam só na
  * memória: nada é enviado a servidor e a chave é descartada ao terminar.
  */
-export default function ModalAssinar({ grupos, arquivos, onFechar }) {
+export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular }) {
   const lote = useAssinarLote({ grupos, arquivos })
   const { fase, erro, certificado, itens, resultado } = lote
   const [pfx, setPfx] = useState(null)
@@ -44,6 +44,9 @@ export default function ModalAssinar({ grupos, arquivos, onFechar }) {
     .filter(x => x.total > 0)
   const total = grupos_com_arquivos.reduce((s, x) => s + x.total, 0)
   const executando = fase === 'executando'
+
+  // O nome do certificado lido alimenta a prévia do selo na página.
+  useEffect(() => { if (certificado?.titular) onTitular?.(certificado.titular) }, [certificado, onTitular])
 
   // Esc fecha (menos no meio da assinatura); o foco começa dentro do diálogo.
   useEffect(() => {

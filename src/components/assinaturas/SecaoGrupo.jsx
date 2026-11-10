@@ -8,6 +8,7 @@ import {
 import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
 import MiniaturaArquivo, { LARGURA_QUADRO } from './MiniaturaArquivo'
+import PreviaSelo from './PreviaSelo'
 import Loader from '../ui/Loader'
 import Icon from '../ui/Icon'
 
@@ -15,7 +16,7 @@ import Icon from '../ui/Icon'
 const LARGURA_MAX_REFERENCIA = 560
 
 // O PDF de referência do grupo, com o campo arrastável por cima.
-function Referencia({ grupo, arquivo, ativo, onCampo, onGeometria }) {
+function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
   const caixa = useRef(null)
   const larguraCaixa = useLargura(caixa, LARGURA_MAX_REFERENCIA)
   const dados = usePaginaPdf(arquivo?.arquivo, grupo.pagina, Boolean(arquivo))
@@ -42,6 +43,7 @@ function Referencia({ grupo, arquivo, ativo, onCampo, onGeometria }) {
             escala={escala}
             limite={visivel}
             onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, grupo.campo.ancora))}
+            previa={<PreviaSelo largura={rect.largura} altura={rect.altura} titular={titular} selo={grupo.selo}/>}
           />
         )}
       </PaginaPdf>
@@ -75,7 +77,7 @@ function Referencia({ grupo, arquivo, ativo, onCampo, onGeometria }) {
  * soltar arquivos arrastados sobre ela os move para este grupo.
  */
 export default function SecaoGrupo({
-  grupo, arquivos, ativo, refId, selecionados, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
+  grupo, arquivos, ativo, refId, selecionados, titularPrevia, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
 }) {
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
   // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
@@ -114,6 +116,7 @@ export default function SecaoGrupo({
               grupo={grupo}
               arquivo={arquivoRef}
               ativo={ativo}
+              titular={titularPrevia}
               onCampo={campo => onCampo(grupo.id, campo)}
               onGeometria={onGeometria}
             />
