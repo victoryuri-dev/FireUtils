@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useLargura } from '../../hooks/useMedidas'
 import { useAlvoGrupo } from '../../hooks/useArrastarArquivos'
@@ -10,6 +11,7 @@ import CampoAssinatura from './CampoAssinatura'
 import MiniaturaArquivo from './MiniaturaArquivo'
 import CarrosselMiniaturas from './CarrosselMiniaturas'
 import PreviaSelo from './PreviaSelo'
+import VisorMaximizado from './VisorMaximizado'
 import Loader from '../ui/Loader'
 import Icon from '../ui/Icon'
 
@@ -19,6 +21,9 @@ const LARGURA_MAX_REFERENCIA = 480
 // O PDF de referência do grupo, com o campo arrastável por cima.
 function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
   const caixa = useRef(null)
+  // Elemento onde o visor é montado (ou null = fechado). Fora do box do grupo: o box usa
+  // container query, que em alguns navegadores prende elementos `fixed` ao próprio box.
+  const [alvoDoVisor, setAlvoDoVisor] = useState(null)
   const larguraCaixa = useLargura(caixa, LARGURA_MAX_REFERENCIA)
   const dados = usePaginaPdf(arquivo?.arquivo, grupo.pagina, Boolean(arquivo))
 
@@ -37,17 +42,42 @@ function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
     const larguraPx = Math.max(220, Math.min(larguraCaixa, LARGURA_MAX_REFERENCIA, Math.floor((alturaMax * vis.largura) / vis.altura)))
     const rect = retanguloVisivel(grupo.campo, geometria)
     corpo = (
-      <PaginaPdf pagina={dados.pagina} geometria={geometria} larguraPx={larguraPx}>
-        {({ escala, visivel }) => (
-          <CampoAssinatura
-            rect={rect}
-            escala={escala}
-            limite={visivel}
-            onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, grupo.campo.ancora))}
-            previa={<PreviaSelo largura={rect.largura} altura={rect.altura} titular={titular} selo={grupo.selo}/>}
-          />
+      <>
+        <PaginaPdf pagina={dados.pagina} geometria={geometria} larguraPx={larguraPx}>
+          {({ escala, visivel }) => (
+            <>
+              <CampoAssinatura
+                rect={rect}
+                escala={escala}
+                limite={visivel}
+                onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, grupo.campo.ancora))}
+                previa={<PreviaSelo largura={rect.largura} altura={rect.altura} titular={titular} selo={grupo.selo}/>}
+              />
+              <button
+                type="button"
+                onClick={() => setAlvoDoVisor(caixa.current?.closest('.platform-theme') ?? document.body)}
+                title="Maximizar a folha (zoom para posicionar com precisão)"
+                aria-label="Maximizar a folha"
+                className="absolute top-2 right-2 z-10 w-8 h-8 grid place-items-center rounded-md border border-solid border-border bg-surface/90 text-ink shadow-[var(--shadow-sm)] cursor-pointer hover:bg-surface-2"
+              >
+                <Icon name="maximize" size={15}/>
+              </button>
+            </>
+          )}
+        </PaginaPdf>
+        {alvoDoVisor && createPortal(
+          <VisorMaximizado
+            pagina={dados.pagina}
+            geometria={geometria}
+            grupo={grupo}
+            titular={titular}
+            nomeArquivo={arquivo.nome}
+            onCampo={onCampo}
+            onFechar={() => setAlvoDoVisor(null)}
+          />,
+          alvoDoVisor,
         )}
-      </PaginaPdf>
+      </>
     )
   } else if (dados.status === 'sem-pagina') {
     corpo = (

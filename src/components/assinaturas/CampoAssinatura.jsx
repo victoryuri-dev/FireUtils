@@ -12,7 +12,7 @@ const CANTOS = [
 /**
  * Retângulo do campo de assinatura sobre a página: arrasta pelo corpo,
  * redimensiona pelos cantos e, com foco, anda 1 mm pelas setas (10 mm com
- * Shift). Trabalha em pontos da página visível; `escala` converte para pixels.
+ * Shift, 0,1 mm com Alt). Trabalha em pontos da página visível; `escala` converte para pixels.
  *
  * @param rect      { x, y, largura, altura } em pt (visível)
  * @param limite    { largura, altura } da página visível, em pt
@@ -58,7 +58,7 @@ export default function CampoAssinatura({ rect, escala, limite, onMudar, editave
   function terminar() { arrasto.current = null }
 
   function teclado(e) {
-    const passo = mmParaPt(e.shiftKey ? 10 : 1)
+    const passo = mmParaPt(e.altKey ? 0.1 : e.shiftKey ? 10 : 1)
     const delta = { ArrowLeft: [-passo, 0], ArrowRight: [passo, 0], ArrowUp: [0, -passo], ArrowDown: [0, passo] }[e.key]
     if (!delta) return
     e.preventDefault()
@@ -69,7 +69,7 @@ export default function CampoAssinatura({ rect, escala, limite, onMudar, editave
     <div
       role="group"
       tabIndex={0}
-      aria-label={`Campo de assinatura. Use as setas para mover, Shift para passos de 10 mm.`}
+      aria-label={`Campo de assinatura. Use as setas para mover 1 mm, Shift para 10 mm e Alt para 0,1 mm.`}
       className={`absolute border-2 border-solid ${cor} cursor-move touch-none outline-offset-2 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-red`}
       style={estilo}
       onPointerDown={e => iniciar(e, 'mover')}
