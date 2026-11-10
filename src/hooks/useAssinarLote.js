@@ -41,6 +41,7 @@ export function useAssinarLote({ grupos, arquivos }) {
         validoAte: completo.validoAte,
         vencido: completo.vencido,
         icpBrasil: completo.icpBrasil,
+        autoassinado: completo.autoassinado,
       })
       setFase('confirmar')
       return true

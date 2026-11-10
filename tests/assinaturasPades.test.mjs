@@ -176,3 +176,62 @@ test('senha errada num .pfx legado é "senha", e erro de leitura traz detalhe t�
   assert.throws(() => lerCertificado(rc4, 'errada'), e => e.codigo === 'senha')
   assert.throws(() => lerCertificado(new TextEncoder().encode('lixo'), SENHA), e => e.codigo === 'formato' && typeof e.detalhe === 'string' && e.detalhe.length > 0)
 })
+
+// ── .pfx com bolsas extras (como os IDs digitais do Adobe Reader) ─────
+// Monta um PFX à mão: chave cifrada + certificado + uma secretBag e uma crlBag que
+// o leitor deve IGNORAR (o node-forge sozinho aborta com "Unsupported SafeBag type").
+function pfxComBolsasExtras({ chaves, cert, senha, macCorrompido = false }) {
+  const oidNo = o => A.create(A.Class.UNIVERSAL, A.Type.OID, false, A.oidToDer(o).getBytes())
+  const seq = (...v) => A.create(A.Class.UNIVERSAL, A.Type.SEQUENCE, true, v)
+  const ctx0 = v => A.create(A.Class.CONTEXT_SPECIFIC, 0, true, [v])
+  const octeto = b => A.create(A.Class.UNIVERSAL, A.Type.OCTETSTRING, false, b)
+  const inteiro = n => A.create(A.Class.UNIVERSAL, A.Type.INTEGER, false, A.integerToDer(n).getBytes())
+  const nulo = () => A.create(A.Class.UNIVERSAL, A.Type.NULL, false, '')
+  const bolsa = (oid, valor) => seq(oidNo(oid), ctx0(valor))
+  const DATA = '1.2.840.113549.1.7.1'
+
+  const chaveCifrada = forge.pki.encryptPrivateKeyInfo(
+    forge.pki.wrapRsaPrivateKey(forge.pki.privateKeyToAsn1(chaves.privateKey)), senha, { algorithm: 'aes128' })
+  const certDer = A.toDer(forge.pki.certificateToAsn1(cert)).getBytes()
+  const safeContents = seq(
+    bolsa('1.2.840.113549.1.12.10.1.5', seq(oidNo('1.2.3.4.5'), ctx0(octeto('segredo')))),                 // secretBag
+    bolsa('1.2.840.113549.1.12.10.1.2', chaveCifrada),                                                    // chave
+    bolsa('1.2.840.113549.1.12.10.1.4', seq(oidNo('1.2.840.113549.1.9.23.1'), ctx0(octeto('crl')))),      // crlBag
+    bolsa('1.2.840.113549.1.12.10.1.3', seq(oidNo('1.2.840.113549.1.9.22.1'), ctx0(octeto(certDer)))),    // certificado
+  )
+  const authSafeDer = A.toDer(seq(seq(oidNo(DATA), ctx0(octeto(A.toDer(safeContents).getBytes()))))).getBytes()
+
+  const sal = forge.random.getBytesSync(8)
+  const iteracoes = 2048
+  const chaveMac = forge.pki.pbe.generatePkcs12Key(senha, forge.util.createBuffer(sal), 3, iteracoes, 20, forge.md.sha1.create())
+  const hmac = forge.hmac.create()
+  hmac.start(forge.md.sha1.create(), chaveMac)
+  hmac.update(authSafeDer)
+  let digest = hmac.getMac().getBytes()
+  if (macCorrompido) digest = digest.replace(/^./, c => String.fromCharCode(c.charCodeAt(0) ^ 0xff))
+  const macData = seq(seq(seq(oidNo('1.3.14.3.2.26'), nulo()), octeto(digest)), octeto(sal), inteiro(iteracoes))
+
+  const pfx = seq(inteiro(3), seq(oidNo(DATA), ctx0(octeto(authSafeDer))), macData)
+  return Uint8Array.from(A.toDer(pfx).getBytes(), c => c.charCodeAt(0))
+}
+
+test('lê um .pfx com bolsas extras (secretBag, crlBag), ignora o que não interessa e assina', async () => {
+  const { cert, chaves } = criarPfx({ politicaIcp: false })
+  const pfxExtras = pfxComBolsasExtras({ chaves, cert, senha: SENHA })
+
+  // O forge sozinho recusa este arquivo: é exatamente o defeito que o leitor próprio corrige.
+  assert.throws(() => forge.pkcs12.pkcs12FromAsn1(A.fromDer(forge.util.createBuffer(pfxExtras)), SENHA), /SafeBag/)
+
+  const c = lerCertificado(pfxExtras, SENHA)
+  assert.equal(c.titular, 'MARIA DA SILVA:00000000000')
+  assert.equal(c.autoassinado, true, 'emissor == titular')
+  assert.equal(c.icpBrasil, false)
+  const { pdf } = await assinarPdf(await pdfDeTeste(), c, { campo, pagina: ultima })
+  assert.ok(lerAssinatura(pdf).d > 0)
+})
+
+test('com bolsas extras, senha errada e MAC corrompido ainda são detectados como "senha"', () => {
+  const { cert, chaves } = criarPfx({ politicaIcp: false })
+  assert.throws(() => lerCertificado(pfxComBolsasExtras({ chaves, cert, senha: SENHA }), 'errada'), e => e.codigo === 'senha')
+  assert.throws(() => lerCertificado(pfxComBolsasExtras({ chaves, cert, senha: SENHA, macCorrompido: true }), SENHA), e => e.codigo === 'senha')
+})

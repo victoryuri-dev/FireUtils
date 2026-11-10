@@ -23,9 +23,8 @@ import {
   EncryptedPDFError,
 } from 'pdf-lib'
 import { retanguloPdf, indiceDaPagina, normalizarRotacao } from '../utils/assinaturas/geometria.js'
-import { habilitarCifrasLegadas, NOME_DA_CIFRA } from './pkcs12Legado.js'
-
-habilitarCifrasLegadas()
+import { NOME_DA_CIFRA } from './pkcs12Legado.js'
+import { lerPfx, ErroPfx } from './pkcs12.js'
 
 /** Erro com código para a interface mostrar a mensagem certa. */
 export class ErroAssinatura extends Error {
@@ -94,38 +93,34 @@ function ehIcpBrasil(cert) {
  * @param {Uint8Array|ArrayBuffer} pfx
  * @param {string} senha
  * @returns {{ titular, emissor, validoDe: Date, validoAte: Date, vencido: boolean,
- *             icpBrasil: boolean, certificados: object[], chave: object, cert: object }}
+ *             icpBrasil: boolean, autoassinado: boolean, certificados: object[],
+ *             chave: object, cert: object }}
  */
 export function lerCertificado(pfx, senha) {
-  let p12
+  let lido
   try {
-    p12 = forge.pkcs12.pkcs12FromAsn1(A.fromDer(paraBinario(pfx)), senha || '')
+    lido = lerPfx(pfx, senha || '')
   } catch (e) {
-    const msg = String(e?.message || e)
-    if (/mac could not be verified|invalid password|password/i.test(msg)) {
-      throw new ErroAssinatura('senha', 'Senha do certificado incorreta.')
-    }
-    const detalhe = e?.oid ? `${msg} [OID ${e.oid}${NOME_DA_CIFRA[e.oid] ? ` = ${NOME_DA_CIFRA[e.oid]}` : ''}]` : msg
-    if (e?.oid) {
+    if (!(e instanceof ErroPfx)) throw e
+    if (e.codigo === 'senha') throw new ErroAssinatura('senha', 'Senha do certificado incorreta.')
+    if (e.oid) {
       const nome = NOME_DA_CIFRA[e.oid] ? `“${NOME_DA_CIFRA[e.oid]}”` : `desconhecido (OID ${e.oid})`
-      throw new ErroAssinatura('formato', `Este arquivo .pfx usa um algoritmo de criptografia ${nome} que o navegador ainda não consegue ler. Reexportar o certificado pelo Windows (ou com “openssl pkcs12 -export -legacy”) costuma resolver.`, detalhe)
+      throw new ErroAssinatura('formato', `Este arquivo .pfx usa um algoritmo de criptografia ${nome} que o navegador ainda não consegue ler. Reexportar o certificado pelo Windows (ou com “openssl pkcs12 -export -legacy”) costuma resolver.`, e.detalhe)
     }
-    throw new ErroAssinatura('formato', 'Não foi possível ler este arquivo. Confira se é um certificado .pfx ou .p12 válido e se a senha está correta.', detalhe)
+    throw new ErroAssinatura('formato', e.message, e.detalhe)
   }
 
-  const oids = forge.pki.oids
-  const chaves = [
-    ...(p12.getBags({ bagType: oids.pkcs8ShroudedKeyBag })[oids.pkcs8ShroudedKeyBag] || []),
-    ...(p12.getBags({ bagType: oids.keyBag })[oids.keyBag] || []),
-  ]
-  const certificados = (p12.getBags({ bagType: oids.certBag })[oids.certBag] || []).map(b => b.cert).filter(Boolean)
-  const chave = chaves.map(b => b.key).find(Boolean)
-  if (!chave || !certificados.length) {
-    throw new ErroAssinatura('formato', 'O arquivo não contém uma chave privada e um certificado.')
+  if (!lido.chaves.length) {
+    throw new ErroAssinatura(
+      lido.chavesNaoRsa ? 'chave' : 'formato',
+      lido.chavesNaoRsa ? 'Só certificados com chave RSA são aceitos.' : 'O arquivo não contém uma chave privada.',
+    )
   }
-  if (!chave.n || !chave.d) {
-    throw new ErroAssinatura('chave', 'Só certificados com chave RSA são aceitos.')
+  if (!lido.certificados.length) {
+    throw new ErroAssinatura('formato', 'O arquivo não contém um certificado.')
   }
+  const chave = lido.chaves[0]
+  const certificados = lido.certificados
   const cert = certificados.find(c => c.publicKey?.n && c.publicKey.n.compareTo(chave.n) === 0)
   if (!cert) {
     throw new ErroAssinatura('formato', 'Nenhum certificado do arquivo corresponde à chave privada.')
@@ -139,6 +134,7 @@ export function lerCertificado(pfx, senha) {
     validoAte: cert.validity.notAfter,
     vencido: agora > cert.validity.notAfter || agora < cert.validity.notBefore,
     icpBrasil: ehIcpBrasil(cert),
+    autoassinado: cert.isIssuer(cert),
     certificados,
     chave,
     cert,

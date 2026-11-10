@@ -155,7 +155,12 @@ export default function ModalAssinar({ grupos, arquivos, onFechar }) {
             ) : (
               <div className="ibox amber m-0">
                 <Icon name="warn" size={14} color="var(--color-amber)" className="shrink-0"/>
-                <span>Este certificado não parece ser ICP-Brasil. A assinatura será criada, mas não terá validade como assinatura ICP-Brasil.</span>
+                <span>
+                  {certificado.autoassinado
+                    ? 'Este certificado é autoassinado (como os IDs digitais criados no Adobe Reader), e não emitido por uma autoridade certificadora. '
+                    : 'Este certificado não parece ser ICP-Brasil. '}
+                  A assinatura será criada e o PDF não poderá ser alterado sem que isso apareça, mas os leitores de PDF mostrarão “identidade desconhecida” e ela não terá validade como assinatura ICP-Brasil.
+                </span>
               </div>
             )}
 
