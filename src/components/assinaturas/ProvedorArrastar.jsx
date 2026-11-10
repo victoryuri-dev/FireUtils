@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  DndContext, DragOverlay, PointerSensor, KeyboardSensor, MeasuringStrategy, useSensor, useSensors, pointerWithin,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, MeasuringStrategy, useSensor, useSensors, pointerWithin,
 } from '@dnd-kit/core'
 import Icon from '../ui/Icon'
 
@@ -13,7 +13,9 @@ import Icon from '../ui/Icon'
 export default function ProvedorArrastar({ arquivos, selecionados, onMover, children }) {
   const [carga, setCarga] = useState(null) // { ids, nome }
   const sensores = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    // Toque: pressão longa, para não competir com a rolagem da página.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   )
 

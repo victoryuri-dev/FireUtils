@@ -72,11 +72,8 @@ test('remover arquivos também tira da seleção', () => {
   assert.deepEqual(s.selecionados, [])
 })
 
-test('renomear ignora nome vazio; página do grupo é mesclada', () => {
+test('a página do grupo é mesclada', () => {
   let s = estadoInicial('g1')
-  assert.equal(reducer(s, { type: 'RENOMEAR_GRUPO', id: 'g1', nome: '   ' }), s)
-  s = reducer(s, { type: 'RENOMEAR_GRUPO', id: 'g1', nome: ' Pranchas A1 ' })
-  assert.equal(s.grupos[0].nome, 'Pranchas A1')
   s = reducer(s, { type: 'DEFINIR_PAGINA', id: 'g1', pagina: { modo: 'numero', numero: 2 } })
   assert.deepEqual(s.grupos[0].pagina, { modo: 'numero', numero: 2 })
 })

@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useDndContext } from '@dnd-kit/core'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useVisivel } from '../../hooks/useMedidas'
 import { useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
@@ -25,6 +26,7 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
   const noRadar = useVisivel(caixa)
   const dados = usePaginaPdf(arquivo.arquivo, grupo.pagina, noRadar)
   const { setNodeRef, listeners, attributes, isDragging } = useArquivoArrastavel(arquivo.id, 'miniatura')
+  const arrastando = Boolean(useDndContext().active)
 
   let aviso = null
   let rect = null
@@ -44,7 +46,7 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
   }
 
   return (
-    <figure ref={caixa} className={`m-0 relative ${isDragging ? 'opacity-40' : ''}`} style={{ width: LARGURA_QUADRO }}>
+    <figure ref={caixa} className={`group m-0 relative ${isDragging ? 'opacity-40' : ''}`} style={{ width: LARGURA_QUADRO }}>
       <button
         ref={setNodeRef}
         type="button"
@@ -70,7 +72,17 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
           </span>
         )}
       </button>
-      <span className="absolute top-2 left-2 rounded-[4px] bg-surface/90 p-0.5">
+      {/* O seletor só aparece com o mouse em cima ou com o arquivo selecionado, e
+          some durante qualquer arrasto. Não inicia arrasto (pointer/teclado). */}
+      <span
+        className={`absolute top-2 left-2 rounded-[4px] bg-surface/90 p-0.5 transition-opacity ${
+          arrastando ? 'opacity-0 pointer-events-none'
+            : selecionado ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+        }`}
+        onPointerDown={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
         <Checkbox checked={selecionado} onChange={() => onAlternarSelecao(arquivo.id)} title={`Selecionar ${arquivo.nome}`}/>
       </span>
       <figcaption className="mt-1.5">

@@ -1,79 +1,55 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
+import { useDndContext } from '@dnd-kit/core'
 import { arquivosDoGrupo, formatarTamanho } from '../../utils/assinaturas/grupos'
 import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
 
-function NomeDoGrupo({ grupo, onRenomear }) {
-  const [editando, setEditando] = useState(false)
-  const [texto, setTexto] = useState(grupo.nome)
-
-  function confirmar() {
-    setEditando(false)
-    if (texto.trim() && texto.trim() !== grupo.nome) onRenomear(grupo.id, texto)
-  }
-
-  if (editando) {
-    return (
-      <input
-        autoFocus
-        value={texto}
-        onChange={e => setTexto(e.target.value)}
-        onBlur={confirmar}
-        onKeyDown={e => {
-          if (e.key === 'Enter') confirmar()
-          if (e.key === 'Escape') setEditando(false)
-        }}
-        aria-label="Nome do grupo"
-        className="min-w-0 flex-1 h-7 py-0 px-2 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
-      />
-    )
-  }
-  return (
-    <>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{grupo.nome}</span>
-      <button
-        type="button"
-        onClick={() => { setTexto(grupo.nome); setEditando(true) }}
-        title="Renomear grupo"
-        aria-label={`Renomear ${grupo.nome}`}
-        className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint hover:text-ink hover:bg-surface-2"
-      >
-        <Icon name="edit" size={12}/>
-      </button>
-    </>
-  )
-}
-
-// Linha de um arquivo: alça para arrastar, caixa de seleção, nome e remover.
-function LinhaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
+// Box de um arquivo: o box inteiro é a área de arrastar. Selecionar e remover
+// só aparecem com o mouse em cima ou com o arquivo selecionado, e somem
+// durante qualquer arrasto (para não ficarem por cima do que está sendo movido).
+function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
   const { setNodeRef, listeners, attributes, isDragging } = useArquivoArrastavel(arquivo.id, 'linha')
+  const { active } = useDndContext()
+  const arrastando = Boolean(active)
+
+  const visibilidade = arrastando
+    ? 'opacity-0 pointer-events-none'
+    : selecionado
+      ? 'opacity-100'
+      : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+
   return (
-    <li ref={setNodeRef} className={`flex items-center gap-1.5 pr-3 pl-1 py-1.5 hover:bg-surface-2 ${isDragging ? 'opacity-40' : ''}`}>
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        title="Arraste para outro grupo"
-        aria-label={`Arrastar ${arquivo.nome} para outro grupo`}
-        className="w-5 h-6 grid place-items-center rounded-sm text-ink-hint hover:text-ink cursor-grab active:cursor-grabbing touch-none bg-transparent border-0 p-0"
+    <li
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      role="group"
+      aria-label={`${arquivo.nome}. Arraste para outro grupo.`}
+      className={`group relative rounded-md border border-solid px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-colors ${
+        selecionado ? 'border-red bg-red-dim' : 'border-border bg-bg hover:border-ink-hint'
+      } ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <span className="block pr-14 text-[12px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</span>
+      <span className="block text-[10px] text-ink-faint">{formatarTamanho(arquivo.tamanho)}</span>
+
+      {/* Os controles não iniciam arrasto: pointer e teclado não sobem ao box. */}
+      <span
+        className={`absolute top-1.5 right-1.5 flex items-center gap-1.5 transition-opacity ${visibilidade}`}
+        onPointerDown={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
       >
-        <Icon name="grip" size={14}/>
-      </button>
-      <Checkbox checked={selecionado} onChange={onAlternar} title={`Selecionar ${arquivo.nome}`}/>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</span>
-        <span className="block text-[10px] text-ink-faint">{formatarTamanho(arquivo.tamanho)}</span>
+        <Checkbox checked={selecionado} onChange={onAlternar} title={`Selecionar ${arquivo.nome}`}/>
+        <button
+          type="button"
+          onClick={onRemover}
+          title="Remover da lista"
+          aria-label={`Remover ${arquivo.nome}`}
+          className="w-5 h-5 grid place-items-center rounded-sm text-ink-faint hover:text-red bg-transparent border-0 p-0"
+        >
+          <Icon name="x" size={13}/>
+        </button>
       </span>
-      <button
-        type="button"
-        onClick={onRemover}
-        title="Remover da lista"
-        aria-label={`Remover ${arquivo.nome}`}
-        className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint hover:text-red"
-      >
-        <Icon name="x" size={12}/>
-      </button>
     </li>
   )
 }
@@ -93,7 +69,7 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, dispatch
           aria-pressed={ativo}
           className={`w-2.5 h-2.5 rounded-full border-2 border-solid shrink-0 ${ativo ? 'border-red bg-red' : 'border-ink-hint bg-transparent hover:border-ink-muted'}`}
         />
-        <NomeDoGrupo grupo={grupo} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{grupo.nome}</span>
         <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{arquivos.length}</span>
         {podeRemover && (
           <button
@@ -118,9 +94,9 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, dispatch
                 Selecionar todos
               </button>
             </div>
-            <ul className="list-none p-0 m-0 max-h-[320px] overflow-y-auto">
+            <ul className="list-none m-0 px-2.5 pb-2.5 flex flex-col gap-2 max-h-[360px] overflow-y-auto">
               {arquivos.map(a => (
-                <LinhaArquivo
+                <CaixaArquivo
                   key={a.id}
                   arquivo={a}
                   selecionado={selecionados.includes(a.id)}
@@ -138,8 +114,8 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, dispatch
 
 /**
  * Grupos de assinatura e seus arquivos. Cada grupo é um conjunto de PDFs
- * assinados no mesmo lugar. Para trocar arquivos de grupo, arraste-os (pela
- * alça ou pela miniatura) até o grupo de destino; se houver arquivos marcados,
+ * assinados no mesmo lugar. Para trocar arquivos de grupo, arraste o box do
+ * arquivo (ou a miniatura) até o grupo de destino; se houver arquivos marcados,
  * arrastar um deles leva todos.
  */
 export default function ListaGrupos({ estado, dispatch, onAdicionar, onRemoverArquivos, onNovoGrupo }) {
