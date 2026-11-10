@@ -437,12 +437,12 @@
    tabelas por seção, faixa vermelha no título e laranja nas subseções,
    caixas de marcar X à esquerda. Fonte menor que o texto corrido do memorial
    (seletor mais específico que `.print-area-memorial table *` acima). */
-.print-area-memorial .pbf *:not(sup):not(sub) { font-size: 8.5pt; line-height: 1.3; }
-.print-area-memorial .pbf .pbf-cabecalho * { font-size: 9.5pt; }
+.print-area-memorial .pbf *:not(sup):not(sub) { font-size: 10pt; line-height: 1.25; }
+.print-area-memorial .pbf .pbf-cabecalho * { font-size: 10pt; }
 .print-area-memorial .pbf .pbf-titulo-doc { font-size: 10pt; font-weight: 700; text-decoration: underline; }
 .pbf { color: #000; }
 .pbf-cabecalho { text-align: center; margin-bottom: 10pt; }
-.pbf-logo { display: block; width: 26mm; height: 26mm; object-fit: contain; margin: 0 auto 4pt; }
+.pbf-logo { display: block; width: 22mm; height: 22mm; object-fit: contain; margin: 0 auto 4pt; }
 .pbf-tabela { width: 100%; border-collapse: collapse; margin-bottom: 9pt; table-layout: fixed; }
 .pbf-tabela td, .pbf-tabela th { border: 1px solid #000; padding: 0; vertical-align: stretch; }
 .pbf-secao { background: #c00000; color: #fff; text-align: left; font-weight: 400; padding: 2pt 4pt !important; }
@@ -467,7 +467,7 @@
 .pbf-justificado { text-align: justify; }
 .pbf-grupo { display: grid; grid-template-columns: 16pt 32% 1fr; }
 .pbf-grupo > div { padding: 0 4pt; }
-.print-area-memorial .pbf .pbf-grupo * { line-height: 1.15; }
+.print-area-memorial .pbf .pbf-grupo * { line-height: 1; }
 .pbf-continua { break-before: page; }
 .pbf-continuacao { background: #c55a11; color: #fff; text-align: left; font-weight: 700; padding: 2pt 4pt !important; }
 .pbf-grupo-nome { border-left: 1px solid #000; border-right: 1px solid #000; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 700; text-decoration: underline; }

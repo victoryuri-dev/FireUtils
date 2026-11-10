@@ -13,7 +13,7 @@ import { siglaConselho } from '../../utils/conselho'
 const MARGENS = { t: 15, r: 15, b: 22, l: 20 }
 const LARGURA = mmTw(210 - MARGENS.l - MARGENS.r)
 const CAIXA = ptTw(16)
-const SZ = 8.5
+const SZ = 10   // fonte padrão do formulário do CBMPB
 const VERMELHO = 'C00000', LARANJA = 'C55A11', CINZA = '7F7F7F'
 
 const p = (runs, o) => par(runs, { linha: 252, ...o })
@@ -82,11 +82,14 @@ function linhasDe(linha) {
     case 'grupo': {
       // 16pt | 32% | resto — o nome do grupo mesclado na vertical.
       const nome = Math.round((LARGURA - CAIXA) * 0.32)
+      // Linhas compactas (entrelinha simples, sem margem vertical), como no
+      // modelo: os grupos A–F cabem na 1ª folha.
+      const pc = (runs, o = {}) => par(runs, { linha: 240, ...o })
       return linha.itens.map((it, i) => ({
         cels: [
-          celCaixa(it.x),
-          { w: nome, vMerge: i === 0 ? 'restart' : 'continue', conteudo: i === 0 ? p(t(linha.titulo, { b: true, u: true }), { alinha: 'center' }) : p('') },
-          { w: LARGURA - CAIXA - nome, conteudo: p(t(it.label)) },
+          { w: CAIXA, compacta: true, conteudo: pc(t(it.x ? 'X' : '', { b: true }), { alinha: 'center' }) },
+          { w: nome, compacta: true, vMerge: i === 0 ? 'restart' : 'continue', conteudo: i === 0 ? pc(t(linha.titulo, { b: true, u: true }), { alinha: 'center' }) : pc('') },
+          { w: LARGURA - CAIXA - nome, compacta: true, conteudo: pc(t(it.label)) },
         ],
       }))
     }
@@ -118,10 +121,10 @@ function secaoOoxml(secao) {
   return tabelas.map(ls => tabelaGrade(ls, { largura: LARGURA })).join(p('', { linha: 20 })) + p('', { depois: 9 })
 }
 
-// Brasão do CBMPB no topo, como no modelo (26 mm).
+// Brasão do CBMPB no topo, como no modelo (22 mm).
 function cabecalhoOoxml(norma, comLogo) {
-  const c = texto => p(run(texto, { sz: 9.5 }), { alinha: 'center' })
-  return (comLogo ? p(imagemInline('rIdLogo', 26, 26, 2), { alinha: 'center', depois: 4 }) : '')
+  const c = texto => p(run(texto, { sz: SZ }), { alinha: 'center' })
+  return (comLogo ? p(imagemInline('rIdLogo', 22, 22, 2), { alinha: 'center', depois: 4 }) : '')
     + c('ESTADO DA PARAÍBA')
     + c('Secretária de Estado da Segurança e da Defesa Social')
     + c(norma.orgao.replace(' — ', '- '))

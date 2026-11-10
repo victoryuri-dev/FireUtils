@@ -73,6 +73,8 @@ export function tabelaGrade(linhas, { largura, borda = true, margemCel = { t: 20
         span > 1 ? `<w:gridSpan w:val="${span}"/>` : '',
         c.vMerge ? `<w:vMerge${c.vMerge === 'restart' ? ' w:val="restart"' : ''}/>` : '',
         c.fundo ? `<w:shd w:val="clear" w:color="auto" w:fill="${c.fundo}"/>` : '',
+        // `compacta`: sem margem em cima/embaixo (linhas densas, ex.: 3.1 da PB).
+        c.compacta ? '<w:tcMar><w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/></w:tcMar>' : '',
         `<w:vAlign w:val="${c.alinhaV || 'center'}"/>`,
       ].join('')
       // Célula do Word precisa terminar num parágrafo.
