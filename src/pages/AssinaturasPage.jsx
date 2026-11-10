@@ -83,23 +83,11 @@ function FerramentaAssinaturas() {
           onRemoverArquivos={remover}
           onNovoGrupo={() => dispatch({ type: 'CRIAR_GRUPO', id: novoId() })}
         />
-        <div className="mt-4">
-          <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
-        </div>
       </aside>
 
       <main className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
-        <header className="mb-5 flex items-center justify-between gap-3">
+        <header className="mb-5">
           <h1 className="m-0 font-heading text-[22px] font-semibold text-ink tracking-[-0.02em]">Assinaturas em lote</h1>
-          <button
-            type="button"
-            className="btn-primary shrink-0"
-            disabled={semArquivos}
-            title={semArquivos ? 'Adicione PDFs para assinar' : undefined}
-            onClick={() => setAssinando(true)}
-          >
-            <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
-          </button>
         </header>
 
         {semArquivos ? (
@@ -143,9 +131,15 @@ function FerramentaAssinaturas() {
 
       {/* Sempre presente quando há arquivos: se o painel aparecesse e sumisse ao
           trocar de grupo, a largura da área central mudaria no meio de um arrasto. */}
-      {!semArquivos && (
-        <aside className="lg:w-[300px] shrink-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-solid border-border bg-surface p-4" aria-label="Posição do campo">
-          {arquivos.length > 0 ? (
+      {/* Lateral direita: ajustes do grupo em edição, certificado e o botão de assinar. Fica
+          sempre montada (também sem arquivos), para a largura da área central não mudar no
+          meio de um arrasto. O botão fica fixo no rodapé, sempre à vista. */}
+      <aside
+        className="lg:w-[300px] shrink-0 lg:overflow-y-auto flex flex-col border-t lg:border-t-0 lg:border-l border-solid border-border bg-surface p-4"
+        aria-label="Ajustes e assinatura"
+      >
+        <div className="flex flex-col gap-4 flex-1 pb-4">
+          {!semArquivos && (arquivos.length > 0 ? (
             <PainelCampo
               grupo={grupo}
               geometria={medidas.geometria}
@@ -156,9 +150,21 @@ function FerramentaAssinaturas() {
             />
           ) : (
             <p className="m-0 text-[12px] text-ink-faint">O grupo “{grupo.nome}” está vazio. Arraste arquivos para ele para posicionar o campo.</p>
-          )}
-        </aside>
-      )}
+          ))}
+          <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
+        </div>
+        <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 px-4 py-3 bg-surface border-t border-solid border-border-2">
+          <button
+            type="button"
+            className="btn-primary w-full justify-center h-10"
+            disabled={semArquivos}
+            title={semArquivos ? 'Adicione PDFs para assinar' : undefined}
+            onClick={() => setAssinando(true)}
+          >
+            <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
+          </button>
+        </div>
+      </aside>
       {assinando && (
         <Suspense fallback={null}>
           <ModalAssinar
