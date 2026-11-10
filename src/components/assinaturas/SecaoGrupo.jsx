@@ -7,13 +7,14 @@ import {
 } from '../../utils/assinaturas/geometria'
 import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
-import MiniaturaArquivo, { LARGURA_QUADRO } from './MiniaturaArquivo'
+import MiniaturaArquivo from './MiniaturaArquivo'
+import CarrosselMiniaturas from './CarrosselMiniaturas'
 import PreviaSelo from './PreviaSelo'
 import Loader from '../ui/Loader'
 import Icon from '../ui/Icon'
 
-// Mantém xl:w-[560px] (classe estática abaixo) em sincronia com este valor.
-const LARGURA_MAX_REFERENCIA = 560
+// Largura máxima do PDF de referência; o resto do box fica para as miniaturas.
+const LARGURA_MAX_REFERENCIA = 480
 
 // O PDF de referência do grupo, com o campo arrastável por cima.
 function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
@@ -116,34 +117,36 @@ export default function SecaoGrupo({
           <span>Este grupo está vazio. Adicione PDFs ou mova arquivos de outro grupo.</span>
         </div>
       ) : (
-        <div className="flex flex-col xl:flex-row gap-6">
-          <div className="xl:w-[560px] shrink-0 min-w-0">
-            <Referencia
-              grupo={grupo}
-              arquivo={arquivoRef}
-              ativo={ativo}
-              titular={titularPrevia}
-              onCampo={campo => onCampo(grupo.id, campo)}
-              onGeometria={onGeometria}
-            />
-          </div>
+        // O layout reage à largura do PRÓPRIO box (container query), e não da tela: com 2
+        // grupos lado a lado cada box é mais estreito. Box largo: referência à esquerda e
+        // miniaturas à direita; box estreito: uma sobre a outra.
+        <div className="@container">
+          <div className="flex flex-col @min-[620px]:flex-row gap-6">
+            <div className="shrink-0 min-w-0 @min-[620px]:basis-[42%] @min-[620px]:max-w-[480px] @min-[620px]:min-w-[280px]">
+              <Referencia
+                grupo={grupo}
+                arquivo={arquivoRef}
+                ativo={ativo}
+                titular={titularPrevia}
+                onCampo={campo => onCampo(grupo.id, campo)}
+                onGeometria={onGeometria}
+              />
+            </div>
 
-          <div className="flex-1 min-w-0" aria-label="Conferência do grupo" role="group">
-            <div
-              className="grid gap-x-4 gap-y-5 items-start"
-              style={{ gridTemplateColumns: `repeat(auto-fill, ${LARGURA_QUADRO}px)` }}
-            >
-              {arquivos.map(a => (
-                <MiniaturaArquivo
-                  key={a.id}
-                  arquivo={a}
-                  grupo={grupo}
-                  referencia={a.id === arquivoRef?.id}
-                  selecionado={selecionados.includes(a.id)}
-                  onEscolher={id => onEscolherRef(grupo.id, id)}
-                  onAlternarSelecao={onAlternarSelecao}
-                />
-              ))}
+            <div className="flex-1 min-w-0">
+              <CarrosselMiniaturas rotulo={`Conferência do ${grupo.nome}`}>
+                {arquivos.map(a => (
+                  <MiniaturaArquivo
+                    key={a.id}
+                    arquivo={a}
+                    grupo={grupo}
+                    referencia={a.id === arquivoRef?.id}
+                    selecionado={selecionados.includes(a.id)}
+                    onEscolher={id => onEscolherRef(grupo.id, id)}
+                    onAlternarSelecao={onAlternarSelecao}
+                  />
+                ))}
+              </CarrosselMiniaturas>
             </div>
           </div>
         </div>

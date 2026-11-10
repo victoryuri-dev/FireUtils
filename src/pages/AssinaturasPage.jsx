@@ -114,7 +114,12 @@ function FerramentaAssinaturas() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
+          // Até 2 grupos por linha. Cada box tem no mínimo 680 px: se a área não comporta
+          // dois, os grupos passam para uma coluna só (o min() com 100% cobre telas estreitas).
+          <div
+            className="grid gap-6 items-start"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, max(680px, calc(50% - 12px))), 1fr))' }}
+          >
             {estado.grupos.map(g => (
               <SecaoGrupo
                 key={g.id}
