@@ -30,10 +30,12 @@ export function useAssinarLote({ grupos, arquivos }) {
   const certRef = useRef(null)
   const cancelado = useRef(false)
 
-  const verificar = useCallback(async (arquivoPfx, senha) => {
+  // `origemPfx`: um File escolhido agora, ou { bytes } de um certificado salvo na conta.
+  const verificar = useCallback(async (origemPfx, senha) => {
     setErro(null)
     try {
-      const completo = lerCertificado(await arquivoPfx.arrayBuffer(), senha)
+      const bytes = origemPfx.bytes ?? await origemPfx.arrayBuffer()
+      const completo = lerCertificado(bytes, senha)
       certRef.current = completo
       setCertificado({
         titular: completo.titular,
@@ -52,6 +54,8 @@ export function useAssinarLote({ grupos, arquivos }) {
       return false
     }
   }, [])
+
+  const relatarErro = useCallback(mensagem => setErro({ mensagem }), [])
 
   const voltar = useCallback(() => {
     certRef.current = null
@@ -122,5 +126,5 @@ export function useAssinarLote({ grupos, arquivos }) {
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }, [resultado])
 
-  return { fase, erro, certificado, itens, resultado, verificar, voltar, executar, cancelar, baixar }
+  return { fase, erro, certificado, itens, resultado, verificar, relatarErro, voltar, executar, cancelar, baixar }
 }

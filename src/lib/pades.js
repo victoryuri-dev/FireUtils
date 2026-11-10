@@ -93,9 +93,9 @@ function ehIcpBrasil(cert) {
  * Lê o .pfx/.p12 e devolve o certificado pronto para assinar.
  * @param {Uint8Array|ArrayBuffer} pfx
  * @param {string} senha
- * @returns {{ titular, emissor, validoDe: Date, validoAte: Date, vencido: boolean,
- *             icpBrasil: boolean, autoassinado: boolean, certificados: object[],
- *             chave: object, cert: object }}
+ * @returns {{ impressao: string, titular, emissor, validoDe: Date, validoAte: Date,
+ *             vencido: boolean, icpBrasil: boolean, autoassinado: boolean,
+ *             certificados: object[], chave: object, cert: object }}
  */
 export function lerCertificado(pfx, senha) {
   let lido
@@ -127,8 +127,12 @@ export function lerCertificado(pfx, senha) {
     throw new ErroAssinatura('formato', 'Nenhum certificado do arquivo corresponde à chave privada.')
   }
 
+  const resumo = forge.md.sha256.create()
+  resumo.update(derDe(forge.pki.certificateToAsn1(cert)))
+
   const agora = new Date()
   return {
+    impressao: resumo.digest().toHex(),
     titular: nomeDe(cert.subject, 'CN') || nomeDe(cert.subject, 'O') || 'Titular do certificado',
     emissor: nomeDe(cert.issuer, 'CN') || nomeDe(cert.issuer, 'O'),
     validoDe: cert.validity.notBefore,

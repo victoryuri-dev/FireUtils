@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAssinarLote } from '../../hooks/useAssinarLote'
 import { ROTULO_ANCORA } from '../../utils/assinaturas/geometria'
+import { situacaoDoCertificado } from '../../utils/assinaturas/certificadosSalvos'
 import Icon from '../ui/Icon'
 
 const PAGINA = { ultima: 'última página', primeira: 'primeira página' }
@@ -30,7 +31,7 @@ const ROTULO_STATUS = { aguardando: 'Aguardando', assinando: 'Assinando…', ok:
  * Diálogo de assinatura em lote. O certificado (.pfx) e a senha ficam só na
  * memória: nada é enviado a servidor e a chave é descartada ao terminar.
  */
-export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular }) {
+export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, certificados }) {
   const lote = useAssinarLote({ grupos, arquivos })
   const { fase, erro, certificado, itens, resultado } = lote
   const [pfx, setPfx] = useState(null)
@@ -38,6 +39,12 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular }) 
   const [verificando, setVerificando] = useState(false)
   const inputPfx = useRef(null)
   const painel = useRef(null)
+  // Certificado: um dos salvos na conta (padrão, se houver) ou um arquivo escolhido agora.
+  const [origem, setOrigem] = useState(null) // null = o padrão
+  const [idSalvo, setIdSalvo] = useState(null)
+  const salvos = certificados?.lista ?? []
+  const usarSalvo = salvos.length > 0 && origem !== 'arquivo'
+  const idEfetivo = idSalvo ?? certificados?.selecionadoId ?? null
 
   const grupos_com_arquivos = grupos
     .map(g => ({ grupo: g, total: arquivos.filter(a => a.grupoId === g.id).length }))
@@ -58,13 +65,30 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular }) 
 
   async function continuar(e) {
     e.preventDefault()
-    if (!pfx || !senha || verificando) return
+    if ((usarSalvo ? !idEfetivo : !pfx) || !senha || verificando) return
     setVerificando(true)
-    const lido = await lote.verificar(pfx, senha)
+    let origemPfx = pfx
+    if (usarSalvo) {
+      try {
+        origemPfx = { bytes: await certificados.baixar(idEfetivo) }
+      } catch (ex) {
+        lote.relatarErro(ex.message || 'Não foi possível abrir o certificado salvo.')
+        setVerificando(false)
+        return
+      }
+    }
+    const lido = await lote.verificar(origemPfx, senha)
     // Com o certificado lido a senha não precisa mais ficar no estado; se der erro,
     // ela fica para a pessoa corrigir sem redigitar tudo.
     if (lido) setSenha('')
     setVerificando(false)
+  }
+
+  function escolherCertificado(valor) {
+    if (valor === '__arquivo') { setOrigem('arquivo'); return }
+    setOrigem('salvo')
+    setIdSalvo(valor)
+    certificados.selecionar(valor) // lembra a escolha e atualiza a lista da página
   }
 
   const concluidos = itens.filter(i => ['ok', 'erro', 'cancelado'].includes(i.status)).length
@@ -86,23 +110,49 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular }) 
               titulo={`Assinar ${plural(total, 'arquivo', 'arquivos')}`}
               rodape={<>
                 <button type="button" className="btn-ghost" onClick={onFechar}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={!pfx || !senha || verificando}>
+                <button type="submit" className="btn-primary" disabled={(usarSalvo ? !idEfetivo : !pfx) || !senha || verificando}>
                   {verificando ? <><Icon name="spinner" size={13} className="animate-spin"/> Lendo…</> : 'Continuar'}
                 </button>
               </>}
             >
               <p className="m-0 text-[13px] text-ink-faint leading-relaxed">
-                Escolha o certificado digital A1 (arquivo .pfx ou .p12). Ele e a senha ficam só na memória deste navegador e não são enviados a nenhum servidor.
+                {usarSalvo
+                  ? 'Escolha o certificado e digite a senha dele. A senha não é guardada em lugar nenhum; o arquivo do certificado só é aberto neste navegador.'
+                  : 'Escolha o certificado digital A1 (arquivo .pfx ou .p12). Ele e a senha ficam só na memória deste navegador e não são enviados a nenhum servidor.'}
               </p>
 
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] text-ink-faint">Certificado digital</span>
-                <button type="button" className="btn-ghost justify-start h-10 w-full" onClick={() => inputPfx.current?.click()}>
-                  <Icon name="upload" size={13}/>
-                  <span className="truncate">{pfx ? pfx.name : 'Escolher arquivo .pfx ou .p12'}</span>
-                </button>
-                <input ref={inputPfx} type="file" accept=".pfx,.p12,application/x-pkcs12" hidden onChange={e => { setPfx(e.target.files[0] ?? null); e.target.value = '' }}/>
-              </div>
+              {salvos.length > 0 && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] text-ink-faint">Certificado</span>
+                  <select
+                    value={usarSalvo ? (idEfetivo ?? '') : '__arquivo'}
+                    onChange={e => escolherCertificado(e.target.value)}
+                    className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
+                  >
+                    {salvos.map(c => {
+                      const vencido = situacaoDoCertificado(c).status === 'vencido'
+                      return <option key={c.id} value={c.id} disabled={vencido}>{c.nome}{vencido ? ' (vencido)' : ''}</option>
+                    })}
+                    <option value="__arquivo">Usar outro arquivo .pfx (sem salvar)…</option>
+                  </select>
+                </label>
+              )}
+
+              {!usarSalvo && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] text-ink-faint">Certificado digital</span>
+                  <button type="button" className="btn-ghost justify-start h-10 w-full" onClick={() => inputPfx.current?.click()}>
+                    <Icon name="upload" size={13}/>
+                    <span className="truncate">{pfx ? pfx.name : 'Escolher arquivo .pfx ou .p12'}</span>
+                  </button>
+                  <input ref={inputPfx} type="file" accept=".pfx,.p12,application/x-pkcs12" hidden onChange={e => { setPfx(e.target.files[0] ?? null); e.target.value = '' }}/>
+                  {salvos.length === 0 && (
+                    <span className="text-[11px] text-ink-faint">
+                      Dica: salve o certificado na sua conta com “Adicionar” em Certificados, na lateral, para não escolher o arquivo toda vez.
+                    </span>
+                  )}
+                </div>
+              )}
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-[11px] text-ink-faint">Senha do certificado</span>

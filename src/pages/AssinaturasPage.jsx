@@ -5,6 +5,8 @@ import {
   estadoInicial, reducer, novoId, grupoAtivo, arquivosDoGrupo,
 } from '../utils/assinaturas/grupos'
 import ListaGrupos from '../components/assinaturas/ListaGrupos'
+import SecaoCertificados from '../components/assinaturas/SecaoCertificados'
+import { useCertificadosSalvos } from '../hooks/useCertificadosSalvos'
 import PainelCampo from '../components/assinaturas/PainelCampo'
 import SecaoGrupo from '../components/assinaturas/SecaoGrupo'
 import ProvedorArrastar from '../components/assinaturas/ProvedorArrastar'
@@ -15,6 +17,7 @@ import Icon from '../components/ui/Icon'
 // O diálogo traz a criptografia e a escrita de PDF (pdf-lib, node-forge, fflate):
 // só é baixado quando a pessoa clica em Assinar.
 const ModalAssinar = lazy(() => import('../components/assinaturas/ModalAssinar'))
+const ModalCertificado = lazy(() => import('../components/assinaturas/ModalCertificado'))
 
 function FerramentaAssinaturas() {
   const [estado, dispatch] = useReducer(reducer, undefined, () => estadoInicial())
@@ -24,7 +27,12 @@ function FerramentaAssinaturas() {
   const [medidas, setMedidas] = useState({ geometria: null, total: null })
   const [assinando, setAssinando] = useState(false)
   // Nome do último certificado escolhido: a prévia do selo passa a mostrá-lo.
-  const [titularPrevia, setTitularPrevia] = useState(undefined)
+  const [titularLido, setTitularLido] = useState(undefined)
+  // Certificados salvos na conta; o selecionado é o usado ao assinar.
+  const certificados = useCertificadosSalvos()
+  const [adicionandoCert, setAdicionandoCert] = useState(false)
+  // A prévia do selo mostra o nome do certificado selecionado (ou do último que foi lido).
+  const titularPrevia = certificados.selecionado?.titular ?? titularLido
 
   const grupo = grupoAtivo(estado)
   const arquivos = useMemo(() => arquivosDoGrupo(estado, grupo.id), [estado, grupo.id])
@@ -74,6 +82,9 @@ function FerramentaAssinaturas() {
           onRemoverArquivos={remover}
           onNovoGrupo={() => dispatch({ type: 'CRIAR_GRUPO', id: novoId() })}
         />
+        <div className="mt-4">
+          <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
+        </div>
       </aside>
 
       <main className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
@@ -146,7 +157,18 @@ function FerramentaAssinaturas() {
       )}
       {assinando && (
         <Suspense fallback={null}>
-          <ModalAssinar grupos={estado.grupos} arquivos={estado.arquivos} onTitular={setTitularPrevia} onFechar={() => setAssinando(false)}/>
+          <ModalAssinar
+            grupos={estado.grupos}
+            arquivos={estado.arquivos}
+            certificados={certificados}
+            onTitular={setTitularLido}
+            onFechar={() => setAssinando(false)}
+          />
+        </Suspense>
+      )}
+      {adicionandoCert && (
+        <Suspense fallback={null}>
+          <ModalCertificado certificados={certificados} onFechar={() => setAdicionandoCert(false)}/>
         </Suspense>
       )}
     </div>
