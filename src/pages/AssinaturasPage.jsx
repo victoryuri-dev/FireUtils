@@ -160,7 +160,7 @@ function FerramentaAssinaturas() {
           <SecaoCertificados certificados={certificados} onAdicionar={() => setAdicionandoCert(true)}/>
         </div>
         <div className="sticky bottom-0 -mx-4 mt-4 bg-surface border-t border-solid border-border-2">
-          <div className="px-4 pt-3 pb-0">
+          <div className="px-4 py-3">
             <button
               type="button"
               className="btn-primary w-full justify-center h-10"
