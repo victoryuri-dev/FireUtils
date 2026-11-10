@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useReducer, useState } from 'react'
 import { useAcesso } from '../hooks/useLicencas'
 import { liberarPdf } from '../lib/pdfjs'
 import {
@@ -12,12 +12,17 @@ import SemLicenca from '../components/perfil/SemLicenca'
 import Loader from '../components/ui/Loader'
 import Icon from '../components/ui/Icon'
 
+// O diálogo traz a criptografia e a escrita de PDF (pdf-lib, node-forge, fflate):
+// só é baixado quando a pessoa clica em Assinar.
+const ModalAssinar = lazy(() => import('../components/assinaturas/ModalAssinar'))
+
 function FerramentaAssinaturas() {
   const [estado, dispatch] = useReducer(reducer, undefined, () => estadoInicial())
   // Arquivo de referência de cada grupo: { [grupoId]: arquivoId }.
   const [refs, setRefs] = useState({})
   const [arrastando, setArrastando] = useState(false)
   const [medidas, setMedidas] = useState({ geometria: null, total: null })
+  const [assinando, setAssinando] = useState(false)
 
   const grupo = grupoAtivo(estado)
   const arquivos = useMemo(() => arquivosDoGrupo(estado, grupo.id), [estado, grupo.id])
@@ -70,8 +75,17 @@ function FerramentaAssinaturas() {
       </aside>
 
       <main className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
-        <header className="mb-5">
+        <header className="mb-5 flex items-center justify-between gap-3">
           <h1 className="m-0 font-heading text-[22px] font-semibold text-ink tracking-[-0.02em]">Assinaturas em lote</h1>
+          <button
+            type="button"
+            className="btn-primary shrink-0"
+            disabled={semArquivos}
+            title={semArquivos ? 'Adicione PDFs para assinar' : undefined}
+            onClick={() => setAssinando(true)}
+          >
+            <Icon name="signature" size={14}/> Assinar{semArquivos ? '' : ` ${estado.arquivos.length} ${estado.arquivos.length === 1 ? 'arquivo' : 'arquivos'}`}
+          </button>
         </header>
 
         {semArquivos ? (
@@ -99,10 +113,6 @@ function FerramentaAssinaturas() {
                 onGeometria={aoMedir}
               />
             ))}
-            <div className="ibox m-0 bg-surface border border-solid border-border">
-              <Icon name="info" size={14} className="shrink-0"/>
-              <span>A assinatura digital com certificado (.pfx) será a próxima etapa. Por enquanto você já pode organizar os grupos e posicionar os campos.</span>
-            </div>
           </div>
         )}
 
@@ -129,6 +139,11 @@ function FerramentaAssinaturas() {
             <p className="m-0 text-[12px] text-ink-faint">O grupo “{grupo.nome}” está vazio. Arraste arquivos para ele para posicionar o campo.</p>
           )}
         </aside>
+      )}
+      {assinando && (
+        <Suspense fallback={null}>
+          <ModalAssinar grupos={estado.grupos} arquivos={estado.arquivos} onFechar={() => setAssinando(false)}/>
+        </Suspense>
       )}
     </div>
     </ProvedorArrastar>

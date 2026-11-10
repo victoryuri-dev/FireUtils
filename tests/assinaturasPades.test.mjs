@@ -1,0 +1,153 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import forge from 'node-forge'
+import { PDFDocument, PDFName, PDFArray, PDFDict, degrees } from 'pdf-lib'
+import { lerCertificado, assinarPdf, ErroAssinatura } from '../src/lib/pades.js'
+import { retanguloPdf } from '../src/utils/assinaturas/geometria.js'
+
+const SENHA = 'senha-de-teste'
+const A = forge.asn1
+
+// Certificado de teste: pessoa física com a política 2.16.76.1.2.* (ICP-Brasil).
+// RSA de 1024 bits só para o teste ser rápido; a produção usa o que o .pfx trouxer.
+function criarPfx({ politicaIcp = true } = {}) {
+  const chaves = forge.pki.rsa.generateKeyPair({ bits: 1024, e: 0x10001 })
+  const cert = forge.pki.createCertificate()
+  cert.publicKey = chaves.publicKey
+  cert.serialNumber = '0a1b2c'
+  cert.validity.notBefore = new Date(Date.now() - 86400000)
+  cert.validity.notAfter = new Date(Date.now() + 365 * 86400000)
+  const dn = [{ name: 'commonName', value: 'MARIA DA SILVA:00000000000' }, { name: 'organizationName', value: 'ICP-Brasil' }, { shortName: 'C', value: 'BR' }]
+  cert.setSubject(dn)
+  cert.setIssuer(dn)
+  if (politicaIcp) {
+    const oid = A.create(A.Class.UNIVERSAL, A.Type.OID, false, A.oidToDer('2.16.76.1.2.1.1').getBytes())
+    const info = A.create(A.Class.UNIVERSAL, A.Type.SEQUENCE, true, [oid])
+    const politicas = A.create(A.Class.UNIVERSAL, A.Type.SEQUENCE, true, [info])
+    cert.setExtensions([{ id: '2.5.29.32', critical: false, value: A.toDer(politicas).getBytes() }])
+  }
+  cert.sign(chaves.privateKey, forge.md.sha256.create())
+  const der = A.toDer(forge.pkcs12.toPkcs12Asn1(chaves.privateKey, [cert], SENHA, { algorithm: '3des' })).getBytes()
+  return { pfx: Uint8Array.from(der, c => c.charCodeAt(0)), cert, chaves }
+}
+
+const { pfx, cert: certForge } = criarPfx()
+const certificado = lerCertificado(pfx, SENHA)
+
+async function pdfDeTeste({ largura = 842, altura = 595, rotacao = 0, paginas = 1 } = {}) {
+  const doc = await PDFDocument.create()
+  for (let i = 0; i < paginas; i++) {
+    const p = doc.addPage([largura, altura])
+    if (rotacao) p.setRotation(degrees(rotacao))
+  }
+  return doc.save()
+}
+
+const campo = { ancora: 'inferior-direita', dxMm: 10, dyMm: 10, larguraMm: 70, alturaMm: 30 }
+const ultima = { modo: 'ultima' }
+
+const latin1 = u8 => new TextDecoder('latin1').decode(u8)
+const hexParaBytes = h => Uint8Array.from(h.match(/../g), x => parseInt(x, 16))
+
+// Extrai /ByteRange e o CMS (DER) de um PDF assinado.
+function lerAssinatura(pdf) {
+  const texto = latin1(pdf)
+  const m = /\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/.exec(texto)
+  assert.ok(m, 'o PDF assinado precisa ter /ByteRange')
+  const [a, b, c, d] = m.slice(1).map(Number)
+  return { a, b, c, d, texto }
+}
+
+test('lê o certificado: titular, validade e política ICP-Brasil', () => {
+  assert.equal(certificado.titular, 'MARIA DA SILVA:00000000000')
+  assert.equal(certificado.icpBrasil, true)
+  assert.equal(certificado.vencido, false)
+  assert.equal(lerCertificado(criarPfx({ politicaIcp: false }).pfx, SENHA).icpBrasil, false)
+})
+
+test('senha errada e arquivo inválido têm erros próprios', () => {
+  assert.throws(() => lerCertificado(pfx, 'errada'), e => e instanceof ErroAssinatura && e.codigo === 'senha')
+  assert.throws(() => lerCertificado(new TextEncoder().encode('lixo'), SENHA), e => e instanceof ErroAssinatura && e.codigo === 'formato')
+})
+
+test('a assinatura cobre o arquivo todo, menos o espaço reservado', async () => {
+  const { pdf } = await assinarPdf(await pdfDeTeste(), certificado, { campo, pagina: ultima })
+  const { a, b, c, d, texto } = lerAssinatura(pdf)
+  assert.equal(a, 0)
+  assert.equal(c + d, pdf.length, 'o último intervalo vai até o fim do arquivo')
+  assert.equal(texto[b], '<', 'o intervalo exclui exatamente o <hex>')
+  assert.equal(texto[c - 1], '>')
+  assert.ok(!texto.includes('1000000001'), 'os valores provisórios foram substituídos')
+})
+
+test('o CMS é uma assinatura RSA/SHA-256 válida do conteúdo, feita pelo certificado', async () => {
+  const { pdf } = await assinarPdf(await pdfDeTeste(), certificado, { campo, pagina: ultima })
+  const { a, b, c, d, texto } = lerAssinatura(pdf)
+
+  // O CMS ocupa o começo do espaço reservado; o resto são zeros de preenchimento.
+  const der = Array.from(hexParaBytes(texto.slice(b + 1, c - 1)), x => String.fromCharCode(x)).join('')
+  const cms = A.fromDer(der, { parseAllBytes: false })
+  const signedData = cms.value[1].value[0]
+  const signerInfo = signedData.value[4].value[0]
+  const atributos = signerInfo.value[3] // [0] IMPLICIT SET OF Attribute
+  const porOid = {}
+  for (const at of atributos.value) porOid[A.derToOid(at.value[0].value)] = at.value[1].value[0]
+
+  // messageDigest == SHA-256 do que foi assinado
+  const conteudo = new Uint8Array([...pdf.subarray(a, b), ...pdf.subarray(c, c + d)])
+  const md = forge.md.sha256.create()
+  md.update(Array.from(conteudo, x => String.fromCharCode(x)).join(''))
+  assert.equal(porOid['1.2.840.113549.1.9.4'].value, md.digest().getBytes(), 'messageDigest')
+  assert.ok(porOid['1.2.840.113549.1.9.16.2.47'], 'signing-certificate-v2 presente')
+
+  // Assinatura RSA sobre os atributos (com etiqueta de SET).
+  const emSet = A.create(A.Class.UNIVERSAL, A.Type.SET, true, atributos.value)
+  const hashAttrs = forge.md.sha256.create()
+  hashAttrs.update(A.toDer(emSet).getBytes())
+  const assinatura = signerInfo.value[5].value
+  assert.ok(certForge.publicKey.verify(hashAttrs.digest().getBytes(), assinatura), 'assinatura RSA confere')
+})
+
+test('o campo cai onde a geometria manda, em todas as rotações', async () => {
+  for (const rotacao of [0, 90, 180, 270]) {
+    const { pdf } = await assinarPdf(await pdfDeTeste({ rotacao }), certificado, { campo, pagina: ultima })
+    const doc = await PDFDocument.load(pdf)
+    const pg = doc.getPages()[0]
+    const annots = pg.node.Annots()
+    assert.ok(annots instanceof PDFArray && annots.size() === 1, `rot ${rotacao}: uma anotação`)
+    const widget = annots.lookup(0, PDFDict)
+    const rect = widget.lookup(PDFName.of('Rect'), PDFArray).asArray().map(n => n.asNumber())
+    const box = pg.getCropBox()
+    const esperado = retanguloPdf(campo, { x0: box.x, y0: box.y, largura: box.width, altura: box.height, rotacao })
+    const perto = (x, y) => Math.abs(x - y) < 0.01
+    assert.ok(perto(rect[0], esperado.x) && perto(rect[1], esperado.y) && perto(rect[2], esperado.x + esperado.largura) && perto(rect[3], esperado.y + esperado.altura), `rot ${rotacao}: Rect ${rect}`)
+  }
+})
+
+test('assina a página pedida (primeira, número específico)', async () => {
+  const original = await pdfDeTeste({ paginas: 3 })
+  for (const [pagina, esperada] of [[{ modo: 'primeira' }, 1], [{ modo: 'numero', numero: 2 }, 2], [ultima, 3]]) {
+    const r = await assinarPdf(original, certificado, { campo, pagina })
+    assert.equal(r.pagina, esperada)
+    const doc = await PDFDocument.load(r.pdf)
+    doc.getPages().forEach((p, i) => assert.equal(Boolean(p.node.Annots()), i + 1 === esperada, `anotação só na página ${esperada}`))
+  }
+})
+
+test('recusa: já assinado, página inexistente, campo fora da página e arquivo que não é PDF', async () => {
+  const original = await pdfDeTeste()
+  const assinado = (await assinarPdf(original, certificado, { campo, pagina: ultima })).pdf
+  const codigo = async fn => { try { await fn(); return null } catch (e) { return e.codigo } }
+  assert.equal(await codigo(() => assinarPdf(assinado, certificado, { campo, pagina: ultima })), 'ja-assinado')
+  assert.equal(await codigo(() => assinarPdf(original, certificado, { campo, pagina: { modo: 'numero', numero: 4 } })), 'sem-pagina')
+  assert.equal(await codigo(() => assinarPdf(original, certificado, { campo: { ...campo, larguraMm: 600 }, pagina: ultima })), 'fora')
+  assert.equal(await codigo(() => assinarPdf(new TextEncoder().encode('não é um pdf'), certificado, { campo, pagina: ultima })), 'leitura')
+})
+
+test('o selo aceita nomes com acento e caracteres fora do WinAnsi sem quebrar', async () => {
+  const { pfx: pfx2 } = criarPfx()
+  const c = lerCertificado(pfx2, SENHA)
+  c.titular = 'JOÃO D’ÁVILA ÇÃO — 北京'
+  const { pdf } = await assinarPdf(await pdfDeTeste(), c, { campo, pagina: ultima })
+  assert.ok(pdf.length > 1000)
+})
