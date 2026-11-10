@@ -57,8 +57,10 @@ export default function ModalAssinar({ grupos, arquivos, onFechar }) {
     e.preventDefault()
     if (!pfx || !senha || verificando) return
     setVerificando(true)
-    await lote.verificar(pfx, senha)
-    setSenha('') // a senha não precisa mais ficar na tela nem no estado
+    const lido = await lote.verificar(pfx, senha)
+    // Com o certificado lido a senha não precisa mais ficar no estado; se der erro,
+    // ela fica para a pessoa corrigir sem redigitar tudo.
+    if (lido) setSenha('')
     setVerificando(false)
   }
 
@@ -113,7 +115,10 @@ export default function ModalAssinar({ grupos, arquivos, onFechar }) {
               {erro && (
                 <div className="ibox red m-0" role="alert">
                   <Icon name="warn" size={14} color="var(--color-red)" className="shrink-0"/>
-                  <span>{erro}</span>
+                  <span>
+                    {erro.mensagem}
+                    {erro.detalhe && <span className="block mt-1 text-[11px] opacity-80 break-words">Detalhe técnico: {erro.detalhe}</span>}
+                  </span>
                 </div>
               )}
             </Painel>

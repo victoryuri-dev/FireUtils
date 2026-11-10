@@ -23,13 +23,18 @@ import {
   EncryptedPDFError,
 } from 'pdf-lib'
 import { retanguloPdf, indiceDaPagina, normalizarRotacao } from '../utils/assinaturas/geometria.js'
+import { habilitarCifrasLegadas, NOME_DA_CIFRA } from './pkcs12Legado.js'
+
+habilitarCifrasLegadas()
 
 /** Erro com código para a interface mostrar a mensagem certa. */
 export class ErroAssinatura extends Error {
-  constructor(codigo, mensagem) {
+  /** `detalhe`: texto técnico opcional, para a pessoa poder reportar o problema. */
+  constructor(codigo, mensagem, detalhe) {
     super(mensagem)
     this.name = 'ErroAssinatura'
     this.codigo = codigo
+    this.detalhe = detalhe
   }
 }
 
@@ -100,10 +105,12 @@ export function lerCertificado(pfx, senha) {
     if (/mac could not be verified|invalid password|password/i.test(msg)) {
       throw new ErroAssinatura('senha', 'Senha do certificado incorreta.')
     }
-    if (/unsupported|unknown|not supported|cipher|PBE|algorithm/i.test(msg)) {
-      throw new ErroAssinatura('formato', 'Este arquivo .pfx usa uma criptografia que o navegador não consegue ler (comum em arquivos exportados por versões novas do OpenSSL). Reexporte o certificado pelo Windows ou com “openssl pkcs12 -export -legacy”.')
+    const detalhe = e?.oid ? `${msg} [OID ${e.oid}${NOME_DA_CIFRA[e.oid] ? ` = ${NOME_DA_CIFRA[e.oid]}` : ''}]` : msg
+    if (e?.oid) {
+      const nome = NOME_DA_CIFRA[e.oid] ? `“${NOME_DA_CIFRA[e.oid]}”` : `desconhecido (OID ${e.oid})`
+      throw new ErroAssinatura('formato', `Este arquivo .pfx usa um algoritmo de criptografia ${nome} que o navegador ainda não consegue ler. Reexportar o certificado pelo Windows (ou com “openssl pkcs12 -export -legacy”) costuma resolver.`, detalhe)
     }
-    throw new ErroAssinatura('formato', 'Não foi possível ler o arquivo. Confira se é um certificado .pfx ou .p12 válido.')
+    throw new ErroAssinatura('formato', 'Não foi possível ler este arquivo. Confira se é um certificado .pfx ou .p12 válido e se a senha está correta.', detalhe)
   }
 
   const oids = forge.pki.oids

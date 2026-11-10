@@ -43,8 +43,12 @@ export function useAssinarLote({ grupos, arquivos }) {
         icpBrasil: completo.icpBrasil,
       })
       setFase('confirmar')
+      return true
     } catch (e) {
-      setErro(e instanceof ErroAssinatura ? e.message : 'Não foi possível ler o certificado.')
+      setErro(e instanceof ErroAssinatura
+        ? { mensagem: e.message, detalhe: e.detalhe }
+        : { mensagem: 'Não foi possível ler o certificado.', detalhe: String(e?.message || e) })
+      return false
     }
   }, [])
 

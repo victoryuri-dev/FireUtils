@@ -151,3 +151,28 @@ test('o selo aceita nomes com acento e caracteres fora do WinAnsi sem quebrar', 
   const { pdf } = await assinarPdf(await pdfDeTeste(), c, { campo, pagina: ultima })
   assert.ok(pdf.length > 1000)
 })
+
+// ── Leitura de .pfx em vários formatos de cifra ───────────────────────
+import { readFileSync, readdirSync } from 'node:fs'
+
+const PASTA_PFX = new URL('./fixtures/pfx/', import.meta.url)
+
+test('lê e assina com .pfx de todas as cifras legadas e modernas', async () => {
+  const arquivos = readdirSync(PASTA_PFX).filter(f => f.endsWith('.pfx'))
+  assert.ok(arquivos.length >= 6, 'fixtures presentes')
+  for (const nome of arquivos) {
+    const cert = lerCertificado(readFileSync(new URL(nome, PASTA_PFX)), 'teste123')
+    assert.equal(cert.titular, 'FELLIPE ALVES DE SOUSA:00000000000', nome)
+    assert.equal(cert.icpBrasil, true, nome)
+    // lerCertificado já confere que a chave decifrada pertence ao certificado; aqui
+    // garantimos que essa chave de fato assina.
+    const { pdf } = await assinarPdf(await pdfDeTeste(), cert, { campo, pagina: ultima })
+    assert.ok(lerAssinatura(pdf).d > 0, `${nome}: PDF assinado`)
+  }
+})
+
+test('senha errada num .pfx legado é "senha", e erro de leitura traz detalhe técnico', () => {
+  const rc4 = readFileSync(new URL('rc4-128-rc2-40.pfx', PASTA_PFX))
+  assert.throws(() => lerCertificado(rc4, 'errada'), e => e.codigo === 'senha')
+  assert.throws(() => lerCertificado(new TextEncoder().encode('lixo'), SENHA), e => e.codigo === 'formato' && typeof e.detalhe === 'string' && e.detalhe.length > 0)
+})
