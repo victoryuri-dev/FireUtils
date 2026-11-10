@@ -1,5 +1,5 @@
 import {
-  ESTILOS, ROTULO_ESTILO, ALINHAMENTOS, ROTULO_ALINHAMENTO, TAMANHOS_FONTE, MAX_TEXTO_EXTRA, normalizarSelo,
+  ESTILOS, ROTULO_ESTILO, ALINHAMENTOS, ROTULO_ALINHAMENTO, MAX_TEXTO_EXTRA, normalizarSelo,
 } from '../../utils/assinaturas/selo'
 import Checkbox from '../ui/Checkbox'
 
@@ -14,8 +14,8 @@ function Opcao({ rotulo, marcado, onMudar }) {
 }
 
 /**
- * Aparência do selo visível do grupo: estilo, tamanho do texto, o que mostrar e
- * um texto adicional. `onSelo` recebe só o que mudou.
+ * Aparência do selo visível do grupo: estilo, o que mostrar e um texto adicional
+ * (o tamanho do texto é sempre o maior que cabe no quadro). `onSelo` recebe só o que mudou.
  */
 export default function PainelSelo({ grupoId, selo: bruto, onSelo }) {
   const selo = normalizarSelo(bruto)
@@ -33,18 +33,6 @@ export default function PainelSelo({ grupoId, selo: bruto, onSelo }) {
           className="h-9 py-0 px-2 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
         >
           {ESTILOS.map(e => <option key={e} value={e}>{ROTULO_ESTILO[e]}</option>)}
-        </select>
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] text-ink-faint">Tamanho do texto{adobe ? ' dos detalhes' : ''}</span>
-        <select
-          value={selo.fonte}
-          onChange={e => onSelo({ fonte: e.target.value === 'auto' ? 'auto' : Number(e.target.value) })}
-          className="h-9 py-0 px-2 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
-        >
-          <option value="auto">Automático (o maior que cabe)</option>
-          {TAMANHOS_FONTE.map(t => <option key={t} value={t}>{t} pt</option>)}
         </select>
       </label>
 

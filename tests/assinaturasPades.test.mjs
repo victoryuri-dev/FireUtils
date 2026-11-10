@@ -257,9 +257,10 @@ async function assinarComSelo(selo, c = campoGrande) {
 
 test('selo padrão: estilo Adobe, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
   const d = await assinarComSelo(undefined)
-  assert.match(d, /Assinado de forma digital por/)
-  assert.match(d, /Dados: 2026\.11\.10 08:18:05 [+-]\d{2}'\d{2}'/)
-  assert.ok(d.includes('(MARIA DA SILVA:00000000000)') || d.includes('MARIA'), 'o nome do titular aparece em destaque')
+  // O texto dos detalhes pode quebrar em linhas; junta o que foi desenhado (cada Tj é uma linha).
+  const desenhado = [...d.matchAll(/\(((?:[^()\\]|\\.)*)\) Tj/g)].map(m => m[1]).join(' ')
+  assert.match(desenhado, /Assinado de forma digital por MARIA DA SILVA:00000000000/)
+  assert.match(desenhado, /Dados: 2026\.11\.10 08:18:05 [+-]\d{2}'\d{2}'/)
   assert.ok(d.includes(' re S'), 'borda por padrão')
 })
 
@@ -270,13 +271,18 @@ test('selo simples usa o texto e a data do estilo anterior', async () => {
   assert.doesNotMatch(d, /Dados:/)
 })
 
-test('opções do selo: ocultar linhas e borda, texto adicional e tamanho fixo', async () => {
-  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, borda: false, textoExtra: 'CREA 1234-MA', fonte: 7 })
+test('opções do selo: ocultar linhas e borda e texto adicional', async () => {
+  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, borda: false, textoExtra: 'CREA 1234-MA' })
   assert.doesNotMatch(sem, /Dados:/)
   assert.doesNotMatch(sem, /Assinado de forma digital/)
   assert.ok(!sem.includes(' re S'), 'sem borda')
   assert.match(sem, /CREA 1234-MA/)
-  assert.match(sem, /\/F1 7\.00 Tf/, 'detalhes no tamanho escolhido')
+})
+
+test('estilo Adobe desenha o nome em negrito (/F2) e os detalhes em fonte normal (/F1)', async () => {
+  const d = await assinarComSelo(undefined)
+  assert.match(d, /\/F2 [\d.]+ Tf[^\n]*\(MARIA/, 'nome em negrito')
+  assert.match(d, /\/F1 [\d.]+ Tf[^\n]*\(Dados:/, 'detalhes em fonte normal')
 })
 
 test('o selo nunca parte palavras do nome e continua assinando com nome longo em quadro pequeno', async () => {

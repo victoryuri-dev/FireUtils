@@ -87,8 +87,7 @@ function caberNaLargura(linha, tamanho, maximo) {
 
 /**
  * Selo "simples": linhas opcionais (rótulo, titular em negrito, data, texto
- * adicional), alinhadas à esquerda ou centralizadas, em tamanho automático (o
- * maior que cabe) ou fixo.
+ * adicional), alinhadas à esquerda ou centralizadas, no maior tamanho que cabe.
  */
 function layoutSimples({ largura, altura, titular, quando, selo }) {
   const pad = 3
@@ -99,14 +98,9 @@ function layoutSimples({ largura, altura, titular, quando, selo }) {
   if (selo.mostrarData) linhas.push({ texto: `Data: ${dataParaSelo(quando)}`, fonte: 'normal', escala: 0.85 })
   if (selo.textoExtra) linhas.push({ texto: winAnsi(selo.textoExtra), fonte: 'normal', escala: 0.85 })
 
-  let tam
-  if (selo.fonte === 'auto') {
-    // O maior tamanho (até 14 pt) em que as linhas cabem na altura e na largura.
-    tam = Math.min(14, (altura - 2 * pad) / (linhas.length * 1.25))
-    while (tam > 4 && !linhas.every(l => larguraDoTexto(l.fonte, l.texto, tam * l.escala) <= maximo)) tam -= 0.25
-  } else {
-    tam = selo.fonte
-  }
+  // O maior tamanho (até 14 pt) em que as linhas cabem na altura e na largura.
+  let tam = Math.min(14, (altura - 2 * pad) / (linhas.length * 1.25))
+  while (tam > 4 && !linhas.every(l => larguraDoTexto(l.fonte, l.texto, tam * l.escala) <= maximo)) tam -= 0.25
   for (const l of linhas) caberNaLargura(l, tam * l.escala, maximo)
 
   const passo = tam * 1.25
@@ -125,7 +119,7 @@ function layoutSimples({ largura, altura, titular, quando, selo }) {
 }
 
 /**
- * Selo no estilo do Adobe Acrobat: o NOME em destaque na coluna da esquerda
+ * Selo no estilo do Adobe Acrobat: o NOME em destaque (negrito) na coluna da esquerda
  * (quebrado em linhas, centralizado, no maior tamanho que cabe) e, na da direita,
  * os detalhes pequenos: "Assinado de forma digital por NOME" e "Dados: AAAA.MM.DD
  * hh:mm:ss -03'00'", mais o texto adicional, se houver.
@@ -138,29 +132,29 @@ function layoutAdobe({ largura, altura, titular, quando, selo }) {
   const larguraNome = colunaEsq - 2 * pad
   const larguraDetalhes = largura - colunaEsq - pad - 2
 
-  // Nome: o maior tamanho (até 26 pt) em que nenhuma palavra precisa ser partida e
-  // as linhas cabem na altura da coluna (como o Acrobat: reduz a fonte, não parte palavras).
+  // Nome (em negrito): o maior tamanho (até 26 pt) em que nenhuma palavra precisa ser
+  // partida e as linhas cabem na altura da coluna (como o Acrobat: reduz a fonte, não
+  // parte palavras).
   let tamNome = Math.min(26, altura * 0.5)
-  let linhasNome = quebrarLinhas(nome, 'normal', tamNome, larguraNome)
-  while (tamNome > 5 && (palavraMaior(nome, 'normal', tamNome) > larguraNome || linhasNome.length * tamNome * 1.15 > altura - 2 * pad)) {
+  let linhasNome = quebrarLinhas(nome, 'negrito', tamNome, larguraNome)
+  while (tamNome > 5 && (palavraMaior(nome, 'negrito', tamNome) > larguraNome || linhasNome.length * tamNome * 1.15 > altura - 2 * pad)) {
     tamNome -= 0.5
-    linhasNome = quebrarLinhas(nome, 'normal', tamNome, larguraNome)
+    linhasNome = quebrarLinhas(nome, 'negrito', tamNome, larguraNome)
   }
 
-  // Detalhes: texto corrido em até 9 pt (ou o tamanho escolhido).
+  // Detalhes: o maior tamanho em que cabem, sem passar do tamanho do nome (que deve
+  // continuar sendo o destaque) nem de 14 pt.
   const textos = []
   if (selo.mostrarRotulo) textos.push(`Assinado de forma digital por ${nome}`)
   if (selo.mostrarData) textos.push(`Dados: ${dataAdobe(quando)}`)
   if (selo.textoExtra) textos.push(winAnsi(selo.textoExtra))
   const montar = t => textos.flatMap(x => quebrarLinhas(x, 'normal', t, larguraDetalhes))
-  let tamDet = selo.fonte === 'auto' ? 9 : selo.fonte
+  const maiorPalavra = t => Math.max(0, ...textos.map(x => palavraMaior(x, 'normal', t)))
+  let tamDet = Math.min(14, tamNome)
   let linhasDet = montar(tamDet)
-  if (selo.fonte === 'auto') {
-    const maiorPalavra = t => Math.max(0, ...textos.map(x => palavraMaior(x, 'normal', t)))
-    while (tamDet > 4.5 && (maiorPalavra(tamDet) > larguraDetalhes || linhasDet.length * tamDet * 1.2 > altura - 2 * pad)) {
-      tamDet -= 0.25
-      linhasDet = montar(tamDet)
-    }
+  while (tamDet > 4.5 && (maiorPalavra(tamDet) > larguraDetalhes || linhasDet.length * tamDet * 1.2 > altura - 2 * pad)) {
+    tamDet -= 0.25
+    linhasDet = montar(tamDet)
   }
 
   const saida = []
@@ -170,9 +164,9 @@ function layoutAdobe({ largura, altura, titular, quando, selo }) {
   linhasNome.forEach((texto, i) => {
     saida.push({
       texto,
-      fonte: 'normal',
+      fonte: 'negrito',
       tamanho: tamNome,
-      x: (colunaEsq - larguraDoTexto('normal', texto, tamNome)) / 2,
+      x: (colunaEsq - larguraDoTexto('negrito', texto, tamNome)) / 2,
       y: topoNome - tamNome * 0.85 - i * passoNome,
     })
   })

@@ -10,15 +10,17 @@ test('o padrão é o estilo Adobe Acrobat, com tudo visível', () => {
 })
 
 test('valores inválidos voltam ao padrão; válidos são mantidos', () => {
-  const s = normalizarSelo({ estilo: 'xyz', fonte: 'enorme', alinhamento: 'direita', mostrarData: 0, borda: false })
+  const s = normalizarSelo({ estilo: 'xyz', alinhamento: 'direita', mostrarData: 0, borda: false })
   assert.equal(s.estilo, 'adobe')
-  assert.equal(s.fonte, 'auto')
   assert.equal(s.alinhamento, 'esquerda')
   assert.equal(s.mostrarData, true, 'só `false` desliga')
   assert.equal(s.borda, false)
-  assert.equal(normalizarSelo({ fonte: 9 }).fonte, 9)
-  assert.equal(normalizarSelo({ fonte: 2 }).fonte, 'auto', 'fonte fora de 4–36 pt é ignorada')
   assert.equal(normalizarSelo({ estilo: 'simples' }).estilo, 'simples')
+})
+
+test('o tamanho do texto não é opção: qualquer `fonte` recebida é ignorada', () => {
+  assert.equal('fonte' in normalizarSelo({ fonte: 12 }), false)
+  assert.equal('fonte' in SELO_PADRAO, false)
 })
 
 test('texto adicional: espaços normalizados e limite de tamanho', () => {
