@@ -64,14 +64,6 @@ export default function GerenciamentoRiscoPage() {
           </h2>
       </div>
 
-      <div className="ibox blue">
-        <Icon name="info" size={14} color="var(--color-blue)" className="shrink-0"/>
-        <span>
-          Endereço, estrutura, área, altura, ocupação, sistemas de segurança e riscos especiais já cadastrados na
-          Configuração do projeto entram automaticamente no capítulo do Plano de Emergência dentro do Memorial
-          Descritivo. Complete aqui só o que falta.
-        </span>
-      </div>
 
       <FormSection title="Edificação e funcionamento" description="Vizinhança, apoio externo e características de uso — item B.1 do Anexo B. A população fixa é calculada automaticamente a partir da população fixa informada na Brigada de Incêndio.">
         <div className="g2 mb-3">
