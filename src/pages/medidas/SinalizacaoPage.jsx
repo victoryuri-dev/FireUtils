@@ -8,6 +8,7 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { supabase } from '../../lib/supabase'
 import { calcularSinalizacaoEstrutura } from '../../data/sinalizacao_calc'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import EstruturaSection from '../../components/ui/EstruturaSection'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
 import EstruturaHeaderInfo from '../../components/ui/EstruturaHeaderInfo'
@@ -371,10 +372,8 @@ export default function SinalizacaoPage() {
               <Icon name={SISTEMA_ICON.sinalizacao} size={20} color="var(--color-red)" className="shrink-0"/>
               Sinalização de Emergência
             <LinkNorma sistema="sinalizacao"/>
+            <InfoTip side="bottom" align="start" text={<>Cadastre as placas de sinalização de emergência utilizadas em cada estrutura, conforme a NT 20 CBMMA / NBR 13434 — proibição, alerta, orientação/saída e equipamentos de combate a incêndio.</>}/>
           </h2>
-            <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-              Cadastre as placas de sinalização de emergência utilizadas em cada estrutura, conforme a NT 20 CBMMA / NBR 13434 — proibição, alerta, orientação/saída e equipamentos de combate a incêndio.
-            </p>
           </div>
           <div className="shrink-0 flex flex-col items-end gap-1.5">
             <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport}/>

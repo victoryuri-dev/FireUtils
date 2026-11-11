@@ -9,6 +9,7 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { supabase } from '../../lib/supabase'
 import { nomeEspecificacao } from '../../data/iluminacao_calc'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
 import QuantityStepper from '../../components/ui/QuantityStepper'
 import EstruturaSection from '../../components/ui/EstruturaSection'
@@ -601,10 +602,8 @@ export default function IluminacaoPage() {
               <Icon name={SISTEMA_ICON.iluminacao} size={20} color="var(--color-red)" className="shrink-0"/>
               Sistema de Iluminação de Emergência
             <LinkNorma sistema="iluminacao"/>
+            <InfoTip side="bottom" align="start" text={<>Escolha o sistema utilizado e os equipamentos de aclaramento, e depois cadastre as quantidades por pavimento, conforme a {iluNorma.NORMA?.sigla || 'norma de iluminação do estado'} / NBR 10898.</>}/>
           </h2>
-            <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-              Escolha o sistema utilizado e os equipamentos de aclaramento, e depois cadastre as quantidades por pavimento, conforme a {iluNorma.NORMA?.sigla || 'norma de iluminação do estado'} / NBR 10898.
-            </p>
           </div>
           <div className="shrink-0 flex flex-col items-end gap-1.5">
             <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport}/>

@@ -10,6 +10,7 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { supabase } from '../../lib/supabase'
 import { riscoDoPavimento, calcularPavimento, areaLimiteUnidadeUnica, opcoesCapacidade, distanciaPortatil } from '../../data/extintores_calc'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import Checkbox from '../../components/ui/Checkbox'
 import InlineEditableNome from '../../components/ui/InlineEditableNome'
 import QuantityStepper from '../../components/ui/QuantityStepper'
@@ -934,10 +935,8 @@ export default function ExtintoresPage() {
               <Icon name={SISTEMA_ICON.extintores} size={20} color="var(--color-red)" className="shrink-0"/>
               Sistema de Proteção por Extintores de Incêndio
             <LinkNorma sistema="extintores"/>
+            <InfoTip side="bottom" align="start" text={<>Distribuição de extintores por estrutura, pavimento e ambiente conforme a {extNorma.NORMA?.sigla || 'norma de extintores do estado'}. Cadastre manualmente ou importe do plugin Revit — o risco predominante (que define a área-limite para unidade única) vem da carga de incêndio classificada na Etapa 5.</>}/>
           </h2>
-            <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-              Distribuição de extintores por estrutura, pavimento e ambiente conforme a {extNorma.NORMA?.sigla || 'norma de extintores do estado'}. Cadastre manualmente ou importe do plugin Revit — o risco predominante (que define a área-limite para unidade única) vem da carga de incêndio classificada na Etapa 5.
-            </p>
           </div>
           <div className="shrink-0 flex flex-col items-end gap-1.5">
             <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport}/>

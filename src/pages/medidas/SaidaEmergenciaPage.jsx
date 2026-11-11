@@ -8,6 +8,7 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { supabase } from '../../lib/supabase'
 import { getSE } from '../../data/normas/index'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import EstruturaSection from '../../components/ui/EstruturaSection'
 import EstruturaHeaderInfo from '../../components/ui/EstruturaHeaderInfo'
 import { statusEstrutura } from '../../utils/statusEstrutura'
@@ -429,10 +430,8 @@ export default function SaidaEmergenciaPage({ extra = null }) {
                 <Icon name={SISTEMA_ICON.saida_emergencia} size={20} color="var(--color-red)" className="shrink-0"/>
                 Saídas de Emergência
               <LinkNorma sistema="saida_emergencia"/>
+            <InfoTip side="bottom" align="start" text={<>Clique em um pavimento para cadastrar os ambientes e montar a árvore de acessos, saídas e escadas/rampas, conforme {info?.nome || 'NT vigente'} / NBR 9077.</>}/>
           </h2>
-              <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-                Clique em um pavimento para cadastrar os ambientes e montar a árvore de acessos, saídas e escadas/rampas, conforme {info?.nome || 'NT vigente'} / NBR 9077.
-              </p>
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1.5">
               <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport}/>

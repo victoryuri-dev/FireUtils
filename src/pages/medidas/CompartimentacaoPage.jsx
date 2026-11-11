@@ -438,12 +438,10 @@ export default function CompartimentacaoPage({ sentido = 'horizontal', extra = n
             <Icon name={SISTEMA_ICON[sistKey]} size={20} color="var(--color-red)" className="shrink-0"/>
             {horizontal ? 'Compartimentação Horizontal' : 'Compartimentação Vertical'}
           <LinkNorma sistema={sistKey}/>
-          </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            {horizontal
+            <InfoTip side="bottom" align="start" text={<>{horizontal
               ? `Exigibilidade pela tabela de exigências do estado e área máxima de compartimentação (Anexo B, ${sigla}), por estrutura, a partir da ocupação, altura e área de cada pavimento; elementos de proteção adotados e suas características.`
-              : `Exigibilidade pela tabela de exigências do estado, substituição por sistema alternativo e elementos de proteção adotados (${sigla}), com suas características, por estrutura.`}
-          </p>
+              : `Exigibilidade pela tabela de exigências do estado, substituição por sistema alternativo e elementos de proteção adotados (${sigla}), com suas características, por estrutura.`}</>}/>
+          </h2>
         </div>
 
         {state.estruturas.map(est => {

@@ -60,10 +60,8 @@ export default function GerenciamentoRiscoPage() {
           <Icon name={SISTEMA_ICON.gerenciamento_risco} size={20} color="var(--color-red)" className="shrink-0"/>
           Gerenciamento de Risco de Incêndio
         <LinkNorma sistema="gerenciamento_risco"/>
+            <InfoTip side="bottom" align="start" text={<>Plano de Emergência Contra Incêndio conforme NT 16/2021 CBMMA (Anexo B) — vira um capítulo do Memorial Descritivo.</>}/>
           </h2>
-        <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-          Plano de Emergência Contra Incêndio conforme NT 16/2021 CBMMA (Anexo B) — vira um capítulo do Memorial Descritivo.
-        </p>
       </div>
 
       <div className="ibox blue">

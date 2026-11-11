@@ -4,6 +4,7 @@ import { useProjeto } from '../../context/ProjetoContext'
 import { useNorma } from '../../hooks/useNorma'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import EstruturaSection from '../../components/ui/EstruturaSection'
 import EstruturaHeaderInfo from '../../components/ui/EstruturaHeaderInfo'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
@@ -162,11 +163,9 @@ export default function DeteccaoIncendioPage() {
             <Icon name={SISTEMA_ICON.deteccao} size={20} color="var(--color-red)" className="shrink-0"/>
             Detecção de Incêndio
           <LinkNorma sistema="deteccao"/>
+            <InfoTip side="bottom" align="start" text={<>Tipos e quantidades de detectores por pavimento conforme a {nrm.sigla} ({nrm.base_tecnica}). Um pavimento pode ter mais de um tipo de detector.
+            {itens.projeto ? ` O projeto deve conter todos os elementos necessários ao seu entendimento (item ${itens.projeto}).` : ''}</>}/>
           </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            Tipos e quantidades de detectores por pavimento conforme a {nrm.sigla} ({nrm.base_tecnica}). Um pavimento pode ter mais de um tipo de detector.
-            {itens.projeto ? ` O projeto deve conter todos os elementos necessários ao seu entendimento (item ${itens.projeto}).` : ''}
-          </p>
         </div>
 
         <QuadroParametros titulo={`Parâmetros normativos (${nrm.sigla})`} sigla={nrm.orgao} linhas={linhasNorma}/>

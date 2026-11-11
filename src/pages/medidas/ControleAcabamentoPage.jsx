@@ -8,6 +8,7 @@ import { divisoesDaEstrutura } from '../../utils/classificacao'
 import { montarLinhas, classeResolvida, ORDEM_CLASSE, NORMAS_ENSAIO_POR_ELEMENTO, parseNormasEnsaio, classesExigidasEstrutura, formatarClasses, ELEMENTOS_TABELA_B1 } from '../../data/cmar_calc'
 import { MATERIAIS_INCOMBUSTIVEIS, buscarMaterialIncombustivel, CLASSE_INCOMBUSTIVEL, MATERIAIS_ENSAIADOS, buscarMaterialEnsaiado } from '../../data/materiaisAcabamento'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import EstruturaSection from '../../components/ui/EstruturaSection'
 import EstruturaHeaderInfo from '../../components/ui/EstruturaHeaderInfo'
 import InlineEditableNome from '../../components/ui/InlineEditableNome'
@@ -342,10 +343,8 @@ export default function ControleAcabamentoPage() {
             <Icon name={SISTEMA_ICON.controle_acabamento} size={20} color="var(--color-red)" className="shrink-0"/>
             Controle de Materiais de Acabamento e Revestimento
           <LinkNorma sistema="controle_acabamento"/>
+            <InfoTip side="bottom" align="start" text={<>Estabelece as condições a serem atendidas pelos materiais de acabamento e de revestimento empregados nas edificações, para que, na ocorrência de incêndio, restrinjam a propagação de fogo e o desenvolvimento de fumaça.</>}/>
           </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            Estabelece as condições a serem atendidas pelos materiais de acabamento e de revestimento empregados nas edificações, para que, na ocorrência de incêndio, restrinjam a propagação de fogo e o desenvolvimento de fumaça.
-          </p>
         </div>
 
         {state.estruturas.map(est => {
