@@ -24,10 +24,10 @@ export function Field({ label, hint, children }) {
 // Resultado calculado (não editável) — visual deliberadamente diferente de
 // um campo de formulário (sem borda/caixa de input): rótulo pequeno em
 // cima, valor em destaque embaixo, como um dado, não uma pergunta.
-export function Resultado({ label, value, hint, className = '' }) {
+export function Resultado({ label, value, hint, className = '', centro = false }) {
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-1">
+    <div className={centro ? 'text-center' : ''}>
+      <div className={`flex items-center ${centro ? 'justify-center' : 'justify-between'} gap-2 mb-1`}>
         <div className="text-[10px] text-ink-faint uppercase tracking-[.06em]">{label}</div>
         {hint && <div className="text-[10px] text-ink-faint tabular-nums whitespace-nowrap">{hint}</div>}
       </div>

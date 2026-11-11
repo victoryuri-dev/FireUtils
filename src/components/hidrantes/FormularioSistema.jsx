@@ -110,11 +110,11 @@ export default function FormularioSistema() {
       {/* A — Classificação do sistema */}
       <FormSection title="Classificação do Sistema">
         <div className="grid grid-cols-3 gap-4 bg-surface-2 border border-solid border-border rounded-lg p-4 mb-4 max-[720px]:grid-cols-1">
-          <Resultado label="Área construída considerada para classificação"
+          <Resultado centro label="Área construída considerada"
             value={areaTotal ? `${fmtNum(areaTotal)} m²` : '—'}/>
-          <Resultado label="Divisão para classificação"
+          <Resultado centro label="Divisão para classificação"
             value={sugestao.divisao || 'Nenhuma divisão classificada ainda (Etapa 4/5)'}/>
-          <Resultado label="Maior risco das edificações"
+          <Resultado centro label="Maior risco das edificações"
             value={maiorRisco ? `${RISCO_NOME[maiorRisco.risco]} — ${fmtNum(maiorRisco.carga)} MJ/m²` : '—'}/>
         </div>
 
