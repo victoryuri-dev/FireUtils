@@ -18,7 +18,7 @@
 import { getSE } from '../normas/index'
 import {
   contarSaidasPavimento, getDistancia, calcPopPav,
-  calcDimsAcesso, dimsDoAcesso, calcNoAmbientePT, tipoEscadaEstrutura,
+  calcDimsAcesso, dimsDoAcesso, calcNoAmbientePT, tipoEscadaEstrutura, ARQUIBANCADA_TAXA,
 } from '../se_calc'
 import { fmtNum } from '../../utils/numero'
 import { blocoObservacao } from '../../utils/observacoes'
@@ -125,16 +125,20 @@ function montarArvorePavimento(pav) {
 // popTipo 'area' (a taxa vem da divisão, ver TAXA_POPULACIONAL); 'manual'
 // e 'fixo' usam um valor informado direto, sem taxa por área.
 function taxaPopulacionalTexto(amb, taxaPopulacional) {
-  if (amb.popTipo === 'fixo') return 'Assentos informados'
-  if (amb.popTipo === 'manual') return 'Informada manualmente'
-  return taxaPopulacional[amb.divisao]?.obs || '—'
+  let base
+  if (amb.popTipo === 'fixo') base = 'Assentos informados'
+  else if (amb.popTipo === 'manual') base = 'Informada manualmente'
+  else base = taxaPopulacional[amb.divisao]?.obs || '—'
+  if (amb.arquibancada && amb.divisao === 'F-3') return `${base}; arquibancada: ${ARQUIBANCADA_TAXA.obs}`
+  return base
 }
 
 // Medida que entra no cálculo da população do ambiente: com assentos fixos a
 // área não conta — vale a quantidade de assentos ("64 p"); nos demais, a área.
 function medidaTexto(amb) {
-  if (amb.popTipo === 'fixo') return `${fmt(parseInt(amb.assentos) || 0)} p`
-  return `${fmt(amb.area || 0)} m²`
+  const base = amb.popTipo === 'fixo' ? `${fmt(parseInt(amb.assentos) || 0)} p` : `${fmt(amb.area || 0)} m²`
+  if (amb.arquibancada && amb.divisao === 'F-3') return `${base} + ${fmt(parseFloat(amb.arquibancadaComprimento) || 0)} m linear (arquibancada)`
+  return base
 }
 
 // ── Tabela única com todos os ambientes do pavimento (largura de porta) ──

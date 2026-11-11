@@ -55,6 +55,16 @@ function json(body, status = 200) {
 // esta function roda em Deno, fora do bundle do site. Mantenha as duas em
 // sincronia se a regra de população mudar.
 function calcPopAmbiente(amb, tabela) {
+  return calcPopBase(amb, tabela) + calcPopArquibancada(amb)
+}
+
+// Arquibancada (F-3, nota Q): 1 pessoa por 0,50 m linear de banco.
+function calcPopArquibancada(amb) {
+  if (!amb.arquibancada || amb.divisao !== 'F-3') return 0
+  return Math.ceil((parseFloat(amb.arquibancadaComprimento) || 0) / 0.5)
+}
+
+function calcPopBase(amb, tabela) {
   if (amb.popTipo === 'fixo') return Math.max(0, parseInt(amb.assentos) || 0)
   if (amb.popTipo === 'manual') return Math.max(0, parseInt(amb.popManual) || 0)
   const taxa = tabela[amb.divisao]

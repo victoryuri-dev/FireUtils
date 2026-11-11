@@ -106,7 +106,7 @@ function resolverPavimentoSite(payloadPavimento, estruturaId, projetoPavimentos)
 // rooms.get_rooms_classificados no plugin) — estável mesmo se o ambiente
 // for renomeado numa reclassificação ou tiver só a área editada — com
 // fallback pro NOME normalizado só pra ambiente sincronizado antes dessa
-// mudança (ainda sem revitId salvo). `popTipo`/`assentos`/`popManual` NÃO
+// mudança (ainda sem revitId salvo). `popTipo`/`assentos`/`popManual`/`arquibancada` NÃO
 // vêm mais do Revit (ver montar_payload_ambientes no plugin) — população é
 // autoridade do site (é lá que se escolhe "assento fixo"/manual e mora a
 // taxa normativa vigente; ver site-sync ação populacao_ambientes, que
@@ -151,6 +151,8 @@ function resolverImportacaoSaidas(payloadSE, estruturaIdForcado, projetoPaviment
           popTipo:   existente?.popTipo   || 'area',
           assentos:  existente?.assentos  ?? 0,
           popManual: existente?.popManual ?? 0,
+          arquibancada: existente?.arquibancada ?? false,
+          arquibancadaComprimento: existente?.arquibancadaComprimento ?? 0,
           revitId:   a.revitId   ?? existente?.revitId ?? null,
           origem:    'revit',
         }

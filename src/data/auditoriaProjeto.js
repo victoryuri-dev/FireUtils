@@ -109,6 +109,7 @@ export function camposObrigatorios(state, porEstrutura = []) {
         add(campoId(amb.id,'divisao'),'Divisão',amb.divisao,d)
         const key = amb.popTipo === 'fixo' ? 'assentos' : amb.popTipo === 'manual' ? 'popManual' : 'area'
         add(campoId(amb.id,key),({ assentos:'Assentos',popManual:'Número de pessoas',area:'Área do ambiente' })[key],amb[key],d,key === 'area' ? positivo : inteiro)
+        if (amb.arquibancada && amb.divisao === 'F-3') add(campoId(amb.id,'arquibancadaComprimento'),'Comprimento de banco da arquibancada',amb.arquibancadaComprimento,d,positivo)
       }
     }
     if (ativo('extintores')) for (const pav of pavs) {
