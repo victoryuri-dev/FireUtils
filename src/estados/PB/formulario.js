@@ -275,8 +275,8 @@ const MEDIDAS_COL2 = [
   ['hidrantes', 'Hidrantes ou mangotinhos'],
   ['sprinklers', 'Chuveiros Automáticos – SPK'],
   ['controle_fumaca', 'Controle de fumaça'],
-  [null, 'Sistema de espuma'],
-  [null, 'Sistema de resfriamento'],
+  ['espuma', 'Sistema de espuma'],
+  ['resfriamento', 'Sistema de resfriamento'],
 ]
 
 function secaoMedidas(ctx) {
