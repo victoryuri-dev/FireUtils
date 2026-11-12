@@ -255,27 +255,19 @@ async function assinarComSelo(selo, c = campoGrande) {
   return desenhoDoSelo(pdf)
 }
 
-test('selo padrão: estilo Adobe, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
+test('selo padrão: estilo Adobe Acrobat, sem borda, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
   const d = await assinarComSelo(undefined)
   // O texto dos detalhes pode quebrar em linhas; junta o que foi desenhado (cada Tj é uma linha).
   const desenhado = [...d.matchAll(/\(((?:[^()\\]|\\.)*)\) Tj/g)].map(m => m[1]).join(' ')
   assert.match(desenhado, /Assinado de forma digital por MARIA DA SILVA:00000000000/)
   assert.match(desenhado, /Dados: 2026\.11\.10 08:18:05 [+-]\d{2}'\d{2}'/)
-  assert.ok(d.includes(' re S'), 'borda por padrão')
+  assert.ok(!d.includes(' re S'), 'sem borda')
 })
 
-test('selo simples usa o texto e a data do estilo anterior', async () => {
-  const d = await assinarComSelo({ estilo: 'simples' })
-  assert.match(d, /Assinado digitalmente por/)
-  assert.match(d, /Data: 10\/11\/2026 08:18:05 [+-]\d{2}:\d{2}/)
-  assert.doesNotMatch(d, /Dados:/)
-})
-
-test('opções do selo: ocultar linhas e borda e texto adicional', async () => {
-  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, borda: false, textoExtra: 'CREA 1234-MA' })
+test('opções do selo: ocultar linhas e texto adicional', async () => {
+  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, textoExtra: 'CREA 1234-MA' })
   assert.doesNotMatch(sem, /Dados:/)
   assert.doesNotMatch(sem, /Assinado de forma digital/)
-  assert.ok(!sem.includes(' re S'), 'sem borda')
   assert.match(sem, /CREA 1234-MA/)
 })
 

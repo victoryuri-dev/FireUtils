@@ -238,7 +238,6 @@ function dataPdf(d) {
 function conteudoDoSelo(largura, altura, titular, quando, selo) {
   const layout = montarSelo({ largura, altura, titular, quando, selo })
   let ops = ''
-  if (layout.borda) ops += `q 0.5 w 0.45 0.45 0.45 RG 0.25 0.25 ${(largura - 0.5).toFixed(2)} ${(altura - 0.5).toFixed(2)} re S Q\n`
   ops += `q 0 0 ${largura.toFixed(2)} ${altura.toFixed(2)} re W n\n`
   for (const t of layout.textos) {
     const fonte = t.fonte === 'negrito' ? 'F2' : 'F1'

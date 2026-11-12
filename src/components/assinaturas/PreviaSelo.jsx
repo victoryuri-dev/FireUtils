@@ -28,9 +28,6 @@ export default function PreviaSelo({ largura, altura, titular = TITULAR_EXEMPLO,
       className="block"
       style={{ fontFamily: 'Helvetica, Arial, "Liberation Sans", sans-serif', whiteSpace: 'pre' }}
     >
-      {layout.borda && (
-        <rect x={0.25} y={0.25} width={largura - 0.5} height={altura - 0.5} fill="none" stroke="#737373" strokeWidth={0.5}/>
-      )}
       {layout.textos.map((t, i) => (
         // O layout usa y para cima a partir da base; o SVG, para baixo a partir do topo.
         <text key={i} x={t.x} y={altura - t.y} fontSize={t.tamanho} fontWeight={t.fonte === 'negrito' ? 700 : 400} fill="#1a1a1a">
