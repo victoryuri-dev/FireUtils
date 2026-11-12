@@ -762,8 +762,9 @@ test('20. isolamento de risco: α da Tabela A-1, D = α × menor dimensão + β,
   assert.equal(c.alfa, 1.68); assert.equal(c.xTabela, 2.0); assert.equal(c.aberturaTabela, 40)
   assert.ok(Math.abs(c.d - 18.3) < 1e-9)
   const memorialPB = { isolamento: {
-    edificacao1: { estruturaId: 'e1', severidade: 'II', aberturas: '35', largura: '20', altura: '10', beta: '1.5' },
-    edificacao2: { estruturaId: 'e1', severidade: 'I', aberturas: '20', largura: '10', altura: '10', beta: '1.5' },
+    // severidade da carga de incêndio da estrutura: e1 = 500 MJ/m² → classe II
+    edificacao1: { estruturaId: 'e1', aberturas: '35', largura: '20', altura: '10', beta: '1.5' },
+    edificacao2: { estruturaId: 'e1', aberturas: '20', largura: '10', altura: '10', beta: '1.5' },
     redutor: { protecao: 'aberturas_trrf_igual', vedacao: 'trrf120' },
     dimensionamento: 'Cálculo conforme NT 20/2023.',
   } }

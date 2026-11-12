@@ -101,8 +101,8 @@ function cargaDaOcupacao(state, estruturaId, divisao, cnae) {
   return daCatalogo || c?.cargaIncendio || 0
 }
 
-function cargaMaximaDoProjeto(state) {
-  return (state.pavimentos || []).reduce((mx, p) => {
+function cargaMaximaDoProjeto(state, estruturaId = null) {
+  return (state.pavimentos || []).filter(p => !estruturaId || p.estruturaId === estruturaId).reduce((mx, p) => {
     const ocup = [{ divisao: p.divisao, cnae: p.cnae }, ...(p.acess || []).map(a => ({ divisao: a.divisao, cnae: a.cnae }))]
     return ocup.filter(o => o.divisao).reduce((m, o) => Math.max(m, cargaDaOcupacao(state, p.estruturaId, o.divisao, o.cnae)), mx)
   }, 0)
@@ -1157,9 +1157,15 @@ function secaoSpda(state, ctx) {
 export function resultadoIsolamentoPB(state) {
   const iso = state.memorialPB?.isolamento || {}
   const norma = getIsolamentoRisco(state.uf)
+  const niveis = getMemorialFormulario(state.uf)?.NIVEIS_CARGA
   const ed = [1, 2].map(n => {
     const e = iso[`edificacao${n}`] || {}
-    return { ...e, nome: (state.estruturas || []).find(x => x.id === e.estruturaId)?.nome || '', calc: distanciaSeguranca(norma?.TABELA_A1, { ...e, beta: e.beta ?? '1,5' }) }
+    // Severidade = nível de risco da carga de incêndio da estrutura (I até
+    // 300 MJ/m², II até 1200, III acima — mesmas faixas do item 3.5).
+    const carga = e.estruturaId ? cargaMaximaDoProjeto(state, e.estruturaId) : 0
+    const severidade = carga > 0 && niveis ? faixaDe(niveis, carga)?.nivel || '' : ''
+    const dados = { ...e, severidade, carga }
+    return { ...dados, nome: (state.estruturas || []).find(x => x.id === e.estruturaId)?.nome || '', calc: distanciaSeguranca(norma?.TABELA_A1, { ...dados, beta: e.beta ?? '1,5' }) }
   })
   const ds = ed.map(e => e.calc?.d).filter(d => d != null)
   const base = ds.length ? Math.max(...ds) : null

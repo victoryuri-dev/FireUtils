@@ -611,8 +611,8 @@ export function CamposSpdaPB() {
   )
 }
 
-// 20 — Isolamento de risco (NT 20/2023): por edificação, severidade, % de
-// aberturas e dimensões da fachada → α da Tabela A-1 e D = α × (largura ou
+// 20 — Isolamento de risco (NT 20/2023): por edificação, % de aberturas e
+// dimensões da fachada (a severidade vem do risco de incêndio da estrutura) → α da Tabela A-1 e D = α × (largura ou
 // altura) + β; redutor pela tabela (proteção × vedação). O dimensionamento
 // (cálculo detalhado) é um campo de texto livre.
 export function CamposIsolamentoPB() {
@@ -646,7 +646,7 @@ export function CamposIsolamentoPB() {
       <div className="g2">
         {[1, 2].map(n => {
           const c = r.ed[n - 1].calc
-          const classe = ed(n).severidade
+          const classe = r.ed[n - 1].severidade   // do risco de incêndio da estrutura
           return (
             <FormSection key={n} title={`Edificação ${n}`}>
               <div className="flex flex-col gap-3">
@@ -657,11 +657,11 @@ export function CamposIsolamentoPB() {
                     {estruturas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                   </select>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
                   <Rotulo>Classificação da severidade</Rotulo>
-                  <div className="flex gap-2">
-                    {['I', 'II', 'III'].map(k => <BotaoOpcao key={k} ativo={classe === k} onClick={() => setEd(n, { severidade: k })}>{k}</BotaoOpcao>)}
-                  </div>
+                  {classe
+                    ? <span className="text-ink">Classe <strong>{classe}</strong> <span className="text-ink-faint tabular-nums">({f2(r.ed[n - 1].carga)} MJ/m²)</span></span>
+                    : <span className="text-ink-faint">{ed(n).estruturaId ? 'Defina a carga de incêndio da estrutura' : '—'}</span>}
                 </div>
                 {numero(n, 'aberturas', 'Porcentagem de aberturas da fachada', '%')}
                 <div className="g2">
