@@ -5,14 +5,20 @@ import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArqui
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
 
-// Nome do grupo (clicar nele põe o grupo em edição), com botão para renomear (Enter confirma, Esc cancela; nome vazio é ignorado).
-function NomeDoGrupo({ grupo, ativo, onEditar, onRenomear }) {
+// Nome do grupo: clicar nele (ou no lápis ao lado) edita. Enter ou sair do campo confirma, Esc cancela;
+// nome vazio é ignorado.
+function NomeDoGrupo({ grupo, onRenomear }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(grupo.nome)
 
   function confirmar() {
     setEditando(false)
     if (texto.trim() && texto.trim() !== grupo.nome) onRenomear(grupo.id, texto)
+  }
+  function editar(e) {
+    e.stopPropagation()
+    setTexto(grupo.nome)
+    setEditando(true)
   }
 
   if (editando) {
@@ -23,12 +29,13 @@ function NomeDoGrupo({ grupo, ativo, onEditar, onRenomear }) {
         maxLength={60}
         onChange={e => setTexto(e.target.value)}
         onBlur={confirmar}
+        onClick={e => e.stopPropagation()}
         onKeyDown={e => {
           if (e.key === 'Enter') confirmar()
           if (e.key === 'Escape') setEditando(false)
         }}
         aria-label="Nome do grupo"
-        className="min-w-0 flex-1 h-7 py-0 px-2 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
+        className="min-w-0 flex-1"
       />
     )
   }
@@ -36,22 +43,22 @@ function NomeDoGrupo({ grupo, ativo, onEditar, onRenomear }) {
     <>
       <button
         type="button"
-        onClick={onEditar}
-        aria-pressed={ativo}
-        title="Editar este grupo"
-        className="min-w-0 flex-1 text-left truncate text-[13px] font-semibold text-ink bg-transparent border-0 p-0 cursor-pointer"
+        onClick={editar}
+        title="Clique para renomear"
+        className="min-w-0 truncate text-left text-[13px] font-semibold text-ink bg-transparent border-0 p-0 cursor-text"
       >
         {grupo.nome}
       </button>
       <button
         type="button"
-        onClick={() => { setTexto(grupo.nome); setEditando(true) }}
+        onClick={editar}
         title="Renomear grupo"
         aria-label={`Renomear ${grupo.nome}`}
-        className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint hover:text-ink hover:bg-surface-2"
+        className="w-6 h-6 grid place-items-center shrink-0 rounded-sm text-ink-faint bg-transparent border-0 p-0 cursor-pointer"
       >
         <Icon name="edit" size={12}/>
       </button>
+      <span className="flex-1"/>
     </>
   )
 }
@@ -117,26 +124,30 @@ function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, 
 
   return (
     <li ref={setNodeRef} {...soltar?.props} className={`rounded-lg border border-solid transition-colors ${borda}`}>
-      <div className="flex items-center gap-1.5 px-2.5 py-2">
+      {/* Clicar no cabeçalho (fora dos botões) põe o grupo em edição e abre a lista dele. */}
+      <div
+        className="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer"
+        onClick={() => { dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id }); onAbrir(grupo.id) }}
+      >
         <button
           type="button"
-          onClick={() => onAlternarAberto(grupo.id)}
+          onClick={e => { e.stopPropagation(); onAlternarAberto(grupo.id) }}
           aria-expanded={aberto}
           aria-label={`${aberto ? 'Fechar' : 'Abrir'} a lista de arquivos de ${grupo.nome}`}
           title={aberto ? 'Fechar a lista de arquivos' : 'Abrir a lista de arquivos'}
-          className={`w-6 h-6 grid place-items-center rounded-sm shrink-0 hover:bg-surface-2 bg-transparent border-0 p-0 cursor-pointer ${ativo ? 'text-red' : 'text-ink-faint hover:text-ink'}`}
+          className={`w-6 h-6 grid place-items-center rounded-sm shrink-0 bg-transparent border-0 p-0 cursor-pointer ${ativo ? 'text-red' : 'text-ink-faint'}`}
         >
           <Icon name={aberto ? 'folderOpen' : 'folder'} size={16}/>
         </button>
-        <NomeDoGrupo grupo={grupo} ativo={ativo} onEditar={() => { dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id }); onAbrir(grupo.id) }} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
+        <NomeDoGrupo grupo={grupo} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
         <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{arquivos.length}</span>
         {podeRemover && (
           <button
             type="button"
-            onClick={() => dispatch({ type: 'REMOVER_GRUPO', id: grupo.id })}
+            onClick={e => { e.stopPropagation(); dispatch({ type: 'REMOVER_GRUPO', id: grupo.id }) }}
             title="Remover grupo (os arquivos vão para o grupo vizinho)"
             aria-label={`Remover grupo ${grupo.nome}`}
-            className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint hover:text-red hover:bg-surface-2"
+            className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint"
           >
             <Icon name="trash" size={12}/>
           </button>
@@ -153,7 +164,7 @@ function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, 
                 Selecionar todos
               </button>
             </div>
-            <ul className="list-none m-0 px-2.5 pb-2.5 flex flex-col gap-2 max-h-[360px] overflow-y-auto">
+            <ul className="list-none m-0 px-2.5 pb-2.5 flex flex-col gap-2">
               {arquivos.map(a => (
                 <CaixaArquivo
                   key={a.id}
