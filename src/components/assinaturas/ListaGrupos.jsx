@@ -5,8 +5,8 @@ import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArqui
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
 
-// Nome do grupo, com botão para renomear (Enter confirma, Esc cancela; nome vazio é ignorado).
-function NomeDoGrupo({ grupo, onRenomear }) {
+// Nome do grupo (clicar nele põe o grupo em edição), com botão para renomear (Enter confirma, Esc cancela; nome vazio é ignorado).
+function NomeDoGrupo({ grupo, ativo, onEditar, onRenomear }) {
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(grupo.nome)
 
@@ -34,7 +34,15 @@ function NomeDoGrupo({ grupo, onRenomear }) {
   }
   return (
     <>
-      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{grupo.nome}</span>
+      <button
+        type="button"
+        onClick={onEditar}
+        aria-pressed={ativo}
+        title="Editar este grupo"
+        className="min-w-0 flex-1 text-left truncate text-[13px] font-semibold text-ink bg-transparent border-0 p-0 cursor-pointer"
+      >
+        {grupo.nome}
+      </button>
       <button
         type="button"
         onClick={() => { setTexto(grupo.nome); setEditando(true) }}
@@ -112,22 +120,15 @@ function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, 
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <button
           type="button"
-          onClick={() => { dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id }); onAbrir(grupo.id) }}
-          aria-label={`Editar grupo ${grupo.nome}`}
-          aria-pressed={ativo}
-          className={`w-2.5 h-2.5 rounded-full border-2 border-solid shrink-0 ${ativo ? 'border-red bg-red' : 'border-ink-hint bg-transparent hover:border-ink-muted'}`}
-        />
-        <button
-          type="button"
           onClick={() => onAlternarAberto(grupo.id)}
           aria-expanded={aberto}
           aria-label={`${aberto ? 'Fechar' : 'Abrir'} a lista de arquivos de ${grupo.nome}`}
           title={aberto ? 'Fechar a lista de arquivos' : 'Abrir a lista de arquivos'}
-          className="w-6 h-6 grid place-items-center rounded-sm shrink-0 text-ink-faint hover:text-ink hover:bg-surface-2 bg-transparent border-0 p-0 cursor-pointer"
+          className={`w-6 h-6 grid place-items-center rounded-sm shrink-0 hover:bg-surface-2 bg-transparent border-0 p-0 cursor-pointer ${ativo ? 'text-red' : 'text-ink-faint hover:text-ink'}`}
         >
           <Icon name={aberto ? 'folderOpen' : 'folder'} size={16}/>
         </button>
-        <NomeDoGrupo grupo={grupo} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
+        <NomeDoGrupo grupo={grupo} ativo={ativo} onEditar={() => { dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id }); onAbrir(grupo.id) }} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
         <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{arquivos.length}</span>
         {podeRemover && (
           <button
