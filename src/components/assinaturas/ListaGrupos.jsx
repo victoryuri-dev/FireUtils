@@ -82,7 +82,7 @@ function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
       } ${isDragging ? 'opacity-40' : ''}`}
     >
       <span className="flex items-start gap-2 pr-14">
-        <Icon name="fileText" size={16} className="shrink-0 mt-0.5 text-ink-faint"/>
+        <Icon name="file" size={16} className="shrink-0 mt-0.5 text-ink-faint"/>
         <span className="min-w-0">
           <span className="block text-[12px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</span>
           <span className="block text-[10px] text-ink-faint">{formatarTamanho(arquivo.tamanho)}</span>
