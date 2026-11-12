@@ -144,11 +144,10 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
       )}
 
       {temArquibancada && (
-        <label className="flex items-center gap-2 text-[12px] text-ink cursor-pointer select-none">
-          <input type="checkbox" checked={form.arquibancada}
-            onChange={e => setForm(f => ({ ...f, arquibancada: e.target.checked, arquibancadaComprimento: '' }))}/>
-          Possui arquibancada?
-        </label>
+        <div>
+          <Toggle label="Possui arquibancada?" checked={form.arquibancada}
+            onChange={v => setForm(f => ({ ...f, arquibancada: v, arquibancadaComprimento: '' }))}/>
+        </div>
       )}
 
       {arquibancadaOn && (
