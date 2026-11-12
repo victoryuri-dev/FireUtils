@@ -148,7 +148,7 @@ export default function SecaoGrupo({
         </div>
       )}
       <header className="flex items-center gap-2.5 mb-4">
-        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ativo ? 'bg-red' : 'border-2 border-solid border-ink-hint'}`} aria-hidden="true"/>
+        <Icon name="folderOpen" size={18} className={`shrink-0 ${ativo ? 'text-red' : 'text-ink-faint'}`}/>
         <h2 className="m-0 min-w-0 truncate font-heading text-[16px] font-semibold text-ink">{grupo.nome}</h2>
         <span className="text-[12px] text-ink-faint tabular-nums shrink-0">
           {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'}
