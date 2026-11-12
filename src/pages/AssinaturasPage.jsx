@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useAcesso } from '../hooks/useLicencas'
 import { liberarPdf } from '../lib/pdfjs'
+import { importarOuRecarregar } from '../lib/recarregarPorVersao'
 import {
   estadoInicial, reducer, novoId, grupoAtivo, arquivosDoGrupo,
 } from '../utils/assinaturas/grupos'
@@ -17,8 +18,8 @@ import Icon from '../components/ui/Icon'
 
 // O diálogo traz a criptografia e a escrita de PDF (pdf-lib, node-forge, fflate):
 // só é baixado quando a pessoa clica em Assinar.
-const ModalAssinar = lazy(() => import('../components/assinaturas/ModalAssinar'))
-const ModalCertificado = lazy(() => import('../components/assinaturas/ModalCertificado'))
+const ModalAssinar = lazy(() => importarOuRecarregar(() => import('../components/assinaturas/ModalAssinar')))
+const ModalCertificado = lazy(() => importarOuRecarregar(() => import('../components/assinaturas/ModalCertificado')))
 
 function FerramentaAssinaturas() {
   const [estado, dispatch] = useReducer(reducer, undefined, () => estadoInicial())
