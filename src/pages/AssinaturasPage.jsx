@@ -8,6 +8,7 @@ import ListaGrupos from '../components/assinaturas/ListaGrupos'
 import SecaoCertificados from '../components/assinaturas/SecaoCertificados'
 import { useCertificadosSalvos } from '../hooks/useCertificadosSalvos'
 import { useSoltarArquivos } from '../hooks/useSoltarArquivos'
+import { useLarguraDoElemento } from '../hooks/useMedidas'
 import PainelCampo from '../components/assinaturas/PainelCampo'
 import SecaoGrupo from '../components/assinaturas/SecaoGrupo'
 import ProvedorArrastar from '../components/assinaturas/ProvedorArrastar'
@@ -75,6 +76,16 @@ function FerramentaAssinaturas() {
 
   const semArquivos = estado.arquivos.length === 0
 
+  // Colunas de grupos: 2 quando a área comporta dois boxes de 680 px lado a lado, senão 1. Os grupos
+  // se distribuem em ordem entre as colunas (1º, 2º, 1º, 2º…) e cada coluna empilha os seus.
+  const [refArea, larguraArea] = useLarguraDoElemento()
+  const colunas = useMemo(() => {
+    const n = larguraArea >= 2 * 680 + 24 ? 2 : 1
+    const cols = Array.from({ length: n }, () => [])
+    estado.grupos.forEach((g, i) => cols[i % n].push(g))
+    return cols
+  }, [larguraArea, estado.grupos])
+
   return (
     <ProvedorArrastar arquivos={estado.arquivos} selecionados={estado.selecionados} onMover={mover}>
     <div
@@ -92,7 +103,7 @@ function FerramentaAssinaturas() {
         />
       </aside>
 
-      <main className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
+      <main ref={refArea} className="shrink-0 lg:shrink lg:flex-1 min-w-0 lg:overflow-y-auto p-4 sm:p-6 relative">
         <header className="mb-5">
           <h1 className="m-0 font-heading text-[22px] font-semibold text-ink tracking-[-0.02em]">Assinaturas em lote</h1>
         </header>
@@ -109,13 +120,13 @@ function FerramentaAssinaturas() {
             </div>
           </div>
         ) : (
-          // Até 2 grupos por linha. Cada box tem no mínimo 680 px: se a área não comporta
-          // dois, os grupos passam para uma coluna só (o min() com 100% cobre telas estreitas).
-          <div
-            className="grid gap-6 items-start"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, max(680px, calc(50% - 12px))), 1fr))' }}
-          >
-            {estado.grupos.map(g => (
+          // Até 2 colunas de grupos (cada box com no mínimo 680 px; sem espaço, uma coluna só). Os
+          // grupos se distribuem em ordem (1º à esquerda, 2º à direita, 3º abaixo do 1º...) e cada
+          // coluna empilha os seus sem esperar a altura do vizinho: não sobram vãos entre eles.
+          <div className="grid gap-6 items-start" style={{ gridTemplateColumns: `repeat(${colunas.length}, minmax(0, 1fr))` }}>
+            {colunas.map((grupos, c) => (
+              <div key={c} className="flex flex-col gap-6 min-w-0">
+              {grupos.map(g => (
               <SecaoGrupo
                 key={g.id}
                 grupo={g}
@@ -131,6 +142,8 @@ function FerramentaAssinaturas() {
                 onCampo={mudarCampo}
                 onGeometria={aoMedir}
               />
+              ))}
+              </div>
             ))}
           </div>
         )}

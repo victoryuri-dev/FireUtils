@@ -121,6 +121,7 @@ export default function SecaoGrupo({
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
   // Largura do box (container) e tamanho da referência na tela: em box largo a referência
   // cresce com ele e as duas linhas de miniaturas se ajustam à altura dela.
+  const outros = arquivos.filter(a => a.id !== arquivoRef?.id)
   const corpo = useRef(null)
   const larguraCorpo = useLargura(corpo, 0)
   const emLinha = larguraCorpo >= LARGURA_LINHA
@@ -187,14 +188,17 @@ export default function SecaoGrupo({
               />
             </div>
 
+            {/* A folha de referência já aparece grande ao lado: a lista de miniaturas só tem os
+                demais arquivos (clicar em um deles o torna a referência). */}
+            {outros.length > 0 && (
             <div className="flex-1 min-w-0">
               <CarrosselMiniaturas rotulo={`Conferência do ${grupo.nome}`} altura={alturaMiniatura}>
-                {arquivos.map(a => (
+                {outros.map(a => (
                   <MiniaturaArquivo
                     key={a.id}
                     arquivo={a}
                     grupo={grupo}
-                    referencia={a.id === arquivoRef?.id}
+                    referencia={false}
                     selecionado={selecionados.includes(a.id)}
                     altura={alturaMiniatura}
                     onEscolher={id => onEscolherRef(grupo.id, id)}
@@ -203,6 +207,7 @@ export default function SecaoGrupo({
                 ))}
               </CarrosselMiniaturas>
             </div>
+            )}
           </div>
         </div>
       )}
