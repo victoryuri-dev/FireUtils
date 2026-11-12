@@ -164,7 +164,17 @@ export function getIluminacao(uf) { return remotoRenomeado(uf, 'iluminacao', CHA
 export function getSinalizacao(uf) {
   const adaptado = remotoRenomeado(uf, 'sinalizacao', CHAVES_SIN)
   if (!adaptado) return null
-  return { ...adaptado, TIPOS_PLACA: (adaptado.TIPOS_PLACA || []).map(t => ({ ...t, img: IMAGEM_PLACA[t.key] })) }
+  // E1 é o alarme sonoro (não "telefone"); e a altura de instalação não é
+  // exibida nas placas — vale para qualquer origem dos dados (base central ou seed).
+  const semAltura = local => (/altura/i.test(local || '') ? undefined : local)
+  return {
+    ...adaptado,
+    TIPOS_PLACA: (adaptado.TIPOS_PLACA || []).map(t => ({
+      ...t, img: IMAGEM_PLACA[t.key],
+      ...(t.key === 'e1' ? { label: 'Alarme sonoro' } : {}),
+      localInstalacao: semAltura(t.localInstalacao),
+    })),
+  }
 }
 export function getCompartimentacao(uf) {
   const adaptado = remotoRenomeado(uf, 'compartimentacao', CHAVES_COMP)

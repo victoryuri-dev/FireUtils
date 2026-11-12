@@ -249,7 +249,7 @@ function ReferenciaNormativa({ sinNorma }) {
             <div className="text-[13px] text-ink-muted leading-[1.6]">{NOTAS.geral}</div>
           </div>
           <div className="text-[11px] text-ink-faint leading-[1.6] pt-2 border-t border-solid border-border-2">
-            {NOTAS.altura}<br/>{NOTAS.fotoluminescencia}<br/>{NOTAS.quantidade}
+            {NOTAS.fotoluminescencia}<br/>{NOTAS.quantidade}
           </div>
         </div>
       )}
