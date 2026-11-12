@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePaginaPdf } from '../../hooks/usePaginaPdf'
 import { useLargura } from '../../hooks/useMedidas'
@@ -8,23 +8,29 @@ import {
 } from '../../utils/assinaturas/geometria'
 import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
-import MiniaturaArquivo from './MiniaturaArquivo'
+import MiniaturaArquivo, { ALTURA_QUADRO } from './MiniaturaArquivo'
 import CarrosselMiniaturas from './CarrosselMiniaturas'
+import NomeDoGrupo from './NomeDoGrupo'
 import PreviaSelo from './PreviaSelo'
 import VisorMaximizado from './VisorMaximizado'
 import Loader from '../ui/Loader'
 import Icon from '../ui/Icon'
 
-// Largura máxima do PDF de referência; o resto do box fica para as miniaturas.
-const LARGURA_MAX_REFERENCIA = 480
+// Em box largo, a referência fica com até esta fração da largura; o resto é das miniaturas.
+const FRACAO_REFERENCIA = 0.62
+// Largura mínima do box para pôr referência e miniaturas lado a lado.
+const LARGURA_LINHA = 620
+// Ao lado das miniaturas, a folha de referência tem a altura das 2 linhas delas (quadro + legenda
+// de cada linha, mais o vão entre as linhas): os dois lados terminam alinhados.
+const ALTURA_LEGENDA_MINIATURA = 23
+const ALTURA_BLOCO_MINIATURAS = 2 * (ALTURA_QUADRO + ALTURA_LEGENDA_MINIATURA) + 16
 
 // O PDF de referência do grupo, com o campo arrastável por cima.
-function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
+function Referencia({ grupo, arquivo, ativo, titular, larguraMax, alturaMax, onCampo, onGeometria, onMedida }) {
   const caixa = useRef(null)
   // Elemento onde o visor é montado (ou null = fechado). Fora do box do grupo: o box usa
   // container query, que em alguns navegadores prende elementos `fixed` ao próprio box.
   const [alvoDoVisor, setAlvoDoVisor] = useState(null)
-  const larguraCaixa = useLargura(caixa, LARGURA_MAX_REFERENCIA)
   const dados = usePaginaPdf(arquivo?.arquivo, grupo.pagina, Boolean(arquivo))
 
   // Só o grupo em edição informa a geometria ao painel lateral (âncora e contagem).
@@ -32,14 +38,17 @@ function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
   const total = dados.status === 'ok' || dados.status === 'sem-pagina' ? dados.total : null
   useEffect(() => { if (ativo) onGeometria(geometria, total) }, [ativo, geometria, total, onGeometria])
 
+  // Informa o tamanho da folha na tela: o box ajusta a coluna e a altura das miniaturas a ele.
+  const medidaW = dados.status === 'ok' ? Math.max(220, Math.min(larguraMax, Math.floor((alturaMax * dimensoesVisiveis(geometria).largura) / dimensoesVisiveis(geometria).altura))) : null
+  const medidaH = medidaW ? Math.round((medidaW * dimensoesVisiveis(geometria).altura) / dimensoesVisiveis(geometria).largura) : null
+  useEffect(() => { onMedida(medidaW ? { w: medidaW, h: medidaH } : null) }, [medidaW, medidaH, onMedida])
+
   if (!arquivo) return null
 
   let corpo
   if (dados.status === 'ok') {
     // A página inteira cabe na tela: limita também pela altura disponível.
-    const vis = dimensoesVisiveis(geometria)
-    const alturaMax = Math.max(360, (globalThis.innerHeight || 900) - 300)
-    const larguraPx = Math.max(220, Math.min(larguraCaixa, LARGURA_MAX_REFERENCIA, Math.floor((alturaMax * vis.largura) / vis.altura)))
+    const larguraPx = medidaW
     const rect = retanguloVisivel(grupo.campo, geometria)
     corpo = (
       <>
@@ -108,9 +117,20 @@ function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
  * soltar arquivos arrastados sobre ela os move para este grupo.
  */
 export default function SecaoGrupo({
-  grupo, arquivos, ativo, refId, selecionados, titularPrevia, soltar, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
+  grupo, arquivos, ativo, refId, selecionados, titularPrevia, soltar, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria, onRenomear,
 }) {
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
+  // Largura do box (container) e tamanho da referência na tela: em box largo a referência
+  // cresce com ele e as duas linhas de miniaturas se ajustam à altura dela.
+  const outros = arquivos.filter(a => a.id !== arquivoRef?.id)
+  const corpo = useRef(null)
+  const larguraCorpo = useLargura(corpo, 0)
+  const emLinha = larguraCorpo >= LARGURA_LINHA
+  const [medidaRef, setMedidaRef] = useState(null)
+  const aoMedir = useCallback(m => setMedidaRef(m), [])
+  const larguraMaxRef = emLinha ? Math.floor((larguraCorpo - 24) * FRACAO_REFERENCIA) : Math.max(220, larguraCorpo)
+  // Lado a lado: altura do bloco de miniaturas; empilhado: o que couber na tela.
+  const alturaMaxRef = emLinha ? ALTURA_BLOCO_MINIATURAS : Math.max(360, (globalThis.innerHeight || 900) - 300)
   // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
   const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'secao')
 
@@ -129,8 +149,8 @@ export default function SecaoGrupo({
         </div>
       )}
       <header className="flex items-center gap-2.5 mb-4">
-        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ativo ? 'bg-red' : 'border-2 border-solid border-ink-hint'}`} aria-hidden="true"/>
-        <h2 className="m-0 min-w-0 truncate font-heading text-[16px] font-semibold text-ink">{grupo.nome}</h2>
+        <Icon name="folderOpen" size={18} className={`shrink-0 ${ativo ? 'text-red' : 'text-ink-faint'}`}/>
+        <NomeDoGrupo grupo={grupo} onRenomear={onRenomear} variante="secao"/>
         <span className="text-[12px] text-ink-faint tabular-nums shrink-0">
           {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'}
         </span>
@@ -141,6 +161,9 @@ export default function SecaoGrupo({
         )}
       </header>
 
+      {/* O contêiner medido existe sempre: um grupo que começa vazio e recebe arquivos depois
+          precisa já estar sendo observado (senão a largura fica 0 e o layout trava no modo estreito). */}
+      <div ref={corpo}>
       {arquivos.length === 0 ? (
         <div className="ibox m-0 bg-bg border border-solid border-border">
           <Icon name="info" size={14} className="shrink-0"/>
@@ -150,27 +173,33 @@ export default function SecaoGrupo({
         // O layout reage à largura do PRÓPRIO box (container query), e não da tela: com 2
         // grupos lado a lado cada box é mais estreito. Box largo: referência à esquerda e
         // miniaturas à direita; box estreito: uma sobre a outra.
-        <div className="@container">
-          <div className="flex flex-col @min-[620px]:flex-row gap-6">
-            <div className="shrink-0 min-w-0 @min-[620px]:basis-[42%] @min-[620px]:max-w-[480px] @min-[620px]:min-w-[280px]">
+        <div>
+          <div className={`flex gap-6 ${emLinha ? "flex-row" : "flex-col"}`}>
+            <div className="shrink-0 min-w-0" style={emLinha && medidaRef ? { width: medidaRef.w } : undefined}>
               <Referencia
                 grupo={grupo}
                 arquivo={arquivoRef}
                 ativo={ativo}
                 titular={titularPrevia}
+                larguraMax={larguraMaxRef}
+                alturaMax={alturaMaxRef}
+                onMedida={aoMedir}
                 onCampo={campo => onCampo(grupo.id, campo)}
                 onGeometria={onGeometria}
               />
             </div>
 
+            {/* A folha de referência já aparece grande ao lado: a lista de miniaturas só tem os
+                demais arquivos (clicar em um deles o torna a referência). */}
+            {outros.length > 0 && (
             <div className="flex-1 min-w-0">
               <CarrosselMiniaturas rotulo={`Conferência do ${grupo.nome}`}>
-                {arquivos.map(a => (
+                {outros.map(a => (
                   <MiniaturaArquivo
                     key={a.id}
                     arquivo={a}
                     grupo={grupo}
-                    referencia={a.id === arquivoRef?.id}
+                    referencia={false}
                     selecionado={selecionados.includes(a.id)}
                     onEscolher={id => onEscolherRef(grupo.id, id)}
                     onAlternarSelecao={onAlternarSelecao}
@@ -178,9 +207,11 @@ export default function SecaoGrupo({
                 ))}
               </CarrosselMiniaturas>
             </div>
+            )}
           </div>
         </div>
       )}
+      </div>
     </section>
   )
 }

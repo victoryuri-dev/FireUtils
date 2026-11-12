@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRepositorioCertificados } from '../context/certificados-context'
+import { apagarSenha } from '../lib/senhaLocal'
 import { escolherSelecionado } from '../utils/assinaturas/certificadosSalvos'
 
 // O certificado escolhido por último é só uma preferência deste navegador (um id, nada sensível).
@@ -40,6 +41,7 @@ export function useCertificadosSalvos() {
 
   const remover = useCallback(async id => {
     await repositorio.remover(id)
+    apagarSenha(id) // a senha lembrada neste dispositivo some junto
     setEstado(e => ({ ...e, lista: e.lista.filter(c => c.id !== id) }))
   }, [repositorio])
 

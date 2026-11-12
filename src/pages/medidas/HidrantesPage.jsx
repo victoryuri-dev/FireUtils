@@ -547,10 +547,8 @@ export default function HidrantesPage({ extra = null }) {
               <Icon name={SISTEMA_ICON.hidrantes} size={20} color="var(--color-red)" className="shrink-0"/>
               Hidrantes / Mangotinho
             <LinkNorma sistema="hidrantes"/>
+            <InfoTip side="bottom" align="start" text={<>Classificação conforme {norma.NORMA.nome} / NBR 13714 — o dimensionamento hidráulico é calculado pelo plugin Revit a partir dela.</>}/>
           </h2>
-            <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-              Classificação conforme {norma.NORMA.nome} / NBR 13714 — o dimensionamento hidráulico é calculado pelo plugin Revit a partir dela.
-            </p>
           </div>
         </div>
 

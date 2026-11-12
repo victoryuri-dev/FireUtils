@@ -134,11 +134,9 @@ test('assina a página pedida (primeira, número específico)', async () => {
   }
 })
 
-test('recusa: já assinado, página inexistente, campo fora da página e arquivo que não é PDF', async () => {
+test('recusa: página inexistente, campo fora da página e arquivo que não é PDF', async () => {
   const original = await pdfDeTeste()
-  const assinado = (await assinarPdf(original, certificado, { campo, pagina: ultima })).pdf
   const codigo = async fn => { try { await fn(); return null } catch (e) { return e.codigo } }
-  assert.equal(await codigo(() => assinarPdf(assinado, certificado, { campo, pagina: ultima })), 'ja-assinado')
   assert.equal(await codigo(() => assinarPdf(original, certificado, { campo, pagina: { modo: 'numero', numero: 4 } })), 'sem-pagina')
   assert.equal(await codigo(() => assinarPdf(original, certificado, { campo: { ...campo, larguraMm: 600 }, pagina: ultima })), 'fora')
   assert.equal(await codigo(() => assinarPdf(new TextEncoder().encode('não é um pdf'), certificado, { campo, pagina: ultima })), 'leitura')
@@ -255,27 +253,19 @@ async function assinarComSelo(selo, c = campoGrande) {
   return desenhoDoSelo(pdf)
 }
 
-test('selo padrão: estilo Adobe, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
+test('selo padrão: estilo Adobe Acrobat, sem borda, com "Assinado de forma digital por" e "Dados: AAAA.MM.DD hh:mm:ss -03\'00\'"', async () => {
   const d = await assinarComSelo(undefined)
   // O texto dos detalhes pode quebrar em linhas; junta o que foi desenhado (cada Tj é uma linha).
   const desenhado = [...d.matchAll(/\(((?:[^()\\]|\\.)*)\) Tj/g)].map(m => m[1]).join(' ')
   assert.match(desenhado, /Assinado de forma digital por MARIA DA SILVA:00000000000/)
   assert.match(desenhado, /Dados: 2026\.11\.10 08:18:05 [+-]\d{2}'\d{2}'/)
-  assert.ok(d.includes(' re S'), 'borda por padrão')
+  assert.ok(!d.includes(' re S'), 'sem borda')
 })
 
-test('selo simples usa o texto e a data do estilo anterior', async () => {
-  const d = await assinarComSelo({ estilo: 'simples' })
-  assert.match(d, /Assinado digitalmente por/)
-  assert.match(d, /Data: 10\/11\/2026 08:18:05 [+-]\d{2}:\d{2}/)
-  assert.doesNotMatch(d, /Dados:/)
-})
-
-test('opções do selo: ocultar linhas e borda e texto adicional', async () => {
-  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, borda: false, textoExtra: 'CREA 1234-MA' })
+test('opções do selo: ocultar linhas e texto adicional', async () => {
+  const sem = await assinarComSelo({ mostrarData: false, mostrarRotulo: false, textoExtra: 'CREA 1234-MA' })
   assert.doesNotMatch(sem, /Dados:/)
   assert.doesNotMatch(sem, /Assinado de forma digital/)
-  assert.ok(!sem.includes(' re S'), 'sem borda')
   assert.match(sem, /CREA 1234-MA/)
 })
 
@@ -291,4 +281,47 @@ test('o selo nunca parte palavras do nome e continua assinando com nome longo em
   const { pdf } = await assinarPdf(await pdfDeTeste(), c, { campo: { ...campo, larguraMm: 50, alturaMm: 20 }, pagina: ultima, agora: agoraFixo })
   const d = latin1(new TextEncoder().encode(await desenhoDoSelo(pdf)))
   for (const palavra of ['FELLIPE', 'ALVES', 'SOUSA', '000.000.000-00']) assert.ok(d.includes(palavra), `palavra inteira: ${palavra}`)
+})
+
+// ── PDF que já tem assinatura: atualização incremental ────────────────
+test('PDF já assinado: a nova assinatura é acrescentada e os bytes anteriores ficam intactos', async () => {
+  const original = await pdfDeTeste()
+  const primeira = (await assinarPdf(original, certificado, { campo, pagina: ultima })).pdf
+  const segunda = (await assinarPdf(primeira, certificado, { campo: { ...campo, dxMm: 90 }, pagina: ultima })).pdf
+
+  assert.ok(segunda.length > primeira.length)
+  assert.deepEqual(segunda.subarray(0, primeira.length), primeira, 'o arquivo anterior não pode mudar nem um byte')
+  const brs = [...latin1(segunda).matchAll(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/g)].map(m => m.slice(1).map(Number))
+  assert.equal(brs.length, 2, 'duas assinaturas')
+  const [a, b] = brs
+  assert.equal(b[0] + b[1] + (b[2] - b[1]) + b[3], segunda.length, 'a 2ª cobre o arquivo inteiro')
+  assert.ok(b[1] > a[2] + a[3] - 1 || b[2] > primeira.length - 1, 'a 2ª cobre também a 1ª')
+
+  const doc = await PDFDocument.load(segunda)
+  assert.equal(doc.getPages()[0].node.Annots().size(), 2, 'duas anotações de assinatura na página')
+  const acro = doc.catalog.lookup(PDFName.of('AcroForm'), PDFDict)
+  assert.equal(acro.lookup(PDFName.of('Fields'), PDFArray).size(), 2)
+})
+
+test('atualização incremental com xref em fluxo (PDF com object streams) também funciona', async () => {
+  const doc = await PDFDocument.create()
+  doc.addPage([842, 595])
+  const comObjStm = await doc.save({ useObjectStreams: true })
+  assert.match(latin1(comObjStm), /\/Type\s*\/XRef/, 'o arquivo de teste usa xref em fluxo')
+  const r = await assinarPdf(comObjStm, certificado, { campo, pagina: ultima, forcarIncremental: true })
+  assert.deepEqual(r.pdf.subarray(0, comObjStm.length), comObjStm)
+  const lido = await PDFDocument.load(r.pdf)
+  assert.equal(lido.getPages()[0].node.Annots().size(), 1)
+  assert.match(latin1(r.pdf.subarray(comObjStm.length)), /\/Type \/XRef/)
+})
+
+test('documento certificado sem alterações (DocMDP P=1) não aceita nova assinatura', async () => {
+  const doc = await PDFDocument.create()
+  doc.addPage([842, 595])
+  const params = doc.context.obj({ Type: 'TransformParams', P: 1, V: PDFName.of('1.2') })
+  const ref = doc.context.obj({ Type: 'SigRef', TransformMethod: 'DocMDP', TransformParams: params })
+  const sig = doc.context.register(doc.context.obj({ Type: 'Sig', Reference: [ref] }))
+  doc.catalog.set(PDFName.of('Perms'), doc.context.obj({ DocMDP: sig }))
+  const bytes = await doc.save()
+  await assert.rejects(assinarPdf(bytes, certificado, { campo, pagina: ultima, forcarIncremental: true }), e => e.codigo === 'certificado-fechado')
 })

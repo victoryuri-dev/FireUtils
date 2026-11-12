@@ -1,7 +1,7 @@
 // utils/assinaturas/seloLayout.js — o DESENHO do selo visível da assinatura.
 //
 // Função pura: dado o tamanho do quadro, o titular, a data e as opções do grupo
-// (selo.js), devolve onde vai cada linha de texto e se há borda. O mesmo resultado
+// (selo.js), devolve onde vai cada linha de texto. O mesmo resultado
 // alimenta o PDF (lib/pades.js, que o converte em operadores de desenho) e a
 // prévia na tela (PreviaSelo.jsx, que o converte em SVG). Assim o que a pessoa vê
 // antes de assinar é o que sai no documento: mesmas quebras de linha e tamanhos.
@@ -37,12 +37,6 @@ const fuso = d => {
   return { sinal: off >= 0 ? '+' : '-', h: p2(Math.floor(Math.abs(off) / 60)), m: p2(Math.abs(off) % 60) }
 }
 
-/** 10/11/2026 08:18:05 -03:00 */
-export function dataParaSelo(d) {
-  const f = fuso(d)
-  return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())} ${f.sinal}${f.h}:${f.m}`
-}
-
 /** Como o Adobe Acrobat escreve: 2020.07.23 01:48:53 -03'00' */
 export function dataAdobe(d) {
   const f = fuso(d)
@@ -75,47 +69,6 @@ function quebrarLinhas(texto, fonte, tamanho, maximo) {
   }
   if (atual) linhas.push(atual)
   return linhas
-}
-
-// Encurta a linha com reticências até caber em `maximo` pontos.
-function caberNaLargura(linha, tamanho, maximo) {
-  if (larguraDoTexto(linha.fonte, linha.texto, tamanho) <= maximo) return
-  let corte = linha.texto
-  while (corte.length > 1 && larguraDoTexto(linha.fonte, `${corte}...`, tamanho) > maximo) corte = corte.slice(0, -1)
-  linha.texto = `${corte}...`
-}
-
-/**
- * Selo "simples": linhas opcionais (rótulo, titular em negrito, data, texto
- * adicional), alinhadas à esquerda ou centralizadas, no maior tamanho que cabe.
- */
-function layoutSimples({ largura, altura, titular, quando, selo }) {
-  const pad = 3
-  const maximo = largura - 2 * pad
-  const linhas = []
-  if (selo.mostrarRotulo) linhas.push({ texto: 'Assinado digitalmente por', fonte: 'normal', escala: 0.85 })
-  linhas.push({ texto: winAnsi(titular), fonte: 'negrito', escala: 1 })
-  if (selo.mostrarData) linhas.push({ texto: `Data: ${dataParaSelo(quando)}`, fonte: 'normal', escala: 0.85 })
-  if (selo.textoExtra) linhas.push({ texto: winAnsi(selo.textoExtra), fonte: 'normal', escala: 0.85 })
-
-  // O maior tamanho (até 14 pt) em que as linhas cabem na altura e na largura.
-  let tam = Math.min(14, (altura - 2 * pad) / (linhas.length * 1.25))
-  while (tam > 4 && !linhas.every(l => larguraDoTexto(l.fonte, l.texto, tam * l.escala) <= maximo)) tam -= 0.25
-  for (const l of linhas) caberNaLargura(l, tam * l.escala, maximo)
-
-  const passo = tam * 1.25
-  const centralizado = selo.alinhamento === 'centro'
-  const topo = centralizado ? altura - Math.max(pad, (altura - passo * linhas.length) / 2) : altura - pad
-  return linhas.map((l, i) => {
-    const tamanho = tam * l.escala
-    return {
-      texto: l.texto,
-      fonte: l.fonte,
-      tamanho,
-      x: centralizado ? (largura - larguraDoTexto(l.fonte, l.texto, tamanho)) / 2 : pad,
-      y: topo - tam * 0.95 - i * passo,
-    }
-  })
 }
 
 /**
@@ -183,16 +136,10 @@ function layoutAdobe({ largura, altura, titular, quando, selo }) {
  * Desenho do selo.
  * @param {{ largura:number, altura:number, titular:string, quando:Date, selo?:object }} entrada
  *        largura/altura do quadro em pontos, na orientação em que o selo é lido
- * @returns {{ largura:number, altura:number, borda:boolean,
+ * @returns {{ largura:number, altura:number,
  *             textos: { texto:string, fonte:'normal'|'negrito', tamanho:number, x:number, y:number }[] }}
  */
 export function montarSelo({ largura, altura, titular, quando, selo: entrada }) {
   const selo = normalizarSelo(entrada)
-  const dados = { largura, altura, titular, quando, selo }
-  return {
-    largura,
-    altura,
-    borda: selo.borda,
-    textos: selo.estilo === 'simples' ? layoutSimples(dados) : layoutAdobe(dados),
-  }
+  return { largura, altura, textos: layoutAdobe({ largura, altura, titular, quando, selo }) }
 }

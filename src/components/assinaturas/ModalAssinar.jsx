@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAssinarLote } from '../../hooks/useAssinarLote'
-import { ROTULO_ANCORA } from '../../utils/assinaturas/geometria'
 import { situacaoDoCertificado } from '../../utils/assinaturas/certificadosSalvos'
+import { temSenha, lerSenha, guardarSenha, apagarSenha } from '../../lib/senhaLocal'
 import Icon from '../ui/Icon'
+import Checkbox from '../ui/Checkbox'
 
-const PAGINA = { ultima: 'última página', primeira: 'primeira página' }
-const rotuloPagina = p => (p.modo === 'numero' ? `página ${p.numero}` : PAGINA[p.modo])
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
 
 function Painel({ titulo, children, rodape, id }) {
@@ -45,6 +44,20 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
   const salvos = certificados?.lista ?? []
   const usarSalvo = salvos.length > 0 && origem !== 'arquivo'
   const idEfetivo = idSalvo ?? certificados?.selecionadoId ?? null
+  // Senha lembrada neste dispositivo para o certificado salvo escolhido (senhaLocal): se houver,
+  // não é pedida. `lembradaDe` guarda de qual id foi consultada; antes disso, aguarda.
+  const [lembradaDe, setLembradaDe] = useState({ id: null, tem: false })
+  const [lembrar, setLembrar] = useState(true)
+  const [emPastas, setEmPastas] = useState(false) // cada grupo vira uma pasta no ZIP
+  useEffect(() => {
+    if (!usarSalvo || !idEfetivo) return undefined
+    let ativo = true
+    temSenha(idEfetivo).then(tem => { if (ativo) setLembradaDe({ id: idEfetivo, tem }) })
+    return () => { ativo = false }
+  }, [usarSalvo, idEfetivo])
+  const consultando = usarSalvo && Boolean(idEfetivo) && lembradaDe.id !== idEfetivo
+  const usaLembrada = usarSalvo && lembradaDe.id === idEfetivo && lembradaDe.tem
+  const faltaSenha = !usaLembrada && !senha
 
   const grupos_com_arquivos = grupos
     .map(g => ({ grupo: g, total: arquivos.filter(a => a.grupoId === g.id).length }))
@@ -65,7 +78,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
 
   async function continuar(e) {
     e.preventDefault()
-    if ((usarSalvo ? !idEfetivo : !pfx) || !senha || verificando) return
+    if ((usarSalvo ? !idEfetivo : !pfx) || faltaSenha || consultando || verificando) return
     setVerificando(true)
     let origemPfx = pfx
     if (usarSalvo) {
@@ -77,7 +90,22 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
         return
       }
     }
-    const lido = await lote.verificar(origemPfx, senha)
+    const senhaUsada = usaLembrada ? await lerSenha(idEfetivo) : senha
+    if (senhaUsada == null) {
+      // A senha lembrada não pôde ser lida (dados do navegador limpos): volta a pedir.
+      await apagarSenha(idEfetivo)
+      setLembradaDe({ id: idEfetivo, tem: false })
+      lote.relatarErro('Não foi possível usar a senha lembrada neste dispositivo. Digite a senha do certificado.')
+      setVerificando(false)
+      return
+    }
+    const lido = await lote.verificar(origemPfx, senhaUsada)
+    if (lido && usarSalvo && !usaLembrada && lembrar) await guardarSenha(idEfetivo, senhaUsada)
+    if (!lido && usaLembrada) {
+      // A senha lembrada não abre mais o arquivo: esquece e pede de novo.
+      await apagarSenha(idEfetivo)
+      setLembradaDe({ id: idEfetivo, tem: false })
+    }
     // Com o certificado lido a senha não precisa mais ficar no estado; se der erro,
     // ela fica para a pessoa corrigir sem redigitar tudo.
     if (lido) setSenha('')
@@ -110,14 +138,14 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
               titulo={`Assinar ${plural(total, 'arquivo', 'arquivos')}`}
               rodape={<>
                 <button type="button" className="btn-ghost" onClick={onFechar}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={(usarSalvo ? !idEfetivo : !pfx) || !senha || verificando}>
+                <button type="submit" className="btn-primary" disabled={(usarSalvo ? !idEfetivo : !pfx) || faltaSenha || consultando || verificando}>
                   {verificando ? <><Icon name="spinner" size={13} className="animate-spin"/> Lendo…</> : 'Continuar'}
                 </button>
               </>}
             >
               <p className="m-0 text-[13px] text-ink-faint leading-relaxed">
                 {usarSalvo
-                  ? 'Escolha o certificado e digite a senha dele. A senha não é guardada em lugar nenhum; o arquivo do certificado só é aberto neste navegador.'
+                  ? 'Escolha o certificado. Se a senha já foi lembrada neste dispositivo, ela não é pedida; o arquivo do certificado só é aberto neste navegador.'
                   : 'Escolha o certificado digital A1 (arquivo .pfx ou .p12). Ele e a senha ficam só na memória deste navegador e não são enviados a nenhum servidor.'}
               </p>
 
@@ -154,16 +182,35 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
                 </div>
               )}
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] text-ink-faint">Senha do certificado</span>
-                <input
-                  type="password"
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  autoComplete="off"
-                  className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
-                />
-              </label>
+              {usaLembrada && (
+                <p className="m-0 flex items-center gap-2 text-[12px] text-ink-faint">
+                  <Icon name="check" size={13}/> Senha lembrada neste dispositivo.
+                  <button type="button" className="text-[12px] text-ink-faint hover:text-ink underline bg-transparent border-0 p-0 cursor-pointer" onClick={async () => { await apagarSenha(idEfetivo); setLembradaDe({ id: idEfetivo, tem: false }) }}>
+                    Esquecer
+                  </button>
+                </p>
+              )}
+
+              {!usaLembrada && (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] text-ink-faint">Senha do certificado</span>
+                    <input
+                      type="password"
+                      value={senha}
+                      onChange={e => setSenha(e.target.value)}
+                      autoComplete="off"
+                      className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
+                    />
+                  </label>
+                  {usarSalvo && (
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <span className="mt-0.5"><Checkbox checked={lembrar} onChange={() => setLembrar(v => !v)} title="Lembrar a senha neste dispositivo"/></span>
+                      <span className="text-[12px] text-ink-faint leading-snug">Lembrar a senha neste dispositivo</span>
+                    </label>
+                  )}
+                </>
+              )}
 
               {erro && (
                 <div className="ibox red m-0" role="alert">
@@ -181,56 +228,32 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
         {fase === 'confirmar' && certificado && (
           <Painel
             id="titulo-assinar"
-            titulo="Confirme quem vai assinar"
+            titulo="Confirmar assinatura"
             rodape={<>
               <button type="button" className="btn-ghost" onClick={lote.voltar}>Voltar</button>
-              <button type="button" className="btn-primary" onClick={lote.executar} disabled={certificado.vencido}>
+              <button type="button" className="btn-primary" onClick={() => lote.executar({ pastas: emPastas })} disabled={certificado.vencido}>
                 <Icon name="signature" size={13}/> Assinar {plural(total, 'arquivo', 'arquivos')}
               </button>
             </>}
           >
-            <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-              <dt className="text-ink-faint">Titular</dt><dd className="m-0 text-ink font-medium break-words">{certificado.titular}</dd>
-              <dt className="text-ink-faint">Emissor</dt><dd className="m-0 text-ink break-words">{certificado.emissor || '—'}</dd>
-              <dt className="text-ink-faint">Válido até</dt><dd className="m-0 text-ink">{certificado.validoAte.toLocaleDateString('pt-BR')}</dd>
-            </dl>
+            <p className="m-0 text-[14px] text-ink leading-relaxed">
+              {plural(total, 'arquivo será assinado', 'arquivos serão assinados')} em {plural(grupos_com_arquivos.length, 'grupo', 'grupos')}.
+            </p>
 
-            {certificado.vencido ? (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <span className="mt-0.5"><Checkbox checked={emPastas} onChange={() => setEmPastas(v => !v)} title="Separar em pastas por grupo"/></span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[13px] text-ink">Separar em pastas por grupo</span>
+                <span className="text-[11px] text-ink-faint leading-snug">O download é um ZIP com uma pasta para cada grupo, com o nome do grupo.</span>
+              </span>
+            </label>
+
+            {certificado.vencido && (
               <div className="ibox red m-0" role="alert">
                 <Icon name="warn" size={14} color="var(--color-red)" className="shrink-0"/>
                 <span>Este certificado está vencido (ou ainda não começou a valer). Use um certificado válido.</span>
               </div>
-            ) : certificado.icpBrasil ? (
-              <div className="ibox m-0 bg-green-dim border border-solid border-green-border">
-                <Icon name="checkCircle" size={14} color="var(--color-green)" className="shrink-0"/>
-                <span>Certificado ICP-Brasil identificado.</span>
-              </div>
-            ) : (
-              <div className="ibox amber m-0">
-                <Icon name="warn" size={14} color="var(--color-amber)" className="shrink-0"/>
-                <span>
-                  {certificado.autoassinado
-                    ? 'Este certificado é autoassinado (como os IDs digitais criados no Adobe Reader), e não emitido por uma autoridade certificadora. '
-                    : 'Este certificado não parece ser ICP-Brasil. '}
-                  A assinatura será criada e o PDF não poderá ser alterado sem que isso apareça, mas os leitores de PDF mostrarão “identidade desconhecida” e ela não terá validade como assinatura ICP-Brasil.
-                </span>
-              </div>
             )}
-
-            <div>
-              <div className="text-[11px] text-ink-faint mb-1.5">O que será assinado</div>
-              <ul className="m-0 p-0 list-none flex flex-col gap-1">
-                {grupos_com_arquivos.map(({ grupo, total: n }) => (
-                  <li key={grupo.id} className="text-[12px] text-ink-muted">
-                    <strong className="text-ink">{grupo.nome}</strong> — {plural(n, 'arquivo', 'arquivos')}, {rotuloPagina(grupo.pagina)}, campo {grupo.campo.larguraMm}×{grupo.campo.alturaMm} mm a {grupo.campo.dxMm}/{grupo.campo.dyMm} mm do canto {ROTULO_ANCORA[grupo.campo.ancora].toLowerCase()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <p className="m-0 text-[12px] text-ink-faint leading-relaxed">
-              Sem carimbo do tempo: a data da assinatura é a do relógio deste computador.
-            </p>
           </Painel>
         )}
 
@@ -244,7 +267,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
                   <button type="button" className="btn-ghost" onClick={onFechar}>Fechar</button>
                   {resultado?.blob && (
                     <button type="button" className="btn-primary" onClick={lote.baixar}>
-                      <Icon name="download" size={13}/> {resultado.assinados > 1 ? 'Baixar ZIP' : 'Baixar PDF'}
+                      <Icon name="download" size={13}/> {resultado.nome?.endsWith('.zip') ? 'Baixar ZIP' : 'Baixar PDF'}
                     </button>
                   )}
                 </>}

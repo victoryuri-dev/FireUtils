@@ -1,18 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { zipSync } from 'fflate'
+import { nomeDeArquivo, nomeDePasta } from '../utils/assinaturas/saida'
 import { lerCertificado, assinarPdf, ErroAssinatura } from '../lib/pades'
 
 // Deixa o navegador pintar o "assinando…" antes do trabalho pesado do arquivo.
 const pausa = () => new Promise(r => setTimeout(r, 30))
-
-// Nome do arquivo assinado, sem repetir nomes dentro do mesmo ZIP.
-function nomeAssinado(nome, usados) {
-  const base = nome.replace(/\.pdf$/i, '')
-  let candidato = `${base}_assinado.pdf`
-  for (let n = 2; usados.has(candidato.toLowerCase()); n++) candidato = `${base}_assinado (${n}).pdf`
-  usados.add(candidato.toLowerCase())
-  return candidato
-}
 
 /**
  * Orquestra a assinatura em lote: lê o certificado, assina cada arquivo no campo
@@ -64,7 +56,8 @@ export function useAssinarLote({ grupos, arquivos }) {
     setFase('config')
   }, [])
 
-  const executar = useCallback(async () => {
+  // `pastas`: cada grupo vira uma pasta (com o nome do grupo) dentro do ZIP.
+  const executar = useCallback(async ({ pastas = false } = {}) => {
     const certificadoCompleto = certRef.current
     if (!certificadoCompleto) return
     cancelado.current = false
@@ -76,6 +69,10 @@ export function useAssinarLote({ grupos, arquivos }) {
     const atualizar = (id, dados) => setItens(l => l.map(i => (i.id === id ? { ...i, ...dados } : i)))
     const saidas = {}
     const usados = new Set()
+    const nomesDePasta = new Set()
+    const pastaDoGrupo = {}
+    if (pastas) for (const g of grupos) if (arquivos.some(a => a.grupoId === g.id)) pastaDoGrupo[g.id] = nomeDePasta(g.nome, nomesDePasta)
+    const pastasUsadas = {}
     let falhas = 0
 
     for (const { arquivo, grupo } of fila) {
@@ -85,7 +82,10 @@ export function useAssinarLote({ grupos, arquivos }) {
       try {
         const bytes = new Uint8Array(await arquivo.arquivo.arrayBuffer())
         const r = await assinarPdf(bytes, certificadoCompleto, { campo: grupo.campo, pagina: grupo.pagina, selo: grupo.selo })
-        saidas[nomeAssinado(arquivo.nome, usados)] = r.pdf
+        const pasta = pastaDoGrupo[grupo.id]
+        const usadosAqui = pasta ? (pastasUsadas[pasta] ??= new Set()) : usados
+        const nome = nomeDeArquivo(arquivo.nome, usadosAqui)
+        saidas[pasta ? `${pasta}/${nome}` : nome] = r.pdf
         atualizar(arquivo.id, { status: 'ok', pagina: r.pagina })
       } catch (e) {
         falhas++
@@ -101,12 +101,12 @@ export function useAssinarLote({ grupos, arquivos }) {
 
     const nomes = Object.keys(saidas)
     let saida = null
-    if (nomes.length === 1) {
+    if (nomes.length === 1 && !pastas) {
       saida = { blob: new Blob([saidas[nomes[0]]], { type: 'application/pdf' }), nome: nomes[0] }
-    } else if (nomes.length > 1) {
+    } else if (nomes.length >= 1) {
       // Os PDFs já são comprimidos: guardar sem recomprimir é mais rápido.
       const zip = zipSync(Object.fromEntries(nomes.map(n => [n, [saidas[n], { level: 0 }]])))
-      saida = { blob: new Blob([zip], { type: 'application/zip' }), nome: 'documentos_assinados.zip' }
+      saida = { blob: new Blob([zip], { type: 'application/zip' }), nome: 'documentos.zip' }
     }
     setResultado({ ...saida, assinados: nomes.length, falhas, cancelado: cancelado.current })
     setFase('concluido')

@@ -1,4 +1,5 @@
 import { useProjeto } from '../../context/ProjetoContext'
+import InfoTip from '../../components/ui/InfoTip'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { buildFormularioPB } from './formulario'
 import FormSection from '../../components/ui/FormSection'
@@ -40,10 +41,8 @@ export default function PaginaPB({ titulo, secoes: prefixos, observacoes, aviso,
           <h2 className="flex flex-wrap items-center gap-3 font-heading text-[22px] font-bold text-ink mb-1.5">
             {titulo}
             <StatusExigivel secoes={secoes}/>
+            <InfoTip side="bottom" align="start" text={<>Preencha só o que o formulário pede. Exigência, valores calculados e marcações automáticas saem da Configuração e da norma; o botão de prévia mostra a seção como ela vai no documento.</>}/>
           </h2>
-          <p className="text-[13px] text-ink-faint leading-[1.6] m-0">
-            Preencha só o que o formulário pede. Exigência, valores calculados e marcações automáticas saem da Configuração e da norma; o botão de prévia mostra a seção como ela vai no documento.
-          </p>
         </div>
 
         {aviso && <div className="ibox amber mb-6"><span className="text-xs">{aviso}</span></div>}

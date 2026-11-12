@@ -47,3 +47,11 @@ test('zoom ancorado: o ponto da folha sob o mouse continua sob o mouse depois do
     assert.ok(Math.abs(verifica.ptX - ponto.ptX) < 1e-6 && Math.abs(verifica.ptY - ponto.ptY) < 1e-6, `zoom ${escalaAntes} -> ${escalaDepois}`)
   }
 })
+
+test('fatorDaRoda: proporcional ao giro, simétrico e limitado', async () => {
+  const { fatorDaRoda } = await import('../src/utils/assinaturas/zoom.js')
+  assert.ok(Math.abs(fatorDaRoda(-100) - 1.25) < 1e-9)
+  assert.ok(Math.abs(fatorDaRoda(100) * fatorDaRoda(-100) - 1) < 1e-9)
+  assert.ok(fatorDaRoda(-5) > 1 && fatorDaRoda(-5) < 1.02)
+  assert.equal(fatorDaRoda(-5000), fatorDaRoda(-120))
+})

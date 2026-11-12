@@ -1,5 +1,6 @@
 import LinkNorma from '../components/ui/LinkNorma'
 import Icon from '../components/ui/Icon'
+import InfoTip from '../components/ui/InfoTip'
 import { SISTEMA_ICON } from '../data/sistemasIcons'
 
 const SIST_LABELS = {
@@ -40,10 +41,8 @@ export default function MedidaPage({ sistKey }) {
           <Icon name={SISTEMA_ICON[sistKey]} size={20} color="var(--color-red)" className="shrink-0"/>
           {label}
           <LinkNorma sistema={sistKey}/>
+          <InfoTip side="bottom" align="start" text="Dimensionamento e especificações técnicas do sistema conforme NT 42/2019 CBMMA."/>
         </h2>
-        <p className="text-[13px] text-ink-faint leading-[1.6]">
-          Dimensionamento e especificações técnicas do sistema conforme NT 42/2019 CBMMA.
-        </p>
       </div>
 
       <div className="ibox amber">

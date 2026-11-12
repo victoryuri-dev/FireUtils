@@ -2,6 +2,9 @@ import { useRef } from 'react'
 import { mmParaPt, moverRedimensionar } from '../../utils/assinaturas/geometria'
 
 const MIN_MM = { largura: 25, altura: 10 }
+// Abaixo deste tamanho NA TELA os cantos de redimensionar não aparecem (cobririam o corpo do campo).
+// O redimensionamento para de encolher antes disso, para o campo nunca ficar sem alças no meio do arrasto.
+const MIN_PX = { largura: 44, altura: 28 }
 const CANTOS = [
   { modo: 'nw', pos: '-top-1.5 -left-1.5', cursor: 'nwse-resize' },
   { modo: 'ne', pos: '-top-1.5 -right-1.5', cursor: 'nesw-resize' },
@@ -22,7 +25,10 @@ const CANTOS = [
  */
 export default function CampoAssinatura({ rect, escala, limite, onMudar, editavel = true, rotulo = 'Assinatura', previa = null }) {
   const arrasto = useRef(null)
-  const minimo = { largura: mmParaPt(MIN_MM.largura), altura: mmParaPt(MIN_MM.altura) }
+  const minimo = {
+    largura: Math.max(mmParaPt(MIN_MM.largura), MIN_PX.largura / escala),
+    altura: Math.max(mmParaPt(MIN_MM.altura), MIN_PX.altura / escala),
+  }
 
   const estilo = {
     left: rect.x * escala,
@@ -32,7 +38,7 @@ export default function CampoAssinatura({ rect, escala, limite, onMudar, editave
   }
   // Campo muito pequeno na tela (folha grande em tela estreita): sem alças, para
   // não cobrir o corpo — o tamanho segue editável pelo painel, em mm.
-  const pequeno = estilo.width < 44 || estilo.height < 28
+  const pequeno = estilo.width < MIN_PX.largura - 0.5 || estilo.height < MIN_PX.altura - 0.5
   const cor = rect.fora ? 'border-amber bg-amber-dim' : 'border-red bg-red-dim'
 
   if (!editavel) {

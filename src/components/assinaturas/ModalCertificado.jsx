@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { lerCertificado, ErroAssinatura } from '../../lib/pades'
+import { guardarSenha } from '../../lib/senhaLocal'
 import { apelidoPadrao } from '../../utils/assinaturas/certificadosSalvos'
 import Icon from '../ui/Icon'
+import Checkbox from '../ui/Checkbox'
 
 /**
- * Adiciona um certificado A1 (.pfx/.p12) à conta. A senha é usada só para abrir o
- * arquivo agora (conferir que é válido e ler titular e validade): NÃO é guardada.
- * O arquivo é salvo como está, ainda cifrado por ela.
+ * Adiciona um certificado A1 (.pfx/.p12) à conta. A senha abre o arquivo agora (conferir que é
+ * válido e ler titular e validade) e NUNCA vai para a conta: o arquivo é salvo como está, ainda
+ * cifrado por ela. Se a pessoa quiser, a senha fica lembrada só neste dispositivo (lib/senhaLocal),
+ * e as assinaturas seguintes não a pedem.
  */
 export default function ModalCertificado({ certificados, onFechar }) {
   const [pfx, setPfx] = useState(null)
   const [senha, setSenha] = useState('')
   const [nome, setNome] = useState('')
+  const [lembrar, setLembrar] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState(null)
   const inputPfx = useRef(null)
@@ -33,7 +37,7 @@ export default function ModalCertificado({ certificados, onFechar }) {
       const bytes = new Uint8Array(await pfx.arrayBuffer())
       const cert = lerCertificado(bytes, senha)
       if (cert.vencido) throw new ErroAssinatura('vencido', 'Este certificado está vencido (ou ainda não começou a valer).')
-      await certificados.adicionar({
+      const novo = await certificados.adicionar({
         nome: nome.trim() || apelidoPadrao(cert.titular),
         titular: cert.titular,
         emissor: cert.emissor,
@@ -44,6 +48,7 @@ export default function ModalCertificado({ certificados, onFechar }) {
         impressao: cert.impressao,
         bytes,
       })
+      if (lembrar) await guardarSenha(novo.id, senha)
       setSenha('')
       onFechar()
     } catch (ex) {
@@ -67,7 +72,7 @@ export default function ModalCertificado({ certificados, onFechar }) {
 
         <p className="m-0 text-[13px] text-ink-faint leading-relaxed">
           O arquivo .pfx é guardado na sua conta <strong className="text-ink font-semibold">ainda protegido pela senha dele</strong>.
-          A senha <strong className="text-ink font-semibold">não é salva</strong>: você a digita a cada assinatura. Os PDFs nunca saem do seu navegador.
+          A senha <strong className="text-ink font-semibold">nunca vai para a conta</strong>: você a informa agora e, se quiser, ela fica lembrada só neste dispositivo. Os PDFs nunca saem do seu navegador.
         </p>
 
         <div className="flex flex-col gap-1.5">
@@ -80,7 +85,7 @@ export default function ModalCertificado({ certificados, onFechar }) {
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] text-ink-faint">Senha do certificado (só para conferir o arquivo agora)</span>
+          <span className="text-[11px] text-ink-faint">Senha do certificado</span>
           <input
             type="password"
             value={senha}
@@ -88,6 +93,16 @@ export default function ModalCertificado({ certificados, onFechar }) {
             autoComplete="off"
             className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
           />
+        </label>
+
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <span className="mt-0.5"><Checkbox checked={lembrar} onChange={() => setLembrar(v => !v)} title="Lembrar a senha neste dispositivo"/></span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[12px] text-ink">Lembrar a senha neste dispositivo</span>
+            <span className="text-[11px] text-ink-faint leading-snug">
+              Fica cifrada só neste navegador (não vai para a conta) e as assinaturas deixam de pedi-la. Em outro computador ou navegador ela é pedida uma vez. Desmarque em computadores compartilhados.
+            </span>
+          </span>
         </label>
 
         <label className="flex flex-col gap-1.5">

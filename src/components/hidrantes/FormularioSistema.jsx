@@ -38,8 +38,8 @@ function EstruturaPill({ active, obrigatorio, onClick, nome, area, divisao, risc
   return (
     <button type="button" onClick={onClick} aria-pressed={active}
       className={`text-left py-2.5 px-3 rounded-md border border-solid transition-colors flex items-center justify-between gap-3 ${card}`}>
-      <span className="text-xs font-semibold text-ink truncate">{nome}</span>
-      <span className="flex flex-wrap justify-end gap-1.5">
+      <span className="text-xs font-semibold text-ink whitespace-nowrap shrink-0">{nome}</span>
+      <span className="flex flex-wrap justify-end gap-1.5 min-w-0">
         {area ? <Chip tone={tom} icon="area">{fmtNum(area)} m²</Chip> : null}
         {divisao ? <Chip tone={tom} icon="newbld">{divisao}</Chip> : null}
         {risco ? <Chip tone={tom} icon="flame">{RISCO_LABEL[risco]}</Chip> : null}
@@ -97,9 +97,9 @@ export default function FormularioSistema() {
 
       {/* Áreas para classificação — nem toda estrutura do projeto exige
           hidrantes; o RT confirma/ajusta quais entram na conta. */}
-      <FormSection title="Áreas para Classificação do Sistema" description="Selecione as estruturas que exigem sistema de hidrantes — só elas entram na área total e na ocupação usadas na Tabela 3.">
+      <FormSection title={<>Áreas para Classificação do Sistema <InfoTip text="Selecione as estruturas que utilizam o mesmo sistema de hidrantes. A ocupação de maior risco e as áreas somadas serão utilizadas para classificar o sistema."/></>}>
         <LegendaEstruturas/>
-        <div className="grid grid-cols-2 gap-3 max-[720px]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-3 max-[1100px]:grid-cols-1">
           {infoPorEstrutura.map(e => (
             <EstruturaPill key={e.id} active={estruturasSelecionadas.includes(e.id)} obrigatorio={e.hidrantesObrigatorio} onClick={() => toggleEstrutura(e.id)}
               nome={e.nome} area={e.area} divisao={e.divisaoLabel} risco={e.risco}/>
@@ -110,11 +110,11 @@ export default function FormularioSistema() {
       {/* A — Classificação do sistema */}
       <FormSection title="Classificação do Sistema">
         <div className="grid grid-cols-3 gap-4 bg-surface-2 border border-solid border-border rounded-lg p-4 mb-4 max-[720px]:grid-cols-1">
-          <Resultado label="Área construída considerada para classificação"
+          <Resultado centro label="Área construída considerada"
             value={areaTotal ? `${fmtNum(areaTotal)} m²` : '—'}/>
-          <Resultado label="Divisão para classificação"
+          <Resultado centro label="Divisão para classificação"
             value={sugestao.divisao || 'Nenhuma divisão classificada ainda (Etapa 4/5)'}/>
-          <Resultado label="Maior risco das edificações"
+          <Resultado centro label="Maior risco das edificações"
             value={maiorRisco ? `${RISCO_NOME[maiorRisco.risco]} — ${fmtNum(maiorRisco.carga)} MJ/m²` : '—'}/>
         </div>
 

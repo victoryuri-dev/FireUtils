@@ -22,7 +22,7 @@ import ProjetosPage   from './pages/ProjetosPage'
 import PerfilPage     from './pages/PerfilPage'
 import DocumentosPage from './pages/DocumentosPage'
 // Carregada sob demanda: traz o pdf.js, que não deve pesar no resto do app.
-const AssinaturasPage = lazy(() => import('./pages/AssinaturasPage'))
+const AssinaturasPage = lazy(() => importarOuRecarregar(() => import('./pages/AssinaturasPage')))
 import MedidaPage            from './pages/MedidaPage'
 import SaidaEmergenciaPage   from './pages/medidas/SaidaEmergenciaPage'
 import HidrantesPage          from './pages/medidas/HidrantesPage'
@@ -50,6 +50,7 @@ import landingLogoDark from './assets/logo-fireutils-dark.svg'
 import { ThemeProvider } from './context/ThemeContext'
 import { useTheme } from './context/theme-context'
 import { tituloDaRota } from './utils/tituloPagina'
+import { importarOuRecarregar } from './lib/recarregarPorVersao'
 
 // ── SaveStatusIndicator ───────────────────────────────────────────────
 // Mostra se o projeto esta sendo sincronizado com o servidor ou se ja foi

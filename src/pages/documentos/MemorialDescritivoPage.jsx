@@ -2,6 +2,7 @@ import { Fragment, useRef, useState } from 'react'
 import { useProjeto } from '../../context/ProjetoContext'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { buildMemorial, PRIMEIRA_SECAO_MEDIDA } from '../../data/memorial/registry'
+import { SISTEMAS } from '../../data/sistemasMenu'
 import { MEDIDAS_ANEXO_B_COL1, MEDIDAS_ANEXO_B_COL2, RISCOS_ESPECIAIS, estadoMedidaSistema } from '../../utils/anexoB'
 import { getCNAEsDivisao, getNts, getCompartimentacao } from '../../data/normas/index'
 import { classificarTipoEdificacao } from '../../data/compart_calc'
@@ -375,7 +376,12 @@ function Caracterizacao({ state, porEstrutura }) {
 }
 
 function MedidasAplicadas({ state, sistemas, porEstrutura }) {
-  const medidas = [...MEDIDAS_ANEXO_B_COL1, ...MEDIDAS_ANEXO_B_COL2]
+  // Medidas do formulário do Anexo B + as que o projeto tem mas o formulário não
+  // lista (ex.: SPDA, Central GLP): ativas/obrigatórias aparecem na tabela
+  // mesmo sem seção própria no memorial.
+  const chavesDoAnexo = new Set([...MEDIDAS_ANEXO_B_COL1, ...MEDIDAS_ANEXO_B_COL2].map(m => m.key).filter(Boolean))
+  const foraDoAnexo = SISTEMAS.filter(m => !chavesDoAnexo.has(m.key))
+  const medidas = [...MEDIDAS_ANEXO_B_COL1, ...MEDIDAS_ANEXO_B_COL2, ...foraDoAnexo]
     .filter(m => m.key && (sistemas[m.key]?.ativo || sistemas[m.key]?.obrigatorio))
     .map(m => m.key === 'central_gas' ? { ...m, label: 'Central GLP' } : m)
   const riscosPorEstrutura = state.riscosEspeciaisPorEstrutura || {}

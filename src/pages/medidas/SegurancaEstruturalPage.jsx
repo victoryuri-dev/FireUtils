@@ -4,6 +4,7 @@ import { useNorma } from '../../hooks/useNorma'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { calcularTRRF, alturaEdificacaoBase, edificacaoEhTerrea, refsNormaTRRF } from '../../data/trrf_calc'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import EstruturaSection from '../../components/ui/EstruturaSection'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
 import EstruturaHeaderInfo from '../../components/ui/EstruturaHeaderInfo'
@@ -161,10 +162,8 @@ export default function SegurancaEstruturalPage() {
             <Icon name={SISTEMA_ICON.seg_estrutural} size={20} color="var(--color-red)" className="shrink-0"/>
             Segurança Estrutural Contra Incêndio
           <LinkNorma sistema="seg_estrutural"/>
+            <InfoTip side="bottom" align="start" text={<>Estabelece as condições a serem atendidas pelos elementos estruturais e de compartimentação que integram as edificações, quanto aos Tempos Requeridos de Resistência ao Fogo (TRRF) para que, em situação de incêndio, seja evitado o colapso estrutural por tempo suficiente para possibilitar a saída segura das pessoas e o acesso para as operações do Corpo de Bombeiros Militar.</>}/>
           </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            Estabelece as condições a serem atendidas pelos elementos estruturais e de compartimentação que integram as edificações, quanto aos Tempos Requeridos de Resistência ao Fogo (TRRF) para que, em situação de incêndio, seja evitado o colapso estrutural por tempo suficiente para possibilitar a saída segura das pessoas e o acesso para as operações do Corpo de Bombeiros Militar.
-          </p>
         </div>
 
         {state.estruturas.map(est => {

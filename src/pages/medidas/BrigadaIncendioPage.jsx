@@ -371,10 +371,8 @@ export default function BrigadaIncendioPage({ extra = null }) {
             <Icon name={SISTEMA_ICON.brigada} size={20} color="var(--color-red)" className="shrink-0"/>
             Brigada de Incêndio
           <LinkNorma sistema="brigada"/>
+            <InfoTip side="bottom" align="start" text={<>Dimensionamento da brigada de incêndio orgânica por pavimento, conforme o Anexo A (Tabela A.1) da {brigNorma.NORMA.nome}. Divisão de ocupação e grau de risco vêm automaticamente da classificação já feita nas Etapas 4 e 5 — informe apenas a população fixa de cada pavimento.</>}/>
           </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            Dimensionamento da brigada de incêndio orgânica por pavimento, conforme o Anexo A (Tabela A.1) da {brigNorma.NORMA.nome}. Divisão de ocupação e grau de risco vêm automaticamente da classificação já feita nas Etapas 4 e 5 — informe apenas a população fixa de cada pavimento.
-          </p>
         </div>
 
         <ReferenciaNormativa brigNorma={brigNorma}/>

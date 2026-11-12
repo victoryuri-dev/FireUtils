@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useAcesso } from '../hooks/useLicencas'
 import { liberarPdf } from '../lib/pdfjs'
+import { importarOuRecarregar } from '../lib/recarregarPorVersao'
 import {
   estadoInicial, reducer, novoId, grupoAtivo, arquivosDoGrupo,
 } from '../utils/assinaturas/grupos'
@@ -17,8 +18,8 @@ import Icon from '../components/ui/Icon'
 
 // O diálogo traz a criptografia e a escrita de PDF (pdf-lib, node-forge, fflate):
 // só é baixado quando a pessoa clica em Assinar.
-const ModalAssinar = lazy(() => import('../components/assinaturas/ModalAssinar'))
-const ModalCertificado = lazy(() => import('../components/assinaturas/ModalCertificado'))
+const ModalAssinar = lazy(() => importarOuRecarregar(() => import('../components/assinaturas/ModalAssinar')))
+const ModalCertificado = lazy(() => importarOuRecarregar(() => import('../components/assinaturas/ModalCertificado')))
 
 function FerramentaAssinaturas() {
   const [estado, dispatch] = useReducer(reducer, undefined, () => estadoInicial())
@@ -58,6 +59,7 @@ function FerramentaAssinaturas() {
   const escolherRef = useCallback((grupoId, arquivoId) => setRefs(r => ({ ...r, [grupoId]: arquivoId })), [])
   const ativar = useCallback(id => dispatch({ type: 'SELECIONAR_GRUPO', id }), [])
   const alternarSelecao = useCallback(id => dispatch({ type: 'ALTERNAR_SELECAO', id }), [])
+  const renomear = useCallback((id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome }), [])
   const mover = useCallback((ids, grupoId) => dispatch({ type: 'MOVER_ARQUIVOS', ids, grupoId }), [])
 
   // A referência só reporta a geometria quando muda; evita laço de render.
@@ -109,12 +111,8 @@ function FerramentaAssinaturas() {
             </div>
           </div>
         ) : (
-          // Até 2 grupos por linha. Cada box tem no mínimo 680 px: se a área não comporta
-          // dois, os grupos passam para uma coluna só (o min() com 100% cobre telas estreitas).
-          <div
-            className="grid gap-6 items-start"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, max(680px, calc(50% - 12px))), 1fr))' }}
-          >
+          // Uma coluna só: os grupos, um abaixo do outro, em largura total.
+          <div className="flex flex-col gap-6">
             {estado.grupos.map(g => (
               <SecaoGrupo
                 key={g.id}
@@ -130,6 +128,7 @@ function FerramentaAssinaturas() {
                 onAtivar={ativar}
                 onCampo={mudarCampo}
                 onGeometria={aoMedir}
+                onRenomear={renomear}
               />
             ))}
           </div>

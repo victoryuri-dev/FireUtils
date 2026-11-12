@@ -4,6 +4,7 @@ import { useProjeto } from '../../context/ProjetoContext'
 import { useNorma } from '../../hooks/useNorma'
 import { calcGatilho, calcAcessoViatura } from '../../data/av_calc'
 import Icon from '../../components/ui/Icon'
+import InfoTip from '../../components/ui/InfoTip'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
 import { fmtNum } from '../../utils/numero'
 
@@ -102,10 +103,8 @@ export default function AcessoViaturaPage() {
             <Icon name={SISTEMA_ICON.acesso_viatura} size={20} color="var(--color-red)" className="shrink-0"/>
             Acesso de Viatura
           <LinkNorma sistema="acesso_viatura"/>
+            <InfoTip side="bottom" align="start" text={<>O acesso a viatura garante que os caminhões dos bombeiros e ambulâncias consigam entrar e manobrar rapidamente dentro de uma propriedade em caso de emergência com o objetivo de salvar vidas e combater incêndios de forma ágil, permitindo que as equipes cheguem o mais próximo possível das vítimas e da estrutura.</>}/>
           </h2>
-          <p className="w-full text-[13px] text-ink-faint leading-[1.6] m-0">
-            O acesso a viatura garante que os caminhões dos bombeiros e ambulâncias consigam entrar e manobrar rapidamente dentro de uma propriedade em caso de emergência com o objetivo de salvar vidas e combater incêndios de forma ágil, permitindo que as equipes cheguem o mais próximo possível das vítimas e da estrutura.
-          </p>
         </div>
 
         {/* S1 — Exigibilidade */}

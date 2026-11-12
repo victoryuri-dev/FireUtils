@@ -19,7 +19,7 @@ function Selo({ tom, children }) {
 
 /**
  * Certificados A1 salvos na conta, num seletor: o escolhido é o usado ao assinar.
- * O arquivo fica guardado ainda cifrado pela senha dele; a senha nunca é salva.
+ * O arquivo fica guardado ainda cifrado pela senha dele; a senha nunca vai para a conta (no máximo fica lembrada, cifrada, neste dispositivo).
  */
 export default function SecaoCertificados({ certificados, onAdicionar }) {
   const { carregando, erro, lista, selecionadoId, selecionado, selecionar, remover } = certificados
