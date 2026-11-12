@@ -8,9 +8,13 @@
 
 import p1  from '../../../assets/sinalizacao/p1.png'
 import p2  from '../../../assets/sinalizacao/p2.jpg'
+import a1  from '../../../assets/sinalizacao/a1.png'
 import a2  from '../../../assets/sinalizacao/a2.jpg'
 import a3  from '../../../assets/sinalizacao/a3.jpg'
+import a4  from '../../../assets/sinalizacao/a4.png'
 import a5  from '../../../assets/sinalizacao/a5.jpg'
+import a6  from '../../../assets/sinalizacao/a6.png'
+import a7  from '../../../assets/sinalizacao/a7.png'
 import s1  from '../../../assets/sinalizacao/s1.jpg'
 import s2  from '../../../assets/sinalizacao/s2.jpg'
 import s3  from '../../../assets/sinalizacao/s3.jpg'
@@ -61,12 +65,20 @@ export const TIPOS_PLACA = [
     img: p2, localInstalacao: 'Áreas com risco de incêndio onde é proibido produzir chama' },
 
   // Alerta — fundo amarelo, faixa preta (NBR 13434-2)
+  { key: 'a1', codigo: 'A1', categoria: 'alerta', label: 'Alerta geral',
+    img: a1, localInstalacao: 'Toda vez que não houver símbolo específico de alerta; deve sempre estar acompanhado de mensagem escrita específica' },
   { key: 'a2', codigo: 'A2', categoria: 'alerta', label: 'Cuidado, risco de incêndio',
     img: a2, localInstalacao: 'Áreas ou equipamentos com risco de incêndio' },
   { key: 'a3', codigo: 'A3', categoria: 'alerta', label: 'Cuidado, risco de explosão',
     img: a3, localInstalacao: 'Áreas ou equipamentos com risco de explosão' },
+  { key: 'a4', codigo: 'A4', categoria: 'alerta', label: 'Cuidado, risco de corrosão',
+    img: a4, localInstalacao: 'Próximo a locais onde houver presença de materiais corrosivos' },
   { key: 'a5', codigo: 'A5', categoria: 'alerta', label: 'Cuidado, risco de choque elétrico',
     img: a5, localInstalacao: 'Quadros, casas de máquinas e áreas com risco de choque elétrico' },
+  { key: 'a6', codigo: 'A6', categoria: 'alerta', label: 'Cuidado, risco de radiação',
+    img: a6, localInstalacao: 'Próximo a locais onde houver presença de materiais radioativos' },
+  { key: 'a7', codigo: 'A7', categoria: 'alerta', label: 'Cuidado, risco de exposição a produtos tóxicos',
+    img: a7, localInstalacao: 'Próximo a locais onde houver presença de produtos tóxicos' },
 
   // Orientação e saída de emergência — fundo verde (NBR 13434-3)
   { key: 's1_e', codigo: 'S1-E', categoria: 'orientacao', label: 'Saída de emergência — seta à esquerda (modelo 1)',
