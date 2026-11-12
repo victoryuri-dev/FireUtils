@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import LinkNorma from '../../components/ui/LinkNorma'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useProjeto } from '../../context/ProjetoContext'
@@ -35,6 +36,7 @@ export default function GerenciamentoRiscoPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const pe = state.planoEmergencia
+  const [procedimentosAbertos, setProcedimentosAbertos] = useState(false)
   const set = changes => dispatch({ type: 'SET_PLANO_EMERGENCIA', changes })
 
   // Riscos especiais sao marcados por estrutura na Configuracao — cada risco
@@ -178,16 +180,31 @@ export default function GerenciamentoRiscoPage() {
         </div>
       </FormSection>
 
-      <FormSection title="Procedimentos básicos de emergência" description="Item B.2 do Anexo B — cada campo já vem com um texto padrão pronto para uso; edite à vontade para refletir a realidade da edificação.">
-        <div className="flex flex-col gap-4">
-          {PROCEDIMENTOS.map(p => (
-            <div key={p.key} className="fg">
-              <label>{p.label}</label>
-              <textarea rows={3} value={pe[p.key]} onChange={e => set({ [p.key]: e.target.value })}/>
-            </div>
-          ))}
-        </div>
-      </FormSection>
+      {/* Recolhida por padrão: os textos já vêm prontos, só abre quem quer editar. */}
+      <section className="bg-surface border border-solid border-border rounded-lg p-5 mb-6 transition-colors duration-300 ease-out hover:border-ink-hint focus-within:border-ink-hint">
+        <button
+          type="button"
+          onClick={() => setProcedimentosAbertos(o => !o)}
+          aria-expanded={procedimentosAbertos}
+          className="w-full flex items-start gap-2.5 text-left cursor-pointer group"
+        >
+          <Icon name="chevD" size={14} className={`mt-1 text-ink-faint shrink-0 transition-transform duration-150 group-hover:text-ink ${procedimentosAbertos ? '' : '-rotate-90'}`}/>
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold text-ink">Procedimentos básicos de emergência</span>
+            <span className="block text-[12px] text-ink-faint leading-[1.5] mt-1">Item B.2 do Anexo B — cada campo já vem com um texto padrão pronto para uso geral. Edite à vontade para refletir a realidade da edificação.</span>
+          </span>
+        </button>
+        {procedimentosAbertos && (
+          <div className="flex flex-col gap-4 mt-4">
+            {PROCEDIMENTOS.map(p => (
+              <div key={p.key} className="fg">
+                <label>{p.label}</label>
+                <textarea rows={3} value={pe[p.key]} onChange={e => set({ [p.key]: e.target.value })}/>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <FormSection title="Observações complementares" description="Por estrutura — entram no memorial junto ao plano de emergência.">
         {state.estruturas.map(est => (
