@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAssinarLote } from '../../hooks/useAssinarLote'
-import { ROTULO_ANCORA } from '../../utils/assinaturas/geometria'
 import { situacaoDoCertificado } from '../../utils/assinaturas/certificadosSalvos'
 import { temSenha, lerSenha, guardarSenha, apagarSenha } from '../../lib/senhaLocal'
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
 
-const PAGINA = { ultima: 'última página', primeira: 'primeira página' }
-const rotuloPagina = p => (p.modo === 'numero' ? `página ${p.numero}` : PAGINA[p.modo])
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
 
 function Painel({ titulo, children, rodape, id }) {
@@ -230,7 +227,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
         {fase === 'confirmar' && certificado && (
           <Painel
             id="titulo-assinar"
-            titulo="Confirme quem vai assinar"
+            titulo="Confirmar assinatura"
             rodape={<>
               <button type="button" className="btn-ghost" onClick={lote.voltar}>Voltar</button>
               <button type="button" className="btn-primary" onClick={lote.executar} disabled={certificado.vencido}>
@@ -238,48 +235,16 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
               </button>
             </>}
           >
-            <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-              <dt className="text-ink-faint">Titular</dt><dd className="m-0 text-ink font-medium break-words">{certificado.titular}</dd>
-              <dt className="text-ink-faint">Emissor</dt><dd className="m-0 text-ink break-words">{certificado.emissor || '—'}</dd>
-              <dt className="text-ink-faint">Válido até</dt><dd className="m-0 text-ink">{certificado.validoAte.toLocaleDateString('pt-BR')}</dd>
-            </dl>
+            <p className="m-0 text-[14px] text-ink leading-relaxed">
+              {plural(total, 'arquivo será assinado', 'arquivos serão assinados')} em {plural(grupos_com_arquivos.length, 'grupo', 'grupos')}.
+            </p>
 
-            {certificado.vencido ? (
+            {certificado.vencido && (
               <div className="ibox red m-0" role="alert">
                 <Icon name="warn" size={14} color="var(--color-red)" className="shrink-0"/>
                 <span>Este certificado está vencido (ou ainda não começou a valer). Use um certificado válido.</span>
               </div>
-            ) : certificado.icpBrasil ? (
-              <div className="ibox m-0 bg-green-dim border border-solid border-green-border">
-                <Icon name="checkCircle" size={14} color="var(--color-green)" className="shrink-0"/>
-                <span>Certificado ICP-Brasil identificado.</span>
-              </div>
-            ) : (
-              <div className="ibox amber m-0">
-                <Icon name="warn" size={14} color="var(--color-amber)" className="shrink-0"/>
-                <span>
-                  {certificado.autoassinado
-                    ? 'Este certificado é autoassinado (como os IDs digitais criados no Adobe Reader), e não emitido por uma autoridade certificadora. '
-                    : 'Este certificado não parece ser ICP-Brasil. '}
-                  A assinatura será criada e o PDF não poderá ser alterado sem que isso apareça, mas os leitores de PDF mostrarão “identidade desconhecida” e ela não terá validade como assinatura ICP-Brasil.
-                </span>
-              </div>
             )}
-
-            <div>
-              <div className="text-[11px] text-ink-faint mb-1.5">O que será assinado</div>
-              <ul className="m-0 p-0 list-none flex flex-col gap-1">
-                {grupos_com_arquivos.map(({ grupo, total: n }) => (
-                  <li key={grupo.id} className="text-[12px] text-ink-muted">
-                    <strong className="text-ink">{grupo.nome}</strong> — {plural(n, 'arquivo', 'arquivos')}, {rotuloPagina(grupo.pagina)}, campo {grupo.campo.larguraMm}×{grupo.campo.alturaMm} mm a {grupo.campo.dxMm}/{grupo.campo.dyMm} mm do canto {ROTULO_ANCORA[grupo.campo.ancora].toLowerCase()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <p className="m-0 text-[12px] text-ink-faint leading-relaxed">
-              Sem carimbo do tempo: a data da assinatura é a do relógio deste computador.
-            </p>
           </Painel>
         )}
 
