@@ -160,6 +160,9 @@ export default function SecaoGrupo({
         )}
       </header>
 
+      {/* O contêiner medido existe sempre: um grupo que começa vazio e recebe arquivos depois
+          precisa já estar sendo observado (senão a largura fica 0 e o layout trava no modo estreito). */}
+      <div ref={corpo}>
       {arquivos.length === 0 ? (
         <div className="ibox m-0 bg-bg border border-solid border-border">
           <Icon name="info" size={14} className="shrink-0"/>
@@ -169,7 +172,7 @@ export default function SecaoGrupo({
         // O layout reage à largura do PRÓPRIO box (container query), e não da tela: com 2
         // grupos lado a lado cada box é mais estreito. Box largo: referência à esquerda e
         // miniaturas à direita; box estreito: uma sobre a outra.
-        <div ref={corpo}>
+        <div>
           <div className={`flex gap-6 ${emLinha ? "flex-row" : "flex-col"}`}>
             <div className="shrink-0 min-w-0" style={emLinha && medidaRef ? { width: medidaRef.w } : undefined}>
               <Referencia
@@ -203,6 +206,7 @@ export default function SecaoGrupo({
           </div>
         </div>
       )}
+      </div>
     </section>
   )
 }
