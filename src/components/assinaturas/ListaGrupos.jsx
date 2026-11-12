@@ -70,11 +70,16 @@ function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
       role="group"
       aria-label={`${arquivo.nome}. Arraste para outro grupo.`}
       className={`group relative rounded-md border border-solid px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-colors ${
-        selecionado ? 'border-red bg-red-dim' : 'border-border bg-bg hover:border-ink-hint'
+        selecionado ? 'border-red bg-red-dim' : 'border-border bg-surface-2 hover:border-ink-hint'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
-      <span className="block pr-14 text-[12px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</span>
-      <span className="block text-[10px] text-ink-faint">{formatarTamanho(arquivo.tamanho)}</span>
+      <span className="flex items-start gap-2 pr-14">
+        <Icon name="fileText" size={16} className="shrink-0 mt-0.5 text-ink-faint"/>
+        <span className="min-w-0">
+          <span className="block text-[12px] text-ink truncate" title={arquivo.nome}>{arquivo.nome}</span>
+          <span className="block text-[10px] text-ink-faint">{formatarTamanho(arquivo.tamanho)}</span>
+        </span>
+      </span>
 
       {/* Os controles não iniciam arrasto: pointer e teclado não sobem ao box. */}
       <span
@@ -98,7 +103,7 @@ function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
 }
 
 // Um grupo da lista: também é um alvo onde soltar arquivos arrastados.
-function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, dispatch, onRemoverArquivos }) {
+function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, podeRemover, selecionados, soltar, dispatch, onRemoverArquivos }) {
   const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'lista')
   const borda = isOver || soltar?.alvo ? 'border-red bg-red-dim' : ativo ? 'border-red-border bg-surface' : 'border-border bg-surface'
 
@@ -107,11 +112,21 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, 
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <button
           type="button"
-          onClick={() => dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id })}
-          aria-label={`Abrir grupo ${grupo.nome}`}
+          onClick={() => { dispatch({ type: 'SELECIONAR_GRUPO', id: grupo.id }); onAbrir(grupo.id) }}
+          aria-label={`Editar grupo ${grupo.nome}`}
           aria-pressed={ativo}
           className={`w-2.5 h-2.5 rounded-full border-2 border-solid shrink-0 ${ativo ? 'border-red bg-red' : 'border-ink-hint bg-transparent hover:border-ink-muted'}`}
         />
+        <button
+          type="button"
+          onClick={() => onAlternarAberto(grupo.id)}
+          aria-expanded={aberto}
+          aria-label={`${aberto ? 'Fechar' : 'Abrir'} a lista de arquivos de ${grupo.nome}`}
+          title={aberto ? 'Fechar a lista de arquivos' : 'Abrir a lista de arquivos'}
+          className="w-6 h-6 grid place-items-center rounded-sm shrink-0 text-ink-faint hover:text-ink hover:bg-surface-2 bg-transparent border-0 p-0 cursor-pointer"
+        >
+          <Icon name={aberto ? 'folderOpen' : 'folder'} size={16}/>
+        </button>
         <NomeDoGrupo grupo={grupo} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
         <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{arquivos.length}</span>
         {podeRemover && (
@@ -127,7 +142,7 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, 
         )}
       </div>
 
-      {ativo && (
+      {aberto && (
         arquivos.length === 0 ? (
           <p className="m-0 px-3 pb-3 text-[12px] text-ink-faint">Nenhum arquivo neste grupo ainda.</p>
         ) : (
@@ -164,6 +179,16 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, 
 export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onRemoverArquivos, onNovoGrupo }) {
   const inputRef = useRef(null)
   const { grupos, selecionados, grupoAtivoId } = estado
+  // Grupos com a lista de arquivos aberta: independe de qual está em edição (vários podem ficar abertos).
+  // Quando outro grupo passa a ser o em edição, ele abre (ajuste durante a renderização, sem efeito).
+  const [abertos, setAbertos] = useState(() => new Set([grupoAtivoId]))
+  const [ativoVisto, setAtivoVisto] = useState(grupoAtivoId)
+  if (ativoVisto !== grupoAtivoId) {
+    setAtivoVisto(grupoAtivoId)
+    setAbertos(a => new Set(a).add(grupoAtivoId))
+  }
+  const abrir = id => setAbertos(a => (a.has(id) ? a : new Set(a).add(id)))
+  const alternarAberto = id => setAbertos(a => { const n = new Set(a); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   return (
     <div className="flex flex-col gap-3">
@@ -201,6 +226,9 @@ export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onR
             grupo={grupo}
             arquivos={arquivosDoGrupo(estado, grupo.id)}
             ativo={grupo.id === grupoAtivoId}
+            aberto={abertos.has(grupo.id)}
+            onAlternarAberto={alternarAberto}
+            onAbrir={abrir}
             podeRemover={grupos.length > 1}
             selecionados={selecionados}
             soltar={soltar?.(grupo.id)}
