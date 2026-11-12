@@ -59,6 +59,7 @@ function FerramentaAssinaturas() {
   const escolherRef = useCallback((grupoId, arquivoId) => setRefs(r => ({ ...r, [grupoId]: arquivoId })), [])
   const ativar = useCallback(id => dispatch({ type: 'SELECIONAR_GRUPO', id }), [])
   const alternarSelecao = useCallback(id => dispatch({ type: 'ALTERNAR_SELECAO', id }), [])
+  const renomear = useCallback((id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome }), [])
   const mover = useCallback((ids, grupoId) => dispatch({ type: 'MOVER_ARQUIVOS', ids, grupoId }), [])
 
   // A referência só reporta a geometria quando muda; evita laço de render.
@@ -127,6 +128,7 @@ function FerramentaAssinaturas() {
                 onAtivar={ativar}
                 onCampo={mudarCampo}
                 onGeometria={aoMedir}
+                onRenomear={renomear}
               />
             ))}
           </div>

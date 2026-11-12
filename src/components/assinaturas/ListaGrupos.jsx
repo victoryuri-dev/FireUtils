@@ -4,64 +4,7 @@ import { arquivosDoGrupo, formatarTamanho } from '../../utils/assinaturas/grupos
 import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
-
-// Nome do grupo: clicar nele (ou no lápis ao lado) edita. Enter ou sair do campo confirma, Esc cancela;
-// nome vazio é ignorado.
-function NomeDoGrupo({ grupo, onRenomear }) {
-  const [editando, setEditando] = useState(false)
-  const [texto, setTexto] = useState(grupo.nome)
-
-  function confirmar() {
-    setEditando(false)
-    if (texto.trim() && texto.trim() !== grupo.nome) onRenomear(grupo.id, texto)
-  }
-  function editar(e) {
-    e.stopPropagation()
-    setTexto(grupo.nome)
-    setEditando(true)
-  }
-
-  if (editando) {
-    return (
-      <input
-        autoFocus
-        value={texto}
-        maxLength={60}
-        onChange={e => setTexto(e.target.value)}
-        onBlur={confirmar}
-        onClick={e => e.stopPropagation()}
-        onKeyDown={e => {
-          if (e.key === 'Enter') confirmar()
-          if (e.key === 'Escape') setEditando(false)
-        }}
-        aria-label="Nome do grupo"
-        className="min-w-0 flex-1"
-      />
-    )
-  }
-  return (
-    <>
-      <button
-        type="button"
-        onClick={editar}
-        title="Clique para renomear"
-        className="min-w-0 truncate text-left text-[13px] font-semibold text-ink bg-transparent border-0 p-0 cursor-text"
-      >
-        {grupo.nome}
-      </button>
-      <button
-        type="button"
-        onClick={editar}
-        title="Renomear grupo"
-        aria-label={`Renomear ${grupo.nome}`}
-        className="w-6 h-6 grid place-items-center shrink-0 rounded-sm text-ink-faint bg-transparent border-0 p-0 cursor-pointer"
-      >
-        <Icon name="edit" size={12}/>
-      </button>
-      <span className="flex-1"/>
-    </>
-  )
-}
+import NomeDoGrupo from './NomeDoGrupo'
 
 // Box de um arquivo: o box inteiro é a área de arrastar. Selecionar e remover
 // só aparecem com o mouse em cima ou com o arquivo selecionado, e somem

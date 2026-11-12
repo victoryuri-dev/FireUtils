@@ -10,6 +10,7 @@ import PaginaPdf from './PaginaPdf'
 import CampoAssinatura from './CampoAssinatura'
 import MiniaturaArquivo, { ALTURA_QUADRO } from './MiniaturaArquivo'
 import CarrosselMiniaturas from './CarrosselMiniaturas'
+import NomeDoGrupo from './NomeDoGrupo'
 import PreviaSelo from './PreviaSelo'
 import VisorMaximizado from './VisorMaximizado'
 import Loader from '../ui/Loader'
@@ -116,7 +117,7 @@ function Referencia({ grupo, arquivo, ativo, titular, larguraMax, alturaMax, onC
  * soltar arquivos arrastados sobre ela os move para este grupo.
  */
 export default function SecaoGrupo({
-  grupo, arquivos, ativo, refId, selecionados, titularPrevia, soltar, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria,
+  grupo, arquivos, ativo, refId, selecionados, titularPrevia, soltar, onEscolherRef, onAlternarSelecao, onAtivar, onCampo, onGeometria, onRenomear,
 }) {
   const arquivoRef = arquivos.find(a => a.id === refId) ?? arquivos[0] ?? null
   // Largura do box (container) e tamanho da referência na tela: em box largo a referência
@@ -149,7 +150,7 @@ export default function SecaoGrupo({
       )}
       <header className="flex items-center gap-2.5 mb-4">
         <Icon name="folderOpen" size={18} className={`shrink-0 ${ativo ? 'text-red' : 'text-ink-faint'}`}/>
-        <h2 className="m-0 min-w-0 truncate font-heading text-[16px] font-semibold text-ink">{grupo.nome}</h2>
+        <NomeDoGrupo grupo={grupo} onRenomear={onRenomear} variante="secao"/>
         <span className="text-[12px] text-ink-faint tabular-nums shrink-0">
           {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'}
         </span>
