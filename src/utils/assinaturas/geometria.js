@@ -33,7 +33,6 @@ export const CAMPO_PADRAO = Object.freeze({
   dyMm: 10,
   larguraMm: 70,
   alturaMm: 30,
-  proporcional: true, // acompanha o tamanho de cada folha (vale depois da 1ª edição, que define `base`)
 })
 
 /** Rotação /Rotate do PDF normalizada para 0, 90, 180 ou 270. */
@@ -54,26 +53,6 @@ export function dimensoesVisiveis(pagina) {
     : { largura: pagina.largura, altura: pagina.altura }
 }
 
-/**
- * Fator pelo qual o campo cresce/encolhe numa folha. O campo guarda `base` (tamanho visível
- * da folha em que foi posicionado, em pt) e, com `proporcional` ligado, acompanha o tamanho
- * das outras folhas: numa A0 o selo e as distâncias ficam ~1,41× os de uma A1, caindo no mesmo
- * lugar de uma prancha cujo carimbo cresce junto com a folha. Sem `base` ou desligado: 1
- * (milímetros fixos, como em qualquer carimbo de tamanho único).
- */
-export function fatorDaFolha(campo, pagina) {
-  const b = campo.base
-  if (campo.proporcional === false || !b || !(b.largura > 0) || !(b.altura > 0)) return 1
-  const vis = dimensoesVisiveis(pagina)
-  return Math.sqrt((vis.largura * vis.altura) / (b.largura * b.altura))
-}
-
-/** Tamanho visível da folha, para guardar como `base` do campo. */
-export function baseDaFolha(pagina) {
-  const { largura, altura } = dimensoesVisiveis(pagina)
-  return { largura: arredondar(largura, 2), altura: arredondar(altura, 2) }
-}
-
 const arredondar = (v, casas = 1) => {
   const f = 10 ** casas
   return Math.round(v * f) / f
@@ -86,11 +65,10 @@ const arredondar = (v, casas = 1) => {
  */
 export function retanguloVisivel(campo, pagina) {
   const vis = dimensoesVisiveis(pagina)
-  const k = fatorDaFolha(campo, pagina)
-  const l = mmParaPt(campo.larguraMm) * k
-  const a = mmParaPt(campo.alturaMm) * k
-  const dx = mmParaPt(campo.dxMm) * k
-  const dy = mmParaPt(campo.dyMm) * k
+  const l = mmParaPt(campo.larguraMm)
+  const a = mmParaPt(campo.alturaMm)
+  const dx = mmParaPt(campo.dxMm)
+  const dy = mmParaPt(campo.dyMm)
   const direita = campo.ancora.endsWith('direita')
   const baixo = campo.ancora.startsWith('inferior')
   const x = direita ? vis.largura - dx - l : dx
@@ -117,15 +95,7 @@ export function campoDoRetanguloVisivel(ret, pagina, ancora) {
     dyMm: arredondar(ptParaMm(dy)),
     larguraMm: arredondar(ptParaMm(ret.largura)),
     alturaMm: arredondar(ptParaMm(ret.altura)),
-    // Os milímetros acima são os DESTA folha: ela passa a ser a base das proporções.
-    base: baseDaFolha(pagina),
   }
-}
-
-/** Liga/desliga "acompanhar o tamanho da folha" sem mover o campo na folha mostrada. */
-export function trocarProporcional(campo, pagina, proporcional) {
-  const ret = retanguloVisivel(campo, pagina)
-  return { ...campoDoRetanguloVisivel(ret, pagina, campo.ancora), proporcional }
 }
 
 /** Troca a âncora preservando o MESMO lugar físico na página. */

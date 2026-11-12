@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   mmParaPt, ptParaMm, normalizarRotacao, dimensoesVisiveis, retanguloVisivel,
-  campoDoRetanguloVisivel, trocarAncora, trocarProporcional, retanguloPdf, indiceDaPagina, ANCORAS,
+  campoDoRetanguloVisivel, trocarAncora, retanguloPdf, indiceDaPagina, ANCORAS,
 } from '../src/utils/assinaturas/geometria.js'
 
 const perto = (a, b, msg, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} esperado ${b}, veio ${a}`)
@@ -187,39 +187,4 @@ test('redimensionar respeita o tamanho mínimo e a página', () => {
   assert.equal(grande.x + grande.largura, 500); assert.equal(grande.y + grande.altura, 400)
   const nw = moverRedimensionar(ret, 'nw', 9999, 9999, lim, min)
   assert.equal(nw.largura, 20); assert.equal(nw.x + nw.largura, 180)
-})
-
-// ── Acompanhar o tamanho da folha ─────────────────────────────────────
-test('proporcional: o mesmo campo cai no mesmo lugar relativo em A1 e A0', () => {
-  const A1p = { largura: 1683.78, altura: 2383.94, rotacao: 0 }
-  const A0p = { largura: 2383.94, altura: 3370.39, rotacao: 0 }
-  const ret = { x: A1p.largura - 300 - 80, y: A1p.altura - 200 - 90, largura: 300, altura: 90 }
-  const c = campoDoRetanguloVisivel(ret, A1p, 'inferior-direita')
-  const a1 = retanguloVisivel(c, A1p)
-  const a0 = retanguloVisivel(c, A0p)
-  const k = Math.sqrt((A0p.largura * A0p.altura) / (A1p.largura * A1p.altura))
-  perto(a1.x, ret.x, 'A1 x', 0.5)
-  perto(a0.largura, a1.largura * k, 'largura', 0.5)
-  perto(A0p.largura - (a0.x + a0.largura), (A1p.largura - (a1.x + a1.largura)) * k, 'borda direita', 0.5)
-  perto(A0p.altura - (a0.y + a0.altura), (A1p.altura - (a1.y + a1.altura)) * k, 'borda inferior', 0.5)
-  // proporção em relação à folha praticamente igual
-  perto((A0p.largura - (a0.x + a0.largura)) / A0p.largura, (A1p.largura - (a1.x + a1.largura)) / A1p.largura, 'fração', 0.002)
-})
-
-test('proporcional desligado ou sem base: milímetros fixos', () => {
-  const A1p = { largura: 1683.78, altura: 2383.94, rotacao: 0 }
-  const A0p = { largura: 2383.94, altura: 3370.39, rotacao: 0 }
-  const c = { ...campo, base: { largura: 1683.78, altura: 2383.94 } }
-  perto(retanguloVisivel({ ...c, proporcional: false }, A0p).largura, mmParaPt(60))
-  perto(retanguloVisivel(campo, A0p).largura, mmParaPt(60))
-  perto(retanguloVisivel(c, A1p).largura, mmParaPt(60))
-})
-
-test('trocarProporcional não move o campo na folha mostrada', () => {
-  const pagina = { largura: 2383.94, altura: 3370.39, rotacao: 0 }
-  const c = { ...campo, base: { largura: 1683.78, altura: 2383.94 }, proporcional: true }
-  const antes = retanguloVisivel(c, pagina)
-  const novo = trocarProporcional(c, pagina, false)
-  const depois = retanguloVisivel(novo, pagina)
-  for (const k of ['x', 'y', 'largura', 'altura']) perto(depois[k], antes[k], k, 0.3)
 })
