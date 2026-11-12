@@ -33,6 +33,8 @@ export const CAMPO_PADRAO = Object.freeze({
   dyMm: 10,
   larguraMm: 70,
   alturaMm: 30,
+  // Medir a partir da moldura (margem) do desenho, e não da borda da folha.
+  daMoldura: true,
 })
 
 /** Rotação /Rotate do PDF normalizada para 0, 90, 180 ou 270. */
@@ -53,6 +55,19 @@ export function dimensoesVisiveis(pagina) {
     : { largura: pagina.largura, altura: pagina.altura }
 }
 
+const SEM_MOLDURA = Object.freeze({ esq: 0, dir: 0, sup: 0, inf: 0 })
+
+/**
+ * Margens da moldura do desenho (pt, na orientação visível), ou zero. Pranchas de tamanhos
+ * diferentes têm margens diferentes entre a borda da folha e a moldura; como o carimbo é
+ * alinhado à moldura, é dela que as distâncias do campo precisam ser medidas.
+ */
+export function margensDaPagina(campo, pagina) {
+  if (campo.daMoldura === false || !pagina.moldura) return SEM_MOLDURA
+  const m = pagina.moldura
+  return { esq: m.esq || 0, dir: m.dir || 0, sup: m.sup || 0, inf: m.inf || 0 }
+}
+
 const arredondar = (v, casas = 1) => {
   const f = 10 ** casas
   return Math.round(v * f) / f
@@ -69,10 +84,11 @@ export function retanguloVisivel(campo, pagina) {
   const a = mmParaPt(campo.alturaMm)
   const dx = mmParaPt(campo.dxMm)
   const dy = mmParaPt(campo.dyMm)
+  const m = margensDaPagina(campo, pagina)
   const direita = campo.ancora.endsWith('direita')
   const baixo = campo.ancora.startsWith('inferior')
-  const x = direita ? vis.largura - dx - l : dx
-  const y = baixo ? vis.altura - dy - a : dy
+  const x = direita ? vis.largura - m.dir - dx - l : m.esq + dx
+  const y = baixo ? vis.altura - m.inf - dy - a : m.sup + dy
   const tol = 0.01
   const fora = x < -tol || y < -tol || x + l > vis.largura + tol || y + a > vis.altura + tol
   return { x, y, largura: l, altura: a, fora }
@@ -83,12 +99,13 @@ export function retanguloVisivel(campo, pagina) {
  * visível), devolve o campo (deslocamentos em mm, 0,1 mm de precisão) relativo
  * à âncora informada. Largura e altura vêm do retângulo.
  */
-export function campoDoRetanguloVisivel(ret, pagina, ancora) {
+export function campoDoRetanguloVisivel(ret, pagina, ancora, daMoldura = true) {
   const vis = dimensoesVisiveis(pagina)
+  const m = margensDaPagina({ daMoldura }, pagina)
   const direita = ancora.endsWith('direita')
   const baixo = ancora.startsWith('inferior')
-  const dx = direita ? vis.largura - (ret.x + ret.largura) : ret.x
-  const dy = baixo ? vis.altura - (ret.y + ret.altura) : ret.y
+  const dx = direita ? vis.largura - m.dir - (ret.x + ret.largura) : ret.x - m.esq
+  const dy = baixo ? vis.altura - m.inf - (ret.y + ret.altura) : ret.y - m.sup
   return {
     ancora,
     dxMm: arredondar(ptParaMm(dx)),
@@ -101,7 +118,13 @@ export function campoDoRetanguloVisivel(ret, pagina, ancora) {
 /** Troca a âncora preservando o MESMO lugar físico na página. */
 export function trocarAncora(campo, pagina, novaAncora) {
   const ret = retanguloVisivel(campo, pagina)
-  return campoDoRetanguloVisivel(ret, pagina, novaAncora)
+  return campoDoRetanguloVisivel(ret, pagina, novaAncora, campo.daMoldura !== false)
+}
+
+/** Liga/desliga a medição a partir da moldura sem mover o campo na folha mostrada. */
+export function trocarMoldura(campo, pagina, daMoldura) {
+  const ret = retanguloVisivel(campo, pagina)
+  return { ...campoDoRetanguloVisivel(ret, pagina, campo.ancora, daMoldura), daMoldura }
 }
 
 /**

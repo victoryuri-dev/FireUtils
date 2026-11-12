@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   mmParaPt, ptParaMm, normalizarRotacao, dimensoesVisiveis, retanguloVisivel,
-  campoDoRetanguloVisivel, trocarAncora, retanguloPdf, indiceDaPagina, ANCORAS,
+  campoDoRetanguloVisivel, trocarAncora, trocarMoldura, retanguloPdf, indiceDaPagina, ANCORAS,
 } from '../src/utils/assinaturas/geometria.js'
 
 const perto = (a, b, msg, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} esperado ${b}, veio ${a}`)
@@ -187,4 +187,37 @@ test('redimensionar respeita o tamanho mínimo e a página', () => {
   assert.equal(grande.x + grande.largura, 500); assert.equal(grande.y + grande.altura, 400)
   const nw = moverRedimensionar(ret, 'nw', 9999, 9999, lim, min)
   assert.equal(nw.largura, 20); assert.equal(nw.x + nw.largura, 180)
+})
+
+// ── Moldura do desenho ────────────────────────────────────────────────
+test('moldura: o mesmo campo cai no mesmo lugar do carimbo em folhas com margens diferentes', () => {
+  const A1p = { largura: 1684, altura: 2384, rotacao: 0, moldura: { esq: 70, dir: 28, sup: 28, inf: 28 } }
+  const A0p = { largura: 2384, altura: 3370, rotacao: 0, moldura: { esq: 70, dir: 56, sup: 56, inf: 56 } }
+  const c = { ancora: 'inferior-direita', dxMm: 5, dyMm: 6, larguraMm: 60, alturaMm: 25 }
+  const a = retanguloVisivel(c, A1p)
+  const b = retanguloVisivel(c, A0p)
+  perto(A1p.largura - A1p.moldura.dir - (a.x + a.largura), mmParaPt(5), 'A1 distância da moldura dir.')
+  perto(A0p.largura - A0p.moldura.dir - (b.x + b.largura), mmParaPt(5), 'A0 distância da moldura dir.')
+  perto(A0p.altura - A0p.moldura.inf - (b.y + b.altura), mmParaPt(6), 'A0 distância da moldura inf.')
+  perto(a.largura, b.largura)
+  // sem moldura (desligado): volta a medir da borda da folha
+  const c2 = { ...c, daMoldura: false }
+  perto(A0p.largura - (retanguloVisivel(c2, A0p).x + mmParaPt(60)), mmParaPt(5), 'borda da folha')
+})
+
+test('moldura: campoDoRetanguloVisivel é o inverso, em qualquer âncora', () => {
+  const pagina = { largura: 1200, altura: 800, rotacao: 0, moldura: { esq: 40, dir: 20, sup: 15, inf: 30 } }
+  for (const ancora of ANCORAS) {
+    const c = { ancora, dxMm: 12, dyMm: 9, larguraMm: 70, alturaMm: 30 }
+    const volta = campoDoRetanguloVisivel(retanguloVisivel(c, pagina), pagina, ancora)
+    perto(volta.dxMm, 12, `${ancora} dx`, 0.06)
+    perto(volta.dyMm, 9, `${ancora} dy`, 0.06)
+  }
+})
+
+test('trocarMoldura não move o campo na folha mostrada', () => {
+  const pagina = { largura: 1200, altura: 800, rotacao: 0, moldura: { esq: 40, dir: 20, sup: 15, inf: 30 } }
+  const antes = retanguloVisivel(campo, pagina)
+  const depois = retanguloVisivel(trocarMoldura(campo, pagina, false), pagina)
+  for (const k of ['x', 'y', 'largura', 'altura']) perto(depois[k], antes[k], k, 0.3)
 })

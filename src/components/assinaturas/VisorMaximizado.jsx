@@ -273,7 +273,7 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
               rect={rect}
               escala={escala}
               limite={vis}
-              onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, c.ancora))}
+              onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, c.ancora, c.daMoldura !== false))}
               previa={<PreviaSelo largura={rect.largura} altura={rect.altura} titular={titular} selo={grupo.selo}/>}
             />
           </div>

@@ -50,7 +50,7 @@ function Referencia({ grupo, arquivo, ativo, titular, onCampo, onGeometria }) {
                 rect={rect}
                 escala={escala}
                 limite={visivel}
-                onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, grupo.campo.ancora))}
+                onMudar={novo => onCampo(campoDoRetanguloVisivel(novo, geometria, grupo.campo.ancora, grupo.campo.daMoldura !== false))}
                 previa={<PreviaSelo largura={rect.largura} altura={rect.altura} titular={titular} selo={grupo.selo}/>}
               />
               <button
