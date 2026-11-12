@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useAssinarLote } from '../../hooks/useAssinarLote'
 import { ROTULO_ANCORA } from '../../utils/assinaturas/geometria'
 import { situacaoDoCertificado } from '../../utils/assinaturas/certificadosSalvos'
+import { temSenha, lerSenha, guardarSenha, apagarSenha } from '../../lib/senhaLocal'
 import Icon from '../ui/Icon'
+import Checkbox from '../ui/Checkbox'
 
 const PAGINA = { ultima: 'última página', primeira: 'primeira página' }
 const rotuloPagina = p => (p.modo === 'numero' ? `página ${p.numero}` : PAGINA[p.modo])
@@ -45,6 +47,19 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
   const salvos = certificados?.lista ?? []
   const usarSalvo = salvos.length > 0 && origem !== 'arquivo'
   const idEfetivo = idSalvo ?? certificados?.selecionadoId ?? null
+  // Senha lembrada neste dispositivo para o certificado salvo escolhido (senhaLocal): se houver,
+  // não é pedida. `lembradaDe` guarda de qual id foi consultada; antes disso, aguarda.
+  const [lembradaDe, setLembradaDe] = useState({ id: null, tem: false })
+  const [lembrar, setLembrar] = useState(true)
+  useEffect(() => {
+    if (!usarSalvo || !idEfetivo) return undefined
+    let ativo = true
+    temSenha(idEfetivo).then(tem => { if (ativo) setLembradaDe({ id: idEfetivo, tem }) })
+    return () => { ativo = false }
+  }, [usarSalvo, idEfetivo])
+  const consultando = usarSalvo && Boolean(idEfetivo) && lembradaDe.id !== idEfetivo
+  const usaLembrada = usarSalvo && lembradaDe.id === idEfetivo && lembradaDe.tem
+  const faltaSenha = !usaLembrada && !senha
 
   const grupos_com_arquivos = grupos
     .map(g => ({ grupo: g, total: arquivos.filter(a => a.grupoId === g.id).length }))
@@ -65,7 +80,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
 
   async function continuar(e) {
     e.preventDefault()
-    if ((usarSalvo ? !idEfetivo : !pfx) || !senha || verificando) return
+    if ((usarSalvo ? !idEfetivo : !pfx) || faltaSenha || consultando || verificando) return
     setVerificando(true)
     let origemPfx = pfx
     if (usarSalvo) {
@@ -77,7 +92,22 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
         return
       }
     }
-    const lido = await lote.verificar(origemPfx, senha)
+    const senhaUsada = usaLembrada ? await lerSenha(idEfetivo) : senha
+    if (senhaUsada == null) {
+      // A senha lembrada não pôde ser lida (dados do navegador limpos): volta a pedir.
+      await apagarSenha(idEfetivo)
+      setLembradaDe({ id: idEfetivo, tem: false })
+      lote.relatarErro('Não foi possível usar a senha lembrada neste dispositivo. Digite a senha do certificado.')
+      setVerificando(false)
+      return
+    }
+    const lido = await lote.verificar(origemPfx, senhaUsada)
+    if (lido && usarSalvo && !usaLembrada && lembrar) await guardarSenha(idEfetivo, senhaUsada)
+    if (!lido && usaLembrada) {
+      // A senha lembrada não abre mais o arquivo: esquece e pede de novo.
+      await apagarSenha(idEfetivo)
+      setLembradaDe({ id: idEfetivo, tem: false })
+    }
     // Com o certificado lido a senha não precisa mais ficar no estado; se der erro,
     // ela fica para a pessoa corrigir sem redigitar tudo.
     if (lido) setSenha('')
@@ -110,14 +140,14 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
               titulo={`Assinar ${plural(total, 'arquivo', 'arquivos')}`}
               rodape={<>
                 <button type="button" className="btn-ghost" onClick={onFechar}>Cancelar</button>
-                <button type="submit" className="btn-primary" disabled={(usarSalvo ? !idEfetivo : !pfx) || !senha || verificando}>
+                <button type="submit" className="btn-primary" disabled={(usarSalvo ? !idEfetivo : !pfx) || faltaSenha || consultando || verificando}>
                   {verificando ? <><Icon name="spinner" size={13} className="animate-spin"/> Lendo…</> : 'Continuar'}
                 </button>
               </>}
             >
               <p className="m-0 text-[13px] text-ink-faint leading-relaxed">
                 {usarSalvo
-                  ? 'Escolha o certificado e digite a senha dele. A senha não é guardada em lugar nenhum; o arquivo do certificado só é aberto neste navegador.'
+                  ? 'Escolha o certificado. Se a senha já foi lembrada neste dispositivo, ela não é pedida; o arquivo do certificado só é aberto neste navegador.'
                   : 'Escolha o certificado digital A1 (arquivo .pfx ou .p12). Ele e a senha ficam só na memória deste navegador e não são enviados a nenhum servidor.'}
               </p>
 
@@ -154,16 +184,35 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
                 </div>
               )}
 
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[11px] text-ink-faint">Senha do certificado</span>
-                <input
-                  type="password"
-                  value={senha}
-                  onChange={e => setSenha(e.target.value)}
-                  autoComplete="off"
-                  className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
-                />
-              </label>
+              {usaLembrada && (
+                <p className="m-0 flex items-center gap-2 text-[12px] text-ink-faint">
+                  <Icon name="check" size={13}/> Senha lembrada neste dispositivo.
+                  <button type="button" className="text-[12px] text-ink-faint hover:text-ink underline bg-transparent border-0 p-0 cursor-pointer" onClick={async () => { await apagarSenha(idEfetivo); setLembradaDe({ id: idEfetivo, tem: false }) }}>
+                    Esquecer
+                  </button>
+                </p>
+              )}
+
+              {!usaLembrada && (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] text-ink-faint">Senha do certificado</span>
+                    <input
+                      type="password"
+                      value={senha}
+                      onChange={e => setSenha(e.target.value)}
+                      autoComplete="off"
+                      className="h-10 py-0 px-3 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
+                    />
+                  </label>
+                  {usarSalvo && (
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <span className="mt-0.5"><Checkbox checked={lembrar} onChange={() => setLembrar(v => !v)} title="Lembrar a senha neste dispositivo"/></span>
+                      <span className="text-[12px] text-ink-faint leading-snug">Lembrar a senha neste dispositivo (cifrada, só neste navegador; não vai para a conta)</span>
+                    </label>
+                  )}
+                </>
+              )}
 
               {erro && (
                 <div className="ibox red m-0" role="alert">
