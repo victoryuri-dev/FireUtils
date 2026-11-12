@@ -49,3 +49,13 @@ export function rolagemParaAncora({ ptX, ptY, escala, larguraJanela, alturaJanel
   const l = layoutDoConteudo(larguraJanela, alturaJanela, larguraPt * escala, alturaPt * escala)
   return { left: l.ox + ptX * escala - ancoraX, top: l.oy + ptY * escala - ancoraY }
 }
+
+/**
+ * Fator de zoom de um giro da roda (ou gesto de pinça): proporcional ao giro, então
+ * giros pequenos dão zoom pequeno e contínuo. Uma "volta" de mouse (100) ≈ ×1,25.
+ */
+export function fatorDaRoda(deltaY, deltaMode = 0) {
+  const px = deltaMode === 1 ? deltaY * 16 : deltaMode === 2 ? deltaY * 400 : deltaY
+  const limitado = Math.max(-120, Math.min(120, px))
+  return Math.exp(-limitado * (Math.log(FATOR_ZOOM) / 100))
+}

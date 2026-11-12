@@ -3,7 +3,7 @@ import {
   retanguloVisivel, campoDoRetanguloVisivel, dimensoesVisiveis, ROTULO_ANCORA,
 } from '../../utils/assinaturas/geometria'
 import {
-  escalaDeAjuste, limitarEscala, percentual, layoutDoConteudo, pontoSobAncora, rolagemParaAncora, FATOR_ZOOM,
+  escalaDeAjuste, limitarEscala, percentual, layoutDoConteudo, pontoSobAncora, rolagemParaAncora, fatorDaRoda, FATOR_ZOOM, PX_POR_PT_100,
 } from '../../utils/assinaturas/zoom'
 import CampoAssinatura from './CampoAssinatura'
 import PreviaSelo from './PreviaSelo'
@@ -33,6 +33,9 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
   const [dim, setDim] = useState({ w: 0, h: 0 })
   const [rolagem, setRolagem] = useState({ x: 0, y: 0 })
   const [escalaManual, setEscalaManual] = useState(null) // null = ajustar à tela
+  const anim = useRef({ alvo: null, ancora: null, ajustar: false, raf: 0 }) // zoom animado até `alvo`
+  const passo = useRef(null)
+  const vivo = useRef({ escala: 1, layout: { ox: 0, oy: 0 } })
 
   const vis = dimensoesVisiveis(geometria)
   const ajuste = dim.w ? escalaDeAjuste(dim.w, dim.h, vis.largura, vis.altura) : 1
@@ -48,6 +51,21 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+
+  useLayoutEffect(() => { vivo.current = { escala, layout } })
+
+  // Enquanto o redesenho nítido não termina, estica/desloca a imagem já desenhada para
+  // a escala e a rolagem de agora: o zoom e a rolagem ficam contínuos, sem saltos.
+  function alinharTela() {
+    const el = janela.current
+    const d = desenhado.current
+    if (!el || !tela.current || !d) return
+    const { escala: e, layout: l } = vivo.current
+    const s = e / d.escala
+    const tx = l.ox + s * (d.x - d.ox) - el.scrollLeft
+    const ty = l.oy + s * (d.y - d.oy) - el.scrollTop
+    tela.current.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`
+  }
 
   // Zoom: troca a escala e guarda qual ponto da folha deve ficar sob `ancora`.
   const zoomPara = useCallback((nova, ancora) => {
@@ -82,6 +100,8 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escalaManual])
 
+  useLayoutEffect(alinharTela, [escala, layout.ox, layout.oy])
+
   // Desenha a parte visível: num canvas de fora da tela e, pronto, copia de uma vez (sem piscar).
   useEffect(() => {
     if (!dim.w || !dim.h) return undefined
@@ -106,7 +126,7 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
       visivel.style.height = `${dim.h}px`
       visivel.getContext('2d').drawImage(fora, 0, 0)
       visivel.style.transform = ''
-      desenhado.current = { x: rolagem.x, y: rolagem.y }
+      desenhado.current = { x: rolagem.x, y: rolagem.y, escala, ox: layout.ox, oy: layout.oy }
     }).catch(() => {}) // cancelar uma renderização rejeita a promessa: esperado
     return () => { cancelado = true; tarefa.cancel() }
   }, [pagina, escala, rolagem.x, rolagem.y, dim.w, dim.h, layout.ox, layout.oy])
@@ -114,8 +134,7 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
   // Rolagem: enquanto o redesenho não termina, desloca a imagem antiga junto.
   function aoRolar() {
     const el = janela.current
-    const d = desenhado.current
-    if (tela.current && d) tela.current.style.transform = `translate(${d.x - el.scrollLeft}px, ${d.y - el.scrollTop}px)`
+    alinharTela()
     cancelAnimationFrame(quadro.current)
     quadro.current = requestAnimationFrame(() => setRolagem({ x: el.scrollLeft, y: el.scrollTop }))
   }
@@ -126,6 +145,39 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
   // Ctrl + roda: zoom ancorado no mouse (o ouvinte precisa ser não passivo para impedir o zoom da página).
   const zoomRef = useRef(zoomPara)
   useEffect(() => { zoomRef.current = zoomPara })
+  const ajusteRef = useRef(ajuste)
+  useEffect(() => { ajusteRef.current = ajuste })
+
+  // Zoom suave: o alvo é guardado e a escala caminha até ele a cada quadro (30% do que falta),
+  // então toques repetidos em + / − e giros da roda se somam e o movimento não dá saltos.
+  useEffect(() => {
+    passo.current = () => {
+      const a = anim.current
+      a.raf = 0
+      if (a.alvo == null) return
+      const atual = escalaAtual.current
+      const falta = Math.log(a.alvo / atual)
+      if (Math.abs(falta) < 0.003) {
+        zoomRef.current(a.alvo, a.ancora)
+        if (a.ajustar) setEscalaManual(null)
+        a.alvo = null
+        return
+      }
+      zoomRef.current(atual * Math.exp(falta * 0.3), a.ancora)
+      a.raf = requestAnimationFrame(() => passo.current())
+    }
+  })
+  function irPara(alvo, ancora = null, ajustar = false) {
+    const a = anim.current
+    a.alvo = limitarEscala(alvo, ajusteRef.current)
+    a.ancora = ancora
+    a.ajustar = ajustar
+    if (!a.raf) a.raf = requestAnimationFrame(() => passo.current())
+  }
+  const irParaRef = useRef(irPara)
+  useEffect(() => { irParaRef.current = irPara })
+  useEffect(() => () => cancelAnimationFrame(anim.current.raf), [])
+  const baseDoZoom = () => anim.current.alvo ?? escalaAtual.current
   useEffect(() => {
     const el = janela.current
     if (!el) return undefined
@@ -133,7 +185,8 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
       if (!(e.ctrlKey || e.metaKey)) return
       e.preventDefault()
       const caixa = el.getBoundingClientRect()
-      zoomRef.current(escalaAtual.current * (e.deltaY < 0 ? FATOR_ZOOM : 1 / FATOR_ZOOM), { x: e.clientX - caixa.left, y: e.clientY - caixa.top })
+      const a = anim.current
+      irParaRef.current((a.alvo ?? escalaAtual.current) * fatorDaRoda(e.deltaY, e.deltaMode), { x: e.clientX - caixa.left, y: e.clientY - caixa.top })
     }
     el.addEventListener('wheel', aoGirar, { passive: false })
     return () => el.removeEventListener('wheel', aoGirar)
@@ -143,9 +196,9 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
     const aoTeclar = e => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.key === 'Escape') onFechar()
-      else if (e.key === '+' || e.key === '=') zoomRef.current(escalaAtual.current * FATOR_ZOOM)
-      else if (e.key === '-' || e.key === '_') zoomRef.current(escalaAtual.current / FATOR_ZOOM)
-      else if (e.key === '0') setEscalaManual(null)
+      else if (e.key === '+' || e.key === '=') irParaRef.current((anim.current.alvo ?? escalaAtual.current) * FATOR_ZOOM)
+      else if (e.key === '-' || e.key === '_') irParaRef.current((anim.current.alvo ?? escalaAtual.current) / FATOR_ZOOM)
+      else if (e.key === '0') irParaRef.current(ajusteRef.current, null, true)
     }
     window.addEventListener('keydown', aoTeclar)
     janela.current?.focus()
@@ -189,11 +242,11 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
         </div>
 
         <div className="flex items-center gap-1.5" role="group" aria-label="Zoom">
-          <button type="button" className={botao} onClick={() => zoomPara(escala / FATOR_ZOOM)} aria-label="Diminuir o zoom" title="Diminuir (−)"><Icon name="minus" size={14}/></button>
+          <button type="button" className={botao} onClick={() => irPara(baseDoZoom() / FATOR_ZOOM)} aria-label="Diminuir o zoom" title="Diminuir (−)"><Icon name="minus" size={14}/></button>
           <span className="min-w-[52px] text-center text-[12px] text-ink tabular-nums" aria-live="polite">{percentual(escala)}%</span>
-          <button type="button" className={botao} onClick={() => zoomPara(escala * FATOR_ZOOM)} aria-label="Aumentar o zoom" title="Aumentar (+)"><Icon name="plus" size={14}/></button>
-          <button type="button" className="btn-ghost text-[11px] py-1 px-2.5 ml-1" onClick={() => setEscalaManual(null)} title="Folha inteira na tela (0)">Ajustar</button>
-          <button type="button" className="btn-ghost text-[11px] py-1 px-2.5" onClick={() => zoomPara(96 / 72)} title="Tamanho real (100%)">100%</button>
+          <button type="button" className={botao} onClick={() => irPara(baseDoZoom() * FATOR_ZOOM)} aria-label="Aumentar o zoom" title="Aumentar (+)"><Icon name="plus" size={14}/></button>
+          <button type="button" className="btn-ghost text-[11px] py-1 px-2.5 ml-1" onClick={() => irPara(ajuste, null, true)} title="Folha inteira na tela (0)">Ajustar</button>
+          <button type="button" className="btn-ghost text-[11px] py-1 px-2.5" onClick={() => irPara(PX_POR_PT_100)} title="Tamanho real (100%)">100%</button>
         </div>
 
         <button type="button" className="btn-primary" onClick={onFechar}><Icon name="minimize" size={13}/> Concluir</button>
@@ -213,7 +266,7 @@ export default function VisorMaximizado({ pagina, geometria, grupo, titular, nom
         <div className="relative" style={{ width: layout.W, height: layout.H }}>
           {/* A tela fica fixa no canto da janela e mostra só a parte visível da folha. */}
           <div className="sticky top-0 left-0 overflow-hidden" style={{ width: dim.w, height: dim.h }}>
-            <canvas ref={tela} className="block" aria-hidden="true"/>
+            <canvas ref={tela} className="block origin-top-left" aria-hidden="true"/>
           </div>
           <div className="absolute" style={{ left: layout.ox, top: layout.oy, width: vis.largura * escala, height: vis.altura * escala }}>
             <CampoAssinatura
