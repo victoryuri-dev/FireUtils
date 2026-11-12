@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ANCORAS, ROTULO_ANCORA, trocarAncora } from '../../utils/assinaturas/geometria'
+import { ANCORAS, ROTULO_ANCORA, trocarAncora, trocarProporcional, baseDaFolha } from '../../utils/assinaturas/geometria'
 import { paraNumero } from '../../utils/numero'
+import Checkbox from '../ui/Checkbox'
 import PainelSelo from './PainelSelo'
 
 // Campo numérico que aceita digitação livre ("12,5") e só grava valores válidos.
@@ -42,6 +43,9 @@ export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSel
   const { campo, pagina } = grupo
   const ancoraDireita = campo.ancora.endsWith('direita')
   const ancoraBaixo = campo.ancora.startsWith('inferior')
+  const proporcional = campo.proporcional !== false
+  // Valores digitados valem para a folha de referência: ela vira a base das proporções.
+  const mudar = parcial => onCampo(geometria && !campo.base ? { ...parcial, base: baseDaFolha(geometria) } : parcial)
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,11 +63,23 @@ export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSel
       </label>
 
       <div className="grid grid-cols-2 gap-3">
-        <CampoMm rotulo={`Da borda ${ancoraDireita ? 'direita' : 'esquerda'}`} valor={campo.dxMm} onMudar={v => onCampo({ dxMm: v })}/>
-        <CampoMm rotulo={`Da borda ${ancoraBaixo ? 'inferior' : 'superior'}`} valor={campo.dyMm} onMudar={v => onCampo({ dyMm: v })}/>
-        <CampoMm rotulo="Largura" valor={campo.larguraMm} min={25} onMudar={v => onCampo({ larguraMm: v })}/>
-        <CampoMm rotulo="Altura" valor={campo.alturaMm} min={10} onMudar={v => onCampo({ alturaMm: v })}/>
+        <CampoMm rotulo={`Da borda ${ancoraDireita ? 'direita' : 'esquerda'}`} valor={campo.dxMm} onMudar={v => mudar({ dxMm: v })}/>
+        <CampoMm rotulo={`Da borda ${ancoraBaixo ? 'inferior' : 'superior'}`} valor={campo.dyMm} onMudar={v => mudar({ dyMm: v })}/>
+        <CampoMm rotulo="Largura" valor={campo.larguraMm} min={25} onMudar={v => mudar({ larguraMm: v })}/>
+        <CampoMm rotulo="Altura" valor={campo.alturaMm} min={10} onMudar={v => mudar({ alturaMm: v })}/>
       </div>
+
+      <label className="flex items-start gap-2.5 cursor-pointer">
+        <span className="mt-0.5"><Checkbox checked={proporcional} onChange={() => onCampo(geometria ? trocarProporcional(campo, geometria, !proporcional) : { proporcional: !proporcional })} title="Acompanhar o tamanho da folha"/></span>
+        <span className="flex flex-col gap-0.5">
+          <span className="text-[12px] text-ink">Acompanhar o tamanho da folha</span>
+          <span className="text-[11px] text-ink-faint leading-snug">
+            {proporcional
+              ? 'Em folhas maiores ou menores que a de referência, a posição e o tamanho do selo crescem ou diminuem junto, a partir do canto escolhido.'
+              : 'O selo mantém o mesmo tamanho e a mesma distância em milímetros em todas as folhas.'}
+          </span>
+        </span>
+      </label>
 
       <div role="group" aria-labelledby={`pagina-${grupo.id}`} className="flex flex-col gap-2">
         <span id={`pagina-${grupo.id}`} className="text-[11px] text-ink-faint">Página que recebe a assinatura</span>
