@@ -123,11 +123,11 @@ function montarArvorePavimento(pav) {
 
 // Texto da taxa populacional aplicada a um ambiente — só faz sentido pra
 // popTipo 'area' (a taxa vem da divisão, ver TAXA_POPULACIONAL); 'manual'
-// e 'fixo' usam um valor informado direto, sem taxa por área.
+// ('População estimada', vale pra toda ocupação) e 'fixo' usam um valor informado direto, sem taxa por área.
 function taxaPopulacionalTexto(amb, taxaPopulacional) {
   let base
   if (amb.popTipo === 'fixo') base = 'Assentos informados'
-  else if (amb.popTipo === 'manual') base = 'Informada manualmente'
+  else if (amb.popTipo === 'manual') base = 'População estimada (informada pelo responsável técnico)'
   else base = taxaPopulacional[amb.divisao]?.obs || '—'
   if (amb.arquibancada && amb.divisao === 'F-3') return `${base}; arquibancada: ${ARQUIBANCADA_TAXA.obs}`
   return base
@@ -136,7 +136,9 @@ function taxaPopulacionalTexto(amb, taxaPopulacional) {
 // Medida que entra no cálculo da população do ambiente: com assentos fixos a
 // área não conta — vale a quantidade de assentos ("64 p"); nos demais, a área.
 function medidaTexto(amb) {
-  const base = amb.popTipo === 'fixo' ? `${fmt(parseInt(amb.assentos) || 0)} p` : `${fmt(amb.area || 0)} m²`
+  const base = amb.popTipo === 'fixo' ? `${fmt(parseInt(amb.assentos) || 0)} p`
+    : amb.popTipo === 'manual' ? `${fmt(parseInt(amb.popManual) || 0)} p`
+    : `${fmt(amb.area || 0)} m²`
   if (amb.arquibancada && amb.divisao === 'F-3') return `${base} + ${fmt(parseFloat(amb.arquibancadaComprimento) || 0)} m linear (arquibancada)`
   return base
 }
