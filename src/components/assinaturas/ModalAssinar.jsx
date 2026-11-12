@@ -48,6 +48,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
   // não é pedida. `lembradaDe` guarda de qual id foi consultada; antes disso, aguarda.
   const [lembradaDe, setLembradaDe] = useState({ id: null, tem: false })
   const [lembrar, setLembrar] = useState(true)
+  const [emPastas, setEmPastas] = useState(false) // cada grupo vira uma pasta no ZIP
   useEffect(() => {
     if (!usarSalvo || !idEfetivo) return undefined
     let ativo = true
@@ -230,7 +231,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
             titulo="Confirmar assinatura"
             rodape={<>
               <button type="button" className="btn-ghost" onClick={lote.voltar}>Voltar</button>
-              <button type="button" className="btn-primary" onClick={lote.executar} disabled={certificado.vencido}>
+              <button type="button" className="btn-primary" onClick={() => lote.executar({ pastas: emPastas })} disabled={certificado.vencido}>
                 <Icon name="signature" size={13}/> Assinar {plural(total, 'arquivo', 'arquivos')}
               </button>
             </>}
@@ -238,6 +239,14 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
             <p className="m-0 text-[14px] text-ink leading-relaxed">
               {plural(total, 'arquivo será assinado', 'arquivos serão assinados')} em {plural(grupos_com_arquivos.length, 'grupo', 'grupos')}.
             </p>
+
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <span className="mt-0.5"><Checkbox checked={emPastas} onChange={() => setEmPastas(v => !v)} title="Separar em pastas por grupo"/></span>
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[13px] text-ink">Separar em pastas por grupo</span>
+                <span className="text-[11px] text-ink-faint leading-snug">O download é um ZIP com uma pasta para cada grupo, com o nome do grupo.</span>
+              </span>
+            </label>
 
             {certificado.vencido && (
               <div className="ibox red m-0" role="alert">
@@ -258,7 +267,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
                   <button type="button" className="btn-ghost" onClick={onFechar}>Fechar</button>
                   {resultado?.blob && (
                     <button type="button" className="btn-primary" onClick={lote.baixar}>
-                      <Icon name="download" size={13}/> {resultado.assinados > 1 ? 'Baixar ZIP' : 'Baixar PDF'}
+                      <Icon name="download" size={13}/> {resultado.nome?.endsWith('.zip') ? 'Baixar ZIP' : 'Baixar PDF'}
                     </button>
                   )}
                 </>}
