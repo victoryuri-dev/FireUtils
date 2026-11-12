@@ -19,13 +19,13 @@ import Icon from '../ui/Icon'
 const FRACAO_REFERENCIA = 0.62
 // Largura mínima do box para pôr referência e miniaturas lado a lado.
 const LARGURA_LINHA = 620
-// Altura que sobra para as miniaturas ao lado da referência: descontados o vão entre as
-// duas linhas, a barra de rolagem e as legendas (nome do arquivo) de cada linha.
-const RESERVA_ALTURA_MINIATURAS = 16 + 8 + 2 * 26
-const ALTURA_MIN_MINIATURA = 96
+// Ao lado das miniaturas, a folha de referência tem a altura das 2 linhas delas (quadro + legenda
+// de cada linha, mais o vão entre as linhas): os dois lados terminam alinhados.
+const ALTURA_LEGENDA_MINIATURA = 23
+const ALTURA_BLOCO_MINIATURAS = 2 * (ALTURA_QUADRO + ALTURA_LEGENDA_MINIATURA) + 16
 
 // O PDF de referência do grupo, com o campo arrastável por cima.
-function Referencia({ grupo, arquivo, ativo, titular, larguraMax, onCampo, onGeometria, onMedida }) {
+function Referencia({ grupo, arquivo, ativo, titular, larguraMax, alturaMax, onCampo, onGeometria, onMedida }) {
   const caixa = useRef(null)
   // Elemento onde o visor é montado (ou null = fechado). Fora do box do grupo: o box usa
   // container query, que em alguns navegadores prende elementos `fixed` ao próprio box.
@@ -38,7 +38,7 @@ function Referencia({ grupo, arquivo, ativo, titular, larguraMax, onCampo, onGeo
   useEffect(() => { if (ativo) onGeometria(geometria, total) }, [ativo, geometria, total, onGeometria])
 
   // Informa o tamanho da folha na tela: o box ajusta a coluna e a altura das miniaturas a ele.
-  const medidaW = dados.status === 'ok' ? Math.max(220, Math.min(larguraMax, Math.floor((Math.max(360, (globalThis.innerHeight || 900) - 300) * dimensoesVisiveis(geometria).largura) / dimensoesVisiveis(geometria).altura))) : null
+  const medidaW = dados.status === 'ok' ? Math.max(220, Math.min(larguraMax, Math.floor((alturaMax * dimensoesVisiveis(geometria).largura) / dimensoesVisiveis(geometria).altura))) : null
   const medidaH = medidaW ? Math.round((medidaW * dimensoesVisiveis(geometria).altura) / dimensoesVisiveis(geometria).largura) : null
   useEffect(() => { onMedida(medidaW ? { w: medidaW, h: medidaH } : null) }, [medidaW, medidaH, onMedida])
 
@@ -128,9 +128,8 @@ export default function SecaoGrupo({
   const [medidaRef, setMedidaRef] = useState(null)
   const aoMedir = useCallback(m => setMedidaRef(m), [])
   const larguraMaxRef = emLinha ? Math.floor((larguraCorpo - 24) * FRACAO_REFERENCIA) : Math.max(220, larguraCorpo)
-  const alturaMiniatura = emLinha && medidaRef
-    ? Math.max(ALTURA_MIN_MINIATURA, Math.min(ALTURA_QUADRO, Math.floor((medidaRef.h - RESERVA_ALTURA_MINIATURAS) / 2)))
-    : ALTURA_QUADRO
+  // Lado a lado: altura do bloco de miniaturas; empilhado: o que couber na tela.
+  const alturaMaxRef = emLinha ? ALTURA_BLOCO_MINIATURAS : Math.max(360, (globalThis.innerHeight || 900) - 300)
   // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
   const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'secao')
 
@@ -182,6 +181,7 @@ export default function SecaoGrupo({
                 ativo={ativo}
                 titular={titularPrevia}
                 larguraMax={larguraMaxRef}
+                alturaMax={alturaMaxRef}
                 onMedida={aoMedir}
                 onCampo={campo => onCampo(grupo.id, campo)}
                 onGeometria={onGeometria}
@@ -192,7 +192,7 @@ export default function SecaoGrupo({
                 demais arquivos (clicar em um deles o torna a referência). */}
             {outros.length > 0 && (
             <div className="flex-1 min-w-0">
-              <CarrosselMiniaturas rotulo={`Conferência do ${grupo.nome}`} altura={alturaMiniatura}>
+              <CarrosselMiniaturas rotulo={`Conferência do ${grupo.nome}`}>
                 {outros.map(a => (
                   <MiniaturaArquivo
                     key={a.id}
@@ -200,7 +200,6 @@ export default function SecaoGrupo({
                     grupo={grupo}
                     referencia={false}
                     selecionado={selecionados.includes(a.id)}
-                    altura={alturaMiniatura}
                     onEscolher={id => onEscolherRef(grupo.id, id)}
                     onAlternarSelecao={onAlternarSelecao}
                   />
