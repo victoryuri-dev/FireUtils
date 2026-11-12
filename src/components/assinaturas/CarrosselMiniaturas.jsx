@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LARGURA_QUADRO } from './MiniaturaArquivo'
+import { ALTURA_QUADRO, LARGURA_QUADRO } from './MiniaturaArquivo'
 import Icon from '../ui/Icon'
 
 const LINHAS = 2
@@ -10,7 +10,8 @@ const LINHAS = 2
  * 3º em cima da coluna seguinte...) e, quando não cabem todos na largura, a faixa
  * rola na horizontal: setas, rolagem do mouse/trackpad ou barra.
  */
-export default function CarrosselMiniaturas({ rotulo, children }) {
+export default function CarrosselMiniaturas({ rotulo, altura = ALTURA_QUADRO, children }) {
+  const larguraQuadro = Math.round((altura * LARGURA_QUADRO) / ALTURA_QUADRO)
   const faixa = useRef(null)
   const trilho = useRef(null)
   const [pode, setPode] = useState({ esq: false, dir: false })
@@ -38,7 +39,7 @@ export default function CarrosselMiniaturas({ rotulo, children }) {
     if (!el) return
     const reduzido = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     // Uma "página": a largura visível, menos meia coluna para a pessoa não perder o fio.
-    el.scrollBy({ left: sentido * Math.max(LARGURA_QUADRO, el.clientWidth - LARGURA_QUADRO / 2), behavior: reduzido ? 'auto' : 'smooth' })
+    el.scrollBy({ left: sentido * Math.max(larguraQuadro, el.clientWidth - larguraQuadro / 2), behavior: reduzido ? 'auto' : 'smooth' })
   }
 
   const seta = (sentido, visivel, lado) => (
@@ -47,7 +48,8 @@ export default function CarrosselMiniaturas({ rotulo, children }) {
       onClick={() => rolar(sentido)}
       aria-label={sentido < 0 ? 'Ver miniaturas anteriores' : 'Ver mais miniaturas'}
       tabIndex={visivel ? 0 : -1}
-      className={`absolute ${lado} top-[88px] z-10 w-8 h-8 grid place-items-center rounded-full border border-solid border-border bg-surface text-ink shadow-[var(--shadow-sm)] cursor-pointer transition-opacity hover:bg-surface-2 ${visivel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      style={{ top: Math.max(8, altura / 2 - 12) }}
+      className={`absolute ${lado} z-10 w-8 h-8 grid place-items-center rounded-full border border-solid border-border bg-surface text-ink shadow-[var(--shadow-sm)] cursor-pointer transition-opacity hover:bg-surface-2 ${visivel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
     >
       <Icon name={sentido < 0 ? 'chevL' : 'chevR'} size={16}/>
     </button>
@@ -66,7 +68,7 @@ export default function CarrosselMiniaturas({ rotulo, children }) {
           style={{
             gridTemplateRows: `repeat(${LINHAS}, auto)`,
             gridAutoFlow: 'column',
-            gridAutoColumns: `${LARGURA_QUADRO}px`,
+            gridAutoColumns: `${larguraQuadro}px`,
           }}
         >
           {children}

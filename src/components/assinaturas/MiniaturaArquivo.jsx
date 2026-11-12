@@ -15,13 +15,16 @@ import Checkbox from '../ui/Checkbox'
 export const LARGURA_QUADRO = 176
 export const ALTURA_QUADRO = 200
 const BORDA = 2
+/** Largura do quadro para uma altura dada (mesma proporção do quadro padrão). */
+const larguraDoQuadro = altura => Math.round((altura * LARGURA_QUADRO) / ALTURA_QUADRO)
 
 /**
  * Miniatura de conferência: a página que será assinada, com o campo do grupo
  * calculado sobre a geometria DESTE arquivo (tamanho de folha e rotação
  * próprios). Só carrega quando chega perto da tela.
  */
-export default function MiniaturaArquivo({ arquivo, grupo, referencia, selecionado, onEscolher, onAlternarSelecao }) {
+export default function MiniaturaArquivo({ arquivo, grupo, referencia, selecionado, altura = ALTURA_QUADRO, onEscolher, onAlternarSelecao }) {
+  const larguraQuadro = larguraDoQuadro(altura)
   const caixa = useRef(null)
   const noRadar = useVisivel(caixa)
   const dados = usePaginaPdf(arquivo.arquivo, grupo.pagina, noRadar)
@@ -36,8 +39,8 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
     if (rect.fora) aviso = 'O campo não cabe nesta página'
     const vis = dimensoesVisiveis(dados.geometria)
     larguraPx = Math.floor(Math.min(
-      LARGURA_QUADRO - 2 * BORDA - 8,
-      ((ALTURA_QUADRO - 2 * BORDA - 8) * vis.largura) / vis.altura,
+      larguraQuadro - 2 * BORDA - 8,
+      ((altura - 2 * BORDA - 8) * vis.largura) / vis.altura,
     ))
   } else if (dados.status === 'sem-pagina') {
     aviso = `O arquivo tem ${dados.total} ${dados.total === 1 ? 'página' : 'páginas'}; a página escolhida não existe`
@@ -46,7 +49,7 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
   }
 
   return (
-    <figure ref={caixa} className={`group m-0 relative ${isDragging ? 'opacity-40' : ''}`} style={{ width: LARGURA_QUADRO }}>
+    <figure ref={caixa} className={`group m-0 relative ${isDragging ? 'opacity-40' : ''}`} style={{ width: larguraQuadro }}>
       <button
         ref={setNodeRef}
         type="button"
@@ -58,7 +61,7 @@ export default function MiniaturaArquivo({ arquivo, grupo, referencia, seleciona
         aria-pressed={referencia}
         aria-roledescription="arrastável"
         className={`flex items-center justify-center w-full p-0 cursor-grab active:cursor-grabbing rounded-md bg-surface-2 border-2 border-solid ${referencia ? 'border-red' : 'border-transparent hover:border-border'}`}
-        style={{ height: ALTURA_QUADRO }}
+        style={{ height: altura }}
       >
         {dados.status === 'ok' ? (
           <PaginaPdf pagina={dados.pagina} geometria={dados.geometria} larguraPx={larguraPx}>
