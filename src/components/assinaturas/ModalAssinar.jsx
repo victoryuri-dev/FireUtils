@@ -208,7 +208,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
                   {usarSalvo && (
                     <label className="flex items-start gap-2.5 cursor-pointer">
                       <span className="mt-0.5"><Checkbox checked={lembrar} onChange={() => setLembrar(v => !v)} title="Lembrar a senha neste dispositivo"/></span>
-                      <span className="text-[12px] text-ink-faint leading-snug">Lembrar a senha neste dispositivo (cifrada, só neste navegador; não vai para a conta)</span>
+                      <span className="text-[12px] text-ink-faint leading-snug">Lembrar a senha neste dispositivo</span>
                     </label>
                   )}
                 </>
