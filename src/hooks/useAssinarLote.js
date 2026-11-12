@@ -1,24 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { zipSync } from 'fflate'
 import { lerCertificado, assinarPdf, ErroAssinatura } from '../lib/pades'
-import { carregarPdf, molduraDaPagina } from '../lib/pdfjs'
-import { indiceDaPagina } from '../utils/assinaturas/geometria'
 
 // Deixa o navegador pintar o "assinando…" antes do trabalho pesado do arquivo.
 const pausa = () => new Promise(r => setTimeout(r, 30))
-
-// Margens da moldura do desenho na página que será assinada (as mesmas que a tela mostrou).
-// Falha ao ler: sem moldura (o campo é medido da borda da folha; o PDF é lido de novo ao assinar).
-async function molduraDoArquivo(file, escolha) {
-  try {
-    const doc = await carregarPdf(file)
-    const indice = indiceDaPagina(escolha, doc.numPages)
-    if (indice < 0) return null
-    return await molduraDaPagina(await doc.getPage(indice + 1))
-  } catch {
-    return null
-  }
-}
 
 // Nome do arquivo assinado, sem repetir nomes dentro do mesmo ZIP.
 function nomeAssinado(nome, usados) {
@@ -99,8 +84,7 @@ export function useAssinarLote({ grupos, arquivos }) {
       await pausa()
       try {
         const bytes = new Uint8Array(await arquivo.arquivo.arrayBuffer())
-        const moldura = grupo.campo.daMoldura === false ? null : await molduraDoArquivo(arquivo.arquivo, grupo.pagina)
-        const r = await assinarPdf(bytes, certificadoCompleto, { campo: grupo.campo, pagina: grupo.pagina, selo: grupo.selo, moldura })
+        const r = await assinarPdf(bytes, certificadoCompleto, { campo: grupo.campo, pagina: grupo.pagina, selo: grupo.selo })
         saidas[nomeAssinado(arquivo.nome, usados)] = r.pdf
         atualizar(arquivo.id, { status: 'ok', pagina: r.pagina })
       } catch (e) {

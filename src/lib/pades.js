@@ -285,7 +285,7 @@ function jaTemAssinatura(pdfDoc) {
  *           agora?: Date, motivo?: string, local?: string }} opcoes
  * @returns {Promise<{ pdf: Uint8Array, pagina: number }>}  `pagina` é base 1
  */
-export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agora = new Date(), motivo, local, moldura = null }) {
+export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agora = new Date(), motivo, local }) {
   let pdfDoc
   try {
     pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false })
@@ -307,7 +307,7 @@ export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agor
   const pg = paginas[indice]
   const caixa = pg.getCropBox()
   const rotacao = normalizarRotacao(pg.getRotation().angle)
-  const ret = retanguloPdf(campo, { x0: caixa.x, y0: caixa.y, largura: caixa.width, altura: caixa.height, rotacao, moldura })
+  const ret = retanguloPdf(campo, { x0: caixa.x, y0: caixa.y, largura: caixa.width, altura: caixa.height, rotacao })
   if (ret.fora) {
     throw new ErroAssinatura('fora', 'O campo de assinatura não cabe nesta página.')
   }

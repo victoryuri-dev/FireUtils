@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { ANCORAS, ROTULO_ANCORA, trocarAncora, trocarMoldura, ptParaMm } from '../../utils/assinaturas/geometria'
+import { ANCORAS, ROTULO_ANCORA, trocarAncora } from '../../utils/assinaturas/geometria'
 import { paraNumero } from '../../utils/numero'
-import Checkbox from '../ui/Checkbox'
 import PainelSelo from './PainelSelo'
 
 // Campo numérico que aceita digitação livre ("12,5") e só grava valores válidos.
@@ -43,10 +42,6 @@ export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSel
   const { campo, pagina } = grupo
   const ancoraDireita = campo.ancora.endsWith('direita')
   const ancoraBaixo = campo.ancora.startsWith('inferior')
-  const daMoldura = campo.daMoldura !== false
-  const m = geometria?.moldura
-  const achou = Boolean(m && (m.esq || m.dir || m.sup || m.inf))
-  const fmt = pt => String(Math.round(ptParaMm(pt))).replace('.', ',')
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,20 +64,6 @@ export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSel
         <CampoMm rotulo="Largura" valor={campo.larguraMm} min={25} onMudar={v => onCampo({ larguraMm: v })}/>
         <CampoMm rotulo="Altura" valor={campo.alturaMm} min={10} onMudar={v => onCampo({ alturaMm: v })}/>
       </div>
-
-      <label className="flex items-start gap-2.5 cursor-pointer">
-        <span className="mt-0.5"><Checkbox checked={daMoldura} onChange={() => onCampo(geometria ? trocarMoldura(campo, geometria, !daMoldura) : { daMoldura: !daMoldura })} title="Medir a partir da moldura do desenho"/></span>
-        <span className="flex flex-col gap-0.5">
-          <span className="text-[12px] text-ink">Medir a partir da moldura do desenho</span>
-          <span className="text-[11px] text-ink-faint leading-snug">
-            {!daMoldura
-              ? 'As distâncias são medidas a partir da borda da folha.'
-              : achou
-                ? `Moldura achada na folha de referência, a ${fmt(m.esq)} mm (esq.), ${fmt(m.dir)} mm (dir.), ${fmt(m.sup)} mm (sup.) e ${fmt(m.inf)} mm (inf.) da borda. Cada folha usa a própria moldura, então pranchas de tamanhos diferentes alinham.`
-                : 'Nenhuma moldura achada na folha de referência: as distâncias são medidas a partir da borda da folha.'}
-          </span>
-        </span>
-      </label>
 
       <div role="group" aria-labelledby={`pagina-${grupo.id}`} className="flex flex-col gap-2">
         <span id={`pagina-${grupo.id}`} className="text-[11px] text-ink-faint">Página que recebe a assinatura</span>

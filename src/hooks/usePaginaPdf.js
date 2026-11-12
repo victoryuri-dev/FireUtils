@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { carregarPdf, geometriaDaPagina, molduraDaPagina } from '../lib/pdfjs'
+import { carregarPdf, geometriaDaPagina } from '../lib/pdfjs'
 import { indiceDaPagina } from '../utils/assinaturas/geometria'
 
 /**
@@ -23,8 +23,7 @@ export function usePaginaPdf(arquivo, escolha, ativo = true) {
         const indice = indiceDaPagina({ modo, numero }, doc.numPages)
         if (indice < 0) return { status: 'sem-pagina', total: doc.numPages }
         const pagina = await doc.getPage(indice + 1)
-        const moldura = await molduraDaPagina(pagina)
-        return { status: 'ok', pagina, geometria: { ...geometriaDaPagina(pagina), moldura }, total: doc.numPages }
+        return { status: 'ok', pagina, geometria: geometriaDaPagina(pagina), total: doc.numPages }
       })
       .catch(erro => ({ status: 'erro', erro }))
       .then(dados => { if (!cancelado) setResultado({ arquivo, chave, dados }) })
