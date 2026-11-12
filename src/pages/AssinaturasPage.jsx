@@ -76,6 +76,8 @@ function FerramentaAssinaturas() {
   const soltarNoGrupo = grupoId => ({ alvo: alvoDeArquivos === grupoId, props: propsDoAlvo(grupoId) })
 
   const semArquivos = estado.arquivos.length === 0
+  // Grupos primeiro, depois os documentos individuais (cada um com a sua posição).
+  const ordenados = useMemo(() => [...estado.grupos.filter(g => !g.individual), ...estado.grupos.filter(g => g.individual)], [estado.grupos])
 
   return (
     <ProvedorArrastar arquivos={estado.arquivos} selecionados={estado.selecionados} onMover={mover}>
@@ -113,7 +115,7 @@ function FerramentaAssinaturas() {
         ) : (
           // Uma coluna só: os grupos, um abaixo do outro, em largura total.
           <div className="flex flex-col gap-6">
-            {estado.grupos.map(g => (
+            {ordenados.map(g => (
               <SecaoGrupo
                 key={g.id}
                 grupo={g}
@@ -122,7 +124,7 @@ function FerramentaAssinaturas() {
                 refId={refs[g.id]}
                 selecionados={estado.selecionados}
                 titularPrevia={titularPrevia}
-                soltar={soltarNoGrupo(g.id)}
+                soltar={g.individual ? undefined : soltarNoGrupo(g.id)}
                 onEscolherRef={escolherRef}
                 onAlternarSelecao={alternarSelecao}
                 onAtivar={ativar}

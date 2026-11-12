@@ -18,6 +18,6 @@ export function useArquivoArrastavel(arquivoId, origem) {
  * em dois lugares (item da lista e seção central), cada um com id próprio.
  * `origem` é 'lista' ou 'secao'.
  */
-export function useAlvoGrupo(grupoId, origem) {
-  return useDroppable({ id: `${origem}:grupo:${grupoId}`, data: { grupoId } })
+export function useAlvoGrupo(grupoId, origem, desativado = false) {
+  return useDroppable({ id: `${origem}:grupo:${grupoId}`, data: { grupoId }, disabled: desativado })
 }

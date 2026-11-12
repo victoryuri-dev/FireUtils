@@ -45,7 +45,9 @@ export default function PainelCampo({ grupo, geometria, onCampo, onPagina, onSel
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="m-0 text-[13px] font-semibold text-ink">Posição no grupo “{grupo.nome}”</h3>
+      <h3 className="m-0 text-[13px] font-semibold text-ink break-words">
+        {grupo.individual ? `Posição do documento “${grupo.nome}”` : `Posição no grupo “${grupo.nome}”`}
+      </h3>
 
       <label className="flex flex-col gap-1">
         <span className="text-[11px] text-ink-faint">Canto de referência</span>

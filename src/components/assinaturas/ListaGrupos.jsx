@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useDndContext } from '@dnd-kit/core'
-import { arquivosDoGrupo, formatarTamanho } from '../../utils/assinaturas/grupos'
+import { arquivosDoGrupo, formatarTamanho, ID_INDIVIDUAIS } from '../../utils/assinaturas/grupos'
 import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
@@ -9,7 +9,7 @@ import NomeDoGrupo from './NomeDoGrupo'
 // Box de um arquivo: o box inteiro é a área de arrastar. Selecionar e remover
 // só aparecem com o mouse em cima ou com o arquivo selecionado, e somem
 // durante qualquer arrasto (para não ficarem por cima do que está sendo movido).
-function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
+function CaixaArquivo({ arquivo, selecionado, ativo = false, onAbrir, onAlternar, onRemover }) {
   const { setNodeRef, listeners, attributes, isDragging } = useArquivoArrastavel(arquivo.id, 'linha')
   const { active } = useDndContext()
   const arrastando = Boolean(active)
@@ -27,8 +27,9 @@ function CaixaArquivo({ arquivo, selecionado, onAlternar, onRemover }) {
       {...listeners}
       role="group"
       aria-label={`${arquivo.nome}. Arraste para outro grupo.`}
+      onClick={onAbrir}
       className={`group relative rounded-md border border-solid px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-colors ${
-        selecionado ? 'border-red bg-red-dim' : 'border-border bg-surface-2 hover:border-ink-hint'
+        selecionado ? 'border-red bg-red-dim' : ativo ? 'border-red-border bg-surface-2' : 'border-border bg-surface-2 hover:border-ink-hint'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
       <span className="flex items-start gap-2 pr-14">
@@ -125,6 +126,46 @@ function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, 
   )
 }
 
+// "Sem grupo": documentos assinados cada um na sua posição. Também é um alvo: arrastar arquivos para
+// cá (ou soltar PDFs do computador) os torna individuais.
+function SecaoIndividuais({ grupos, estado, ativoId, soltar, dispatch, onRemoverArquivos }) {
+  const { setNodeRef, isOver } = useAlvoGrupo(ID_INDIVIDUAIS, 'lista')
+  const borda = isOver || soltar?.alvo ? 'border-red bg-red-dim' : 'border-border bg-surface'
+  return (
+    <li ref={setNodeRef} {...soltar?.props} className={`rounded-lg border border-solid transition-colors ${borda}`}>
+      <div className="flex items-center gap-2 px-2.5 py-2">
+        <span className="w-6 h-6 grid place-items-center shrink-0 text-ink-faint"><Icon name="file" size={16}/></span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">Sem grupo</span>
+        <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{grupos.length}</span>
+      </div>
+      <div className="border-t border-solid border-border-2">
+        {grupos.length === 0 ? (
+          <p className="m-0 px-3 py-2.5 text-[12px] text-ink-faint leading-snug">
+            Arraste arquivos para cá para assinar cada um na sua própria posição.
+          </p>
+        ) : (
+          <ul className="list-none m-0 p-2.5 flex flex-col gap-2">
+            {grupos.map(g => {
+              const a = arquivosDoGrupo(estado, g.id)[0]
+              return a && (
+                <CaixaArquivo
+                  key={a.id}
+                  arquivo={a}
+                  ativo={g.id === ativoId}
+                  selecionado={estado.selecionados.includes(a.id)}
+                  onAbrir={() => dispatch({ type: 'SELECIONAR_GRUPO', id: g.id })}
+                  onAlternar={() => dispatch({ type: 'ALTERNAR_SELECAO', id: a.id })}
+                  onRemover={() => onRemoverArquivos([a.id])}
+                />
+              )
+            })}
+          </ul>
+        )}
+      </div>
+    </li>
+  )
+}
+
 /**
  * Grupos de assinatura e seus arquivos. Cada grupo é um conjunto de PDFs
  * assinados no mesmo lugar. Para trocar arquivos de grupo, arraste o box do
@@ -133,7 +174,10 @@ function ItemGrupo({ grupo, arquivos, ativo, aberto, onAlternarAberto, onAbrir, 
  */
 export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onRemoverArquivos, onNovoGrupo }) {
   const inputRef = useRef(null)
-  const { grupos, selecionados, grupoAtivoId } = estado
+  const inputSemGrupoRef = useRef(null)
+  const { selecionados, grupoAtivoId } = estado
+  const grupos = estado.grupos.filter(g => !g.individual)
+  const individuais = estado.grupos.filter(g => g.individual)
   // Grupos com a lista de arquivos aberta: independe de qual está em edição (vários podem ficar abertos).
   // Quando outro grupo passa a ser o em edição, ele abre (ajuste durante a renderização, sem efeito).
   const [abertos, setAbertos] = useState(() => new Set([grupoAtivoId]))
@@ -147,13 +191,24 @@ export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onR
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" onClick={() => inputRef.current?.click()}>
           <Icon name="upload" size={13}/> Adicionar PDFs
         </button>
         <button type="button" className="btn-ghost" onClick={onNovoGrupo}>
           <Icon name="plus" size={13}/> Novo grupo
         </button>
+        <button type="button" className="btn-ghost" onClick={() => inputSemGrupoRef.current?.click()} title="PDFs assinados cada um na sua posição, fora de grupos">
+          <Icon name="file" size={13}/> Sem grupo
+        </button>
+        <input
+          ref={inputSemGrupoRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          hidden
+          onChange={e => { onAdicionar(Array.from(e.target.files), ID_INDIVIDUAIS); e.target.value = '' }}
+        />
         <input
           ref={inputRef}
           type="file"
@@ -167,6 +222,9 @@ export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onR
       {selecionados.length > 0 && (
         <div className="ibox m-0 bg-surface-2 border border-solid border-border items-center flex-wrap" role="region" aria-label="Arquivos selecionados">
           <span className="text-ink font-medium">{selecionados.length} {selecionados.length === 1 ? 'selecionado' : 'selecionados'}</span>
+          <button type="button" className="btn-ghost text-[11px] py-1 px-2" onClick={() => dispatch({ type: 'MOVER_ARQUIVOS', ids: selecionados, grupoId: ID_INDIVIDUAIS })} title="Tira dos grupos: cada um é assinado na sua posição">
+            <Icon name="file" size={12}/> Sem grupo
+          </button>
           <button type="button" className="btn-ghost text-[11px] py-1 px-2" onClick={() => onRemoverArquivos(selecionados)}>
             <Icon name="trash" size={12}/> Remover
           </button>
@@ -191,6 +249,7 @@ export default function ListaGrupos({ estado, dispatch, soltar, onAdicionar, onR
             onRemoverArquivos={onRemoverArquivos}
           />
         ))}
+        <SecaoIndividuais grupos={individuais} estado={estado} ativoId={grupoAtivoId} soltar={soltar?.(ID_INDIVIDUAIS)} dispatch={dispatch} onRemoverArquivos={onRemoverArquivos}/>
       </ul>
     </div>
   )

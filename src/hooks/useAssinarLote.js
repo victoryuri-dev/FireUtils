@@ -71,7 +71,15 @@ export function useAssinarLote({ grupos, arquivos }) {
     const usados = new Set()
     const nomesDePasta = new Set()
     const pastaDoGrupo = {}
-    if (pastas) for (const g of grupos) if (arquivos.some(a => a.grupoId === g.id)) pastaDoGrupo[g.id] = nomeDePasta(g.nome, nomesDePasta)
+    if (pastas) {
+      // Documentos individuais ficam todos numa pasta "Sem grupo".
+      let pastaIndividuais = null
+      for (const g of grupos) {
+        if (!arquivos.some(a => a.grupoId === g.id)) continue
+        if (g.individual) pastaDoGrupo[g.id] = pastaIndividuais ??= nomeDePasta('Sem grupo', nomesDePasta)
+        else pastaDoGrupo[g.id] = nomeDePasta(g.nome, nomesDePasta)
+      }
+    }
     const pastasUsadas = {}
     let falhas = 0
 

@@ -132,12 +132,12 @@ export default function SecaoGrupo({
   // Lado a lado: altura do bloco de miniaturas; empilhado: o que couber na tela.
   const alturaMaxRef = emLinha ? ALTURA_BLOCO_MINIATURAS : Math.max(360, (globalThis.innerHeight || 900) - 300)
   // A seção inteira é um alvo: soltar arquivos arrastados aqui os move para o grupo.
-  const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'secao')
+  const { setNodeRef, isOver } = useAlvoGrupo(grupo.id, 'secao', Boolean(grupo.individual))
 
   return (
     <section
       ref={setNodeRef}
-      aria-label={`Grupo ${grupo.nome}`}
+      aria-label={grupo.individual ? `Documento ${grupo.nome}` : `Grupo ${grupo.nome}`}
       {...soltar?.props}
       onPointerDownCapture={() => { if (!ativo) onAtivar(grupo.id) }}
       onFocusCapture={() => { if (!ativo) onAtivar(grupo.id) }}
@@ -149,11 +149,23 @@ export default function SecaoGrupo({
         </div>
       )}
       <header className="flex items-center gap-2.5 mb-4">
-        <Icon name="folderOpen" size={18} className={`shrink-0 ${ativo ? 'text-red' : 'text-ink-faint'}`}/>
-        <NomeDoGrupo grupo={grupo} onRenomear={onRenomear} variante="secao"/>
-        <span className="text-[12px] text-ink-faint tabular-nums shrink-0">
-          {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'}
-        </span>
+        <Icon name={grupo.individual ? 'file' : 'folderOpen'} size={18} className={`shrink-0 ${ativo ? 'text-red' : 'text-ink-faint'}`}/>
+        {grupo.individual ? (
+          // Documento individual: o título é o nome do arquivo (não se renomeia).
+          <>
+            <h2 className="m-0 min-w-0 truncate font-heading text-[16px] font-semibold text-ink" title={grupo.nome}>{grupo.nome}</h2>
+            <span className="shrink-0 h-5 px-2 grid place-items-center rounded-full border border-solid border-border text-ink-faint text-[10px] font-semibold uppercase tracking-[.04em]">
+              Sem grupo
+            </span>
+          </>
+        ) : (
+          <>
+            <NomeDoGrupo grupo={grupo} onRenomear={onRenomear} variante="secao"/>
+            <span className="text-[12px] text-ink-faint tabular-nums shrink-0">
+              {arquivos.length} {arquivos.length === 1 ? 'arquivo' : 'arquivos'}
+            </span>
+          </>
+        )}
         {ativo && (
           <span className="ml-auto shrink-0 h-5 px-2 grid place-items-center rounded-full border border-solid border-red-border bg-red-dim text-red text-[10px] font-semibold uppercase tracking-[.04em]">
             Em edição

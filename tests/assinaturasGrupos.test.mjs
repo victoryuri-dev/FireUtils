@@ -103,3 +103,75 @@ test('o mesmo arquivo (nome + tamanho) enviado de novo é ignorado', () => {
   s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [{ ...arq('e', 'P-01.pdf'), tamanho: 2000 }] })
   assert.equal(s.arquivos.length, 3)
 })
+
+// ── Documentos individuais (fora de grupos) ───────────────────────────
+import { ID_INDIVIDUAIS, idIndividual } from '../src/utils/assinaturas/grupos.js'
+
+const pdf = (id, nome = `${id}.pdf`, tamanho = 10) => ({ id, nome, tamanho, arquivo: null })
+
+test('adicionar como individuais: um grupo individual por arquivo, com posição própria', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a', 'Planta 1.pdf'), pdf('b', 'Planta 2.PDF')], grupoId: ID_INDIVIDUAIS })
+  const ind = s.grupos.filter(g => g.individual)
+  assert.equal(ind.length, 2)
+  assert.deepEqual(ind.map(g => g.nome), ['Planta 1', 'Planta 2'])
+  assert.equal(s.arquivos.find(a => a.id === 'a').grupoId, idIndividual('a'))
+  s = reducer(s, { type: 'DEFINIR_CAMPO', id: idIndividual('a'), campo: { dxMm: 99 } })
+  assert.equal(s.grupos.find(g => g.id === idIndividual('a')).campo.dxMm, 99)
+  assert.notEqual(s.grupos.find(g => g.id === idIndividual('b')).campo.dxMm, 99, 'o outro não muda')
+  assert.notEqual(s.grupos.find(g => g.id === 'g1').campo.dxMm, 99, 'o grupo também não')
+  assert.equal(s.grupos.filter(g => !g.individual).length, 1)
+})
+
+test('tirar arquivos de um grupo os torna individuais, herdando a posição do grupo', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a'), pdf('b'), pdf('c')], grupoId: 'g1' })
+  s = reducer(s, { type: 'DEFINIR_CAMPO', id: 'g1', campo: { dxMm: 33 } })
+  s = reducer(s, { type: 'MOVER_ARQUIVOS', ids: ['a', 'b'], grupoId: ID_INDIVIDUAIS })
+  assert.equal(s.arquivos.find(a => a.id === 'c').grupoId, 'g1')
+  assert.equal(s.arquivos.find(a => a.id === 'a').grupoId, idIndividual('a'))
+  assert.equal(s.grupos.find(g => g.id === idIndividual('a')).campo.dxMm, 33)
+  // já individual: mover de novo não duplica
+  assert.equal(reducer(s, { type: 'MOVER_ARQUIVOS', ids: ['a'], grupoId: ID_INDIVIDUAIS }), s)
+})
+
+test('um individual que entra num grupo deixa de ser individual (o grupo dele some)', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a')], grupoId: ID_INDIVIDUAIS })
+  assert.equal(s.grupoAtivoId, idIndividual('a'))
+  s = reducer(s, { type: 'MOVER_ARQUIVOS', ids: ['a'], grupoId: 'g1' })
+  assert.equal(s.grupos.some(g => g.individual), false)
+  assert.equal(s.arquivos[0].grupoId, 'g1')
+  assert.equal(s.grupoAtivoId, 'g1', 'o grupo ativo que sumiu volta ao primeiro normal')
+})
+
+test('grupos individuais não recebem arquivos; remover o individual remove o arquivo', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a'), pdf('b')], grupoId: 'g1' })
+  s = reducer(s, { type: 'MOVER_ARQUIVOS', ids: ['a'], grupoId: ID_INDIVIDUAIS })
+  assert.equal(reducer(s, { type: 'MOVER_ARQUIVOS', ids: ['b'], grupoId: idIndividual('a') }), s, 'mover para individual é ignorado')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('c')], grupoId: idIndividual('a') })
+  assert.equal(s.arquivos.find(a => a.id === 'c').grupoId, 'g1', 'cai no primeiro grupo normal')
+  s = reducer(s, { type: 'REMOVER_GRUPO', id: idIndividual('a') })
+  assert.equal(s.arquivos.some(a => a.id === 'a'), false)
+  assert.equal(s.grupos.some(g => g.individual), false)
+})
+
+test('remover arquivo individual remove o grupo dele; o último grupo normal não pode ser removido', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a')], grupoId: ID_INDIVIDUAIS })
+  assert.equal(reducer(s, { type: 'REMOVER_GRUPO', id: 'g1' }), s, 'só há um normal: fica (individuais não contam)')
+  s = reducer(s, { type: 'REMOVER_ARQUIVOS', ids: ['a'] })
+  assert.equal(s.grupos.length, 1)
+  assert.equal(s.grupoAtivoId, 'g1')
+})
+
+test('renomear não afeta individuais; remover grupo normal leva arquivos ao normal vizinho', () => {
+  let s = estadoInicial('g1')
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('a')], grupoId: ID_INDIVIDUAIS })
+  assert.equal(reducer(s, { type: 'RENOMEAR_GRUPO', id: idIndividual('a'), nome: 'X' }), s)
+  s = reducer(s, { type: 'CRIAR_GRUPO', id: 'g2' })
+  s = reducer(s, { type: 'ADICIONAR_ARQUIVOS', arquivos: [pdf('b')], grupoId: 'g2' })
+  s = reducer(s, { type: 'REMOVER_GRUPO', id: 'g2' })
+  assert.equal(s.arquivos.find(a => a.id === 'b').grupoId, 'g1')
+})

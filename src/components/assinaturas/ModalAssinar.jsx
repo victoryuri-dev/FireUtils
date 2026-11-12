@@ -64,6 +64,14 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
     .filter(x => x.total > 0)
   const total = grupos_com_arquivos.reduce((s, x) => s + x.total, 0)
   const executando = fase === 'executando'
+  // "5 arquivos serão assinados: 3 em 2 grupos e 2 sem grupo."
+  const emGrupos = grupos_com_arquivos.filter(x => !x.grupo.individual)
+  const nEmGrupos = emGrupos.reduce((s, x) => s + x.total, 0)
+  const nIndividuais = total - nEmGrupos
+  const partes = []
+  if (emGrupos.length) partes.push(`${nEmGrupos} em ${plural(emGrupos.length, 'grupo', 'grupos')}`)
+  if (nIndividuais) partes.push(`${nIndividuais} sem grupo`)
+  const resumo = `${plural(total, 'arquivo será assinado', 'arquivos serão assinados')}${partes.length > 1 || nIndividuais ? `: ${partes.join(' e ')}` : ` em ${plural(emGrupos.length, 'grupo', 'grupos')}`}.`
 
   // O nome do certificado lido alimenta a prévia do selo na página.
   useEffect(() => { if (certificado?.titular) onTitular?.(certificado.titular) }, [certificado, onTitular])
@@ -237,7 +245,7 @@ export default function ModalAssinar({ grupos, arquivos, onFechar, onTitular, ce
             </>}
           >
             <p className="m-0 text-[14px] text-ink leading-relaxed">
-              {plural(total, 'arquivo será assinado', 'arquivos serão assinados')} em {plural(grupos_com_arquivos.length, 'grupo', 'grupos')}.
+              {resumo}
             </p>
 
             <label className="flex items-start gap-2.5 cursor-pointer">
