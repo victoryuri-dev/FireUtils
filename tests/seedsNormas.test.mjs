@@ -17,6 +17,7 @@ const server = await servidorComNormas({
     compartimentacao: dadosDoSql('20261018120000_seed_normas_compartimentacao_pb.sql'),
     controle_acabamento: dadosDoSql('20261018130000_seed_normas_controle_acabamento_pb.sql'),
     validade_inspecao: dadosDoSql('20261018140000_seed_normas_validade_inspecao_pb.sql'),
+    isolamento_risco: dadosDoSql('20261112120000_seed_normas_isolamento_risco_pb.sql'),
   },
   MA: {
     compartimentacao: { ...dadosDoSql('20261016140000_seed_normas_compartimentacao_ma.sql'), ...dadosDoSql('20261018120001_add_norma_compartimentacao_ma.sql') },
@@ -258,4 +259,12 @@ test('validade de inspeção da PB (Anexo B): SQL = arquivo de seed, com o grupo
   for (const k of ['NORMA', 'TABELA_ANEXO_B']) assert.deepEqual(lido[k], esperado[k], k)
   assert.deepEqual(lido.TABELA_ANEXO_B['M-7'], { risco: 'medio', validadeAnos: 2 })
   assert.equal(normas.getValidadeInspecao('MA'), null)
+})
+
+test('isolamento de risco da PB (NT 20/2023): SQL = arquivo de seed', async () => {
+  const esperado = await server.ssrLoadModule('/src/data/normas/PB/isolamento_risco.js')
+  const lido = normas.getIsolamentoRisco('PB')
+  for (const k of ['NORMA', 'TABELA_A1', 'REDUTORES']) assert.deepEqual(lido[k], esperado[k], k)
+  assert.ok(lido.TABELA_A1.linhas.every(l => l.alfa.length === lido.TABELA_A1.relacoes.length))
+  assert.equal(normas.getIsolamentoRisco('MA'), null)
 })

@@ -672,6 +672,7 @@ const INITIAL_STATE = {
     controle_fumaca:     { obrigatorio: false, ativo: false },
     central_gas:         { obrigatorio: false, ativo: false },
     spda:                { obrigatorio: false, ativo: false },
+    isolamento_risco:    { obrigatorio: false, ativo: false },
     resfriamento:        { obrigatorio: false, ativo: false },
     espuma:              { obrigatorio: false, ativo: false },
     gases_fixos:         { obrigatorio: false, ativo: false },

@@ -14,7 +14,7 @@ const { buildFormularioPB, semDestaque } = await server.ssrLoadModule('/src/esta
 const { medidasObrigatorias } = await server.ssrLoadModule('/src/hooks/useMedidasObrigatorias.js')
 const { riscosEspeciaisDoEstado, RISCOS_ESPECIAIS } = await server.ssrLoadModule('/src/utils/anexoB.js')
 
-const SISTEMAS = Object.fromEntries(['acesso_viatura','seg_estrutural','compart_horizontal','compart_vertical','controle_acabamento','saida_emergencia','gerenciamento_risco','brigada','iluminacao','sinalizacao','extintores','hidrantes','alarme','deteccao','sprinklers','controle_fumaca','central_gas','spda'].map(k => [k, { obrigatorio:false, ativo:false }]))
+const SISTEMAS = Object.fromEntries(['acesso_viatura','seg_estrutural','compart_horizontal','compart_vertical','controle_acabamento','saida_emergencia','gerenciamento_risco','brigada','iluminacao','sinalizacao','extintores','hidrantes','alarme','deteccao','sprinklers','controle_fumaca','central_gas','spda','isolamento_risco'].map(k => [k, { obrigatorio:false, ativo:false }]))
 
 function projeto(extra = {}) {
   return {
@@ -752,4 +752,28 @@ test('19. SPDA: com o SPDA marcado, exigível por padrão e preenchido; "não ex
   assert.equal(valorCampo(s2, 'Tipo de sistema:'), '')
   assert.deepEqual(marcados(s2), [])
   assert.equal(secao(gerar(projeto()), '19.').linhas.find(l => l.tipo === 'exigivel').exigivel, null)   // SPDA não marcado
+})
+
+test('20. isolamento de risco: α da Tabela A-1, D = α × menor dimensão + β, redutor e só com a medida marcada', async () => {
+  const { distanciaSeguranca } = await server.ssrLoadModule('/src/data/isolamento_calc.js')
+  const { TABELA_A1 } = await server.ssrLoadModule('/src/data/normas/PB/isolamento_risco.js')
+  // Classe II, 35% → linha de 40%; fachada 20 × 10 → X = 2,0; α = 1,68; D = 1,68 × 10 + 1,5 = 18,3
+  const c = distanciaSeguranca(TABELA_A1, { severidade: 'II', aberturas: '35', largura: '20', altura: '10', beta: '1.5' })
+  assert.equal(c.alfa, 1.68); assert.equal(c.xTabela, 2.0); assert.equal(c.aberturaTabela, 40)
+  assert.ok(Math.abs(c.d - 18.3) < 1e-9)
+  const memorialPB = { isolamento: {
+    edificacao1: { estruturaId: 'e1', severidade: 'II', aberturas: '35', largura: '20', altura: '10', beta: '1.5' },
+    edificacao2: { estruturaId: 'e1', severidade: 'I', aberturas: '20', largura: '10', altura: '10', beta: '1.5' },
+    redutor: { protecao: 'aberturas_trrf_igual', vedacao: 'trrf120' },
+    dimensionamento: 'Cálculo conforme NT 20/2023.',
+  } }
+  const s = secao(gerar(projeto({ sistemasPorEstrutura: { e1: { isolamento_risco: true } }, memorialPB })), '20.')
+  assert.equal(valorCampo(s, 'Edificação 1'), 'Bloco A')
+  assert.equal(valorCampo(s, 'Distância Mínima para isolamento entre as edificações:'), '3 m')   // 18,3 × 25% = 4,575 → máximo de 3 m
+  assert.ok(valorCampo(s, 'Redutores de distância de separação:').includes('máximo exigido de 3 m'))
+  const dados = s.linhas[1].celulas[0].label.replace(/[\uE000\uE001]/g, '')
+  assert.ok(dados.includes('Severidade: Classe II') && dados.includes('Relação largura/altura: 2') && dados.includes('(β): 1,5 m'))
+  assert.equal(s.linhas.find(l => l.tipo === 'obs').valor, 'Cálculo conforme NT 20/2023.')
+  const vazio = secao(gerar(projeto({ memorialPB })), '20.')     // medida não marcada
+  assert.equal(valorCampo(vazio, 'Distância Mínima para isolamento entre as edificações:'), '')
 })

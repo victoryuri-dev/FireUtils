@@ -69,7 +69,7 @@ function linhasDe(linha) {
         altura: linha.celulas.some(c => c.alto) ? ptTw(48) : undefined,
         cels: linha.celulas.map((c, i) => ({
           w: larguras[i], alinhaV: c.alto ? 'top' : 'center',
-          conteudo: p(t(c.label) + (c.valor ? t(` ${c.valor}`, { b: true }) : ''), { alinha: c.centro ? 'center' : undefined }),
+          conteudo: p(runsComDestaque(c.label, { sz: SZ }) + (c.valor ? t(` ${c.valor}`, { b: true }) : ''), { alinha: c.centro ? 'center' : undefined }),
         })),
       }]
     }

@@ -26,6 +26,7 @@ const SIST_LABELS = {
   espuma:              'Sistema de Espuma',
   gases_fixos:         'Sistema de Gases Fixos',
   fontes_ignicao:      'Controle de Fontes de Ignição',
+  isolamento_risco:    'Isolamento de Risco',
 }
 
 export default function MedidaPage({ sistKey }) {

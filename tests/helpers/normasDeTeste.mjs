@@ -37,6 +37,7 @@ import * as PB_ILU  from '/src/data/normas/PB/iluminacao.js'
 import * as PB_COMP from '/src/data/normas/PB/compartimentacao.js'
 import * as PB_CMAR from '/src/data/normas/PB/controle_acabamento.js'
 import * as PB_VAL from '/src/data/normas/PB/validade_inspecao.js'
+import * as PB_ISO from '/src/data/normas/PB/isolamento_risco.js'
 
 const linha = m => Object.fromEntries(Object.entries(m).map(([k, v]) => [k.toLowerCase(), v]))
 const se = m => ({ tabela: m.TAXA_POPULACIONAL, notas: m.NOTAS_NORMATIVAS, larguras_minimas: m.LARGURAS_MINIMAS, distancias_maximas: m.DISTANCIAS_MAXIMAS, ...(m.TIPOS_ESCADA ? { tipos_escada: m.TIPOS_ESCADA } : {}) })
@@ -54,7 +55,7 @@ const DADOS = {
   PB: {
     ocupacoes: { norma: PB_OC.NORMA, ocupacoes: PB_OC.OCUPACOES },
     saida_emergencia: se(PB_SE), memorial_formulario: linha(PB_MEMF), extintores: linha(PB_EXT), brigada: linha(PB_BRIG), trrf: linha(PB_TRRF), iluminacao: linha(PB_ILU),
-    compartimentacao: linha(PB_COMP), controle_acabamento: linha(PB_CMAR), validade_inspecao: linha(PB_VAL),
+    compartimentacao: linha(PB_COMP), controle_acabamento: linha(PB_CMAR), validade_inspecao: linha(PB_VAL), isolamento_risco: linha(PB_ISO),
   },
 }
 const SOBRESCREVER = ${JSON.stringify(sobrescrever || {})}

@@ -1,8 +1,10 @@
 import { useProjeto } from '../../context/ProjetoContext'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
-import { getMemorialFormulario } from '../../data/normas/index'
+import { getMemorialFormulario, getIsolamentoRisco } from '../../data/normas/index'
+import { aberturasDaClasse } from '../../data/isolamento_calc'
+import Icon from '../../components/ui/Icon'
 import {
-  ATESTOS_PB, SPDA_CAMPOS, SPDA_EQUIPOTENCIAL, atestoMarcado, resumoBrigadaPB, INTERVALO_SIMULADOS_PADRAO, ESTAGIOS_EXISTENTE, ESTAGIOS_COM_ADAPTACOES,
+  ATESTOS_PB, SPDA_CAMPOS, SPDA_EQUIPOTENCIAL, resultadoIsolamentoPB, atestoMarcado, resumoBrigadaPB, INTERVALO_SIMULADOS_PADRAO, ESTAGIOS_EXISTENTE, ESTAGIOS_COM_ADAPTACOES,
   distanciaMaximaPontosPB, tiposIluminacaoPB, secoesIluminacaoPB, DETECTORES_PB,
   contextoFormularioPB, resultadoExtintoresPB, especiaisExtintoresPB, especialMarcado, ATESTOS_BOMBAS_MARCAVEIS,
 } from './formulario'
@@ -606,5 +608,116 @@ export function CamposSpdaPB() {
         </>
       )}
     </BoxPB>
+  )
+}
+
+// 20 — Isolamento de risco (NT 20/2023): por edificação, severidade, % de
+// aberturas e dimensões da fachada → α da Tabela A-1 e D = α × (largura ou
+// altura) + β; redutor pela tabela (proteção × vedação). O dimensionamento
+// (cálculo detalhado) é um campo de texto livre.
+export function CamposIsolamentoPB() {
+  const { state, m, set } = useCamposPB()
+  const iso = m.isolamento || {}
+  const setIso = changes => set({ isolamento: { ...iso, ...changes } })
+  const ed = n => iso[`edificacao${n}`] || {}
+  const setEd = (n, changes) => setIso({ [`edificacao${n}`]: { ...ed(n), ...changes } })
+  const norma = getIsolamentoRisco(state.uf)
+  const r = resultadoIsolamentoPB(state)
+  const estruturas = state.estruturas || []
+  const f2 = v => fmtNum(v, 2, String(v))
+  const numero = (n, key, label, sufixo) => (
+    <div className="fg">
+      <label>{label}</label>
+      <div className="relative">
+        <input type="number" min="0" step="0.01" value={ed(n)[key] ?? ''} onChange={e => setEd(n, { [key]: e.target.value })} className="pr-8"/>
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink-faint">{sufixo}</span>
+      </div>
+    </div>
+  )
+  if (!norma) {
+    return (
+      <BoxPB item="20">
+        <div className="ibox amber"><Icon name="warn" size={13} color="var(--color-amber)" className="shrink-0"/><span className="text-xs">Tabelas da NT 20/2023 não encontradas na base normativa (Supabase, normas_dados: uf &apos;PB&apos;, sistema &apos;isolamento_risco&apos;).</span></div>
+      </BoxPB>
+    )
+  }
+  return (
+    <>
+      <div className="g2">
+        {[1, 2].map(n => {
+          const c = r.ed[n - 1].calc
+          const classe = ed(n).severidade
+          return (
+            <FormSection key={n} title={`Edificação ${n}`}>
+              <div className="flex flex-col gap-3">
+                <div className="fg">
+                  <label>Estrutura</label>
+                  <select value={ed(n).estruturaId || ''} onChange={e => setEd(n, { estruturaId: e.target.value })}>
+                    <option value="">— escolha a estrutura —</option>
+                    {estruturas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Rotulo>Classificação da severidade</Rotulo>
+                  <div className="flex gap-2">
+                    {['I', 'II', 'III'].map(k => <BotaoOpcao key={k} ativo={classe === k} onClick={() => setEd(n, { severidade: k })}>{k}</BotaoOpcao>)}
+                  </div>
+                </div>
+                {numero(n, 'aberturas', 'Porcentagem de aberturas da fachada', '%')}
+                <div className="g2">
+                  {numero(n, 'largura', 'Largura da fachada', 'm')}
+                  {numero(n, 'altura', 'Altura da fachada', 'm')}
+                </div>
+                <div className="fg">
+                  <label>Coeficiente de segurança (β)</label>
+                  <div className="relative">
+                    <input type="number" min="0" step="0.1" value={ed(n).beta ?? '1.5'} onChange={e => setEd(n, { beta: e.target.value })} className="pr-8"/>
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-ink-faint">m</span>
+                  </div>
+                </div>
+                {c ? (
+                  <div className="ibox blue text-xs flex-col items-start gap-1">
+                    <span>X = {f2(c.x)} (coluna {f2(c.xTabela)}) · aberturas na linha de {f2(c.aberturaTabela)}% · α = {f2(c.alfa)}</span>
+                    <strong className="tabular-nums">D = {f2(c.alfa)} × {f2(c.menor)} + {f2(c.beta)} = {f2(c.d)} m</strong>
+                  </div>
+                ) : classe && ed(n).aberturas && aberturasDaClasse(norma.TABELA_A1, classe).every(v => Number(String(ed(n).aberturas).replace(',', '.')) > v) ? (
+                  <span className="text-xs text-red">Porcentagem acima da maior da Tabela A-1 para a classe {classe} ({Math.max(...aberturasDaClasse(norma.TABELA_A1, classe))}%).</span>
+                ) : (
+                  <span className="text-xs text-ink-faint">Informe a severidade, a % de aberturas e as dimensões da fachada para calcular α e D.</span>
+                )}
+              </div>
+            </FormSection>
+          )
+        })}
+      </div>
+      <FormSection title="Redutores de distância de separação">
+        <div className="flex flex-col gap-3">
+          <div className="g2">
+            <div className="fg">
+              <label>Tipo de proteção</label>
+              <select value={iso.redutor?.protecao || ''} onChange={e => setIso({ redutor: { ...(iso.redutor || {}), protecao: e.target.value } })}>
+                <option value="">— nenhum redutor —</option>
+                {norma.REDUTORES.protecoes.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
+            </div>
+            <div className="fg">
+              <label>Elementos de vedação da edificação em exposição</label>
+              <select value={iso.redutor?.vedacao || ''} onChange={e => setIso({ redutor: { ...(iso.redutor || {}), vedacao: e.target.value } })} disabled={!iso.redutor?.protecao}>
+                <option value="">— escolha —</option>
+                {norma.REDUTORES.vedacoes.map(v => <option key={v.key} value={v.key}>{v.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {r.efeito && <div className="ibox blue text-xs">{r.efeito.texto}</div>}
+          <div className="text-[12.5px] text-ink">
+            Distância mínima para isolamento: <strong className="tabular-nums">{r.final != null ? `${f2(r.final)} m` : '—'}</strong>
+            {r.base != null && r.efeito && <span className="text-ink-faint"> (sem redutor: {f2(r.base)} m)</span>}
+          </div>
+        </div>
+      </FormSection>
+      <FormSection title="Dimensionamento da separação" description="Apresentação do cálculo detalhado — item 20 do formulário do Memorial Descritivo do CBMPB.">
+        <textarea rows={8} value={iso.dimensionamento || ''} onChange={e => setIso({ dimensionamento: e.target.value })}/>
+      </FormSection>
+    </>
   )
 }

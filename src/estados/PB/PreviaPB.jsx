@@ -22,6 +22,7 @@ const SECOES_DA_MEDIDA_PB = {
   hidrantes: ['17.'],
   sprinklers: ['18.'],
   spda: ['19.'],
+  isolamento_risco: ['20.'],
   controle_fumaca: ['4.'],
   central_gas: ['4.'],
 }

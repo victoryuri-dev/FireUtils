@@ -107,6 +107,7 @@ const CHAVES_COMP = [
 ]
 const CHAVES_CMAR = ['TABELA_B1', 'NOTAS', 'NORMA']
 const CHAVES_VAL  = ['NORMA', 'TABELA_ANEXO_B']
+const CHAVES_ISO  = ['NORMA', 'TABELA_A1', 'REDUTORES']
 const CHAVES_HID  = [
   'NORMA', 'REFERENCIA_PRESSAO_VAZAO', 'TIPOS_SISTEMA', 'COMPONENTES_POR_TIPO',
   'LABEL_MANGUEIRA_INCENDIO', 'FAIXAS_AREA', 'TABELA3', 'DIVISOES_COLUNA',
@@ -172,6 +173,8 @@ export function getCompartimentacao(uf) {
 }
 // Anexo B da NT 02/2023 CBMPB: risco e validade da inspeção por divisão.
 export function getValidadeInspecao(uf) { return remotoRenomeado(uf, 'validade_inspecao', CHAVES_VAL) }
+// NT 20/2023 CBMPB: índice α (Tabela A-1) e redutores do isolamento de risco.
+export function getIsolamentoRisco(uf) { return remotoRenomeado(uf, 'isolamento_risco', CHAVES_ISO) }
 export function getControleAcabamento(uf) { return remotoRenomeado(uf, 'controle_acabamento', CHAVES_CMAR) }
 export function getNts(uf) { return remotoRenomeado(uf, 'nts', CHAVES_NTS) }
 // Catálogos globais de hidrantes (materiais, recalque, acionamento) são

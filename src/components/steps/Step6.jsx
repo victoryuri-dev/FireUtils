@@ -32,6 +32,7 @@ const SIST_CONFIG = [
   { key:'espuma',              icon:'spray',       label:'Sistema de Espuma'                   },
   { key:'gases_fixos',         icon:'shieldAlert', label:'Sistema de Gases Fixos'              },
   { key:'fontes_ignicao',      icon:'flame',       label:'Controle de Fontes de Ignicao'       },
+  { key:'isolamento_risco',    icon:'area',        label:'Isolamento de Risco'                 },
 ]
 
 // Projeto "apenas dimensionamento" (ver ProjetoContext.jsx tipoProjeto) só

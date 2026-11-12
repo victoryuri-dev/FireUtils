@@ -52,7 +52,7 @@ function Linha({ linha }) {
         <tr><td><div className="pbf-linha">
           {linha.celulas.map((c, i) => (
             <div key={i} className={`pbf-cel ${c.centro ? 'pbf-centro' : ''}`} style={{ flexGrow: c.peso || 1, minHeight: c.alto ? '48pt' : undefined, alignItems: c.alto ? 'flex-start' : undefined }}>
-              <span>{c.label}{c.valor ? <> <span className="pbf-valor">{c.valor}</span></> : null}</span>
+              <span>{comDestaque(c.label)}{c.valor ? <> <span className="pbf-valor">{c.valor}</span></> : null}</span>
             </div>
           ))}
         </div></td></tr>

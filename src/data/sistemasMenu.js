@@ -23,4 +23,5 @@ export const SISTEMAS = [
   { key:'espuma',              icon:'spray',                 label:'Sistema de Espuma' },
   { key:'gases_fixos',         icon:'shieldAlert',           label:'Sistema de Gases Fixos' },
   { key:'fontes_ignicao',      icon:'flame',                 label:'Controle de Fontes de Ignição' },
+  { key:'isolamento_risco',    icon:'area',                  label:'Isolamento de Risco' },
 ]

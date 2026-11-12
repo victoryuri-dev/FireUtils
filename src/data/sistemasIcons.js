@@ -24,4 +24,5 @@ export const SISTEMA_ICON = {
   espuma:              'spray',
   gases_fixos:         'shieldAlert',
   fontes_ignicao:      'flame',
+  isolamento_risco:    'area',
 }

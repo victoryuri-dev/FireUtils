@@ -31,8 +31,9 @@
 
 import {
   getMemorialFormulario, getMedidas, getOcupacoes, getTRRF, getCompartimentacao,
-  getBrigada, getExtintores, getCNAEsDivisao, getHidrantes,
+  getBrigada, getExtintores, getCNAEsDivisao, getHidrantes, getIsolamentoRisco,
 } from '../../data/normas/index'
+import { distanciaSeguranca, distanciaComRedutor } from '../../data/isolamento_calc'
 import { riscosEspeciaisDoEstado } from '../../utils/anexoB'
 import { fmtNum } from '../../utils/numero'
 import { alturaEdificacaoBase, edificacaoEhTerrea, calcularTRRF } from '../../data/trrf_calc'
@@ -1149,16 +1150,48 @@ function secaoSpda(state, ctx) {
   }
 }
 
-function secaoIsolamento() {
-  const dados = 'DADOS:\nSeveridade:\nPorcentagem de abertura:\nRelação largura/altura:\nCoeficiente de segurança (β):'
+// 20 — Isolamento de risco: por edificação (página da PB), severidade, %
+// de aberturas e dimensões da fachada → α (Tabela A-1) e
+// D = α × (largura ou altura) + β; a distância mínima é a maior das duas,
+// depois do redutor escolhido. O cálculo detalhado é texto livre do RT.
+export function resultadoIsolamentoPB(state) {
+  const iso = state.memorialPB?.isolamento || {}
+  const norma = getIsolamentoRisco(state.uf)
+  const ed = [1, 2].map(n => {
+    const e = iso[`edificacao${n}`] || {}
+    return { ...e, nome: (state.estruturas || []).find(x => x.id === e.estruturaId)?.nome || '', calc: distanciaSeguranca(norma?.TABELA_A1, { ...e, beta: e.beta ?? '1,5' }) }
+  })
+  const ds = ed.map(e => e.calc?.d).filter(d => d != null)
+  const base = ds.length ? Math.max(...ds) : null
+  const red = distanciaComRedutor(norma?.REDUTORES, base, iso.redutor?.protecao, iso.redutor?.vedacao)
+  const protecao = norma?.REDUTORES?.protecoes?.find(p => p.key === iso.redutor?.protecao)
+  return { ed, base, final: red?.d ?? null, efeito: red?.efeito || null, protecao, dimensionamento: (iso.dimensionamento || '').trim() }
+}
+
+function secaoIsolamento(state, ctx) {
+  // Preenchido só com o Isolamento de Risco marcado nas medidas; senão sai
+  // em branco, como no modelo.
+  const r = ctx.sistemas?.isolamento_risco?.ativo ? resultadoIsolamentoPB(state) : null
+  const m = v => fmtNum(v, 2, String(v))
+  const dados = i => {
+    const e = r?.ed[i]
+    const c = e?.calc
+    const linha = (rot, v) => `${rot}:${v ? ` ${V(v)}` : ''}`
+    return ['DADOS:',
+      linha('Severidade', e?.severidade ? `Classe ${e.severidade}` : ''),
+      linha('Porcentagem de abertura', e?.aberturas ? `${m(e.aberturas)}%` : ''),
+      linha('Relação largura/altura', c ? m(c.x) : ''),
+      linha('Coeficiente de segurança (β)', c ? `${m(c.beta)} m` : ''),
+    ].join('\n')
+  }
   return {
     titulo: '20. Separação entre edificação (isolamento de risco) Conforme a NT 20/2023',
     linhas: [
-      campos({ label: 'Edificação 1', centro: true }, { label: 'Edificação 2', centro: true }),
-      campos({ label: dados, alto: true }, { label: dados, alto: true }),
-      campo('Distância Mínima para isolamento entre as edificações:'),
-      campo('Redutores de distância de separação:'),
-      obs('Dimensionamento da separação (apresentação do cálculo detalhado:'),
+      campos({ label: 'Edificação 1', valor: r?.ed[0].nome || '', centro: true }, { label: 'Edificação 2', valor: r?.ed[1].nome || '', centro: true }),
+      campos({ label: dados(0), alto: true }, { label: dados(1), alto: true }),
+      campo('Distância Mínima para isolamento entre as edificações:', r?.final != null ? fmtM(r.final) : ''),
+      campo('Redutores de distância de separação:', r ? (r.efeito ? `${r.protecao.label} — ${r.efeito.texto}` : 'Não utilizados') : ''),
+      obs('Dimensionamento da separação (apresentação do cálculo detalhado:', r?.dimensionamento || ''),
     ],
   }
 }
@@ -1215,7 +1248,7 @@ export function buildFormularioPB(state, sistemas, porEstrutura) {
       secaoHidrantes(state, ctx),
       secaoChuveiros(ctx),
       secaoSpda(state, ctx),
-      secaoIsolamento(),
+      secaoIsolamento(state, ctx),
     ]),
   }
 }
