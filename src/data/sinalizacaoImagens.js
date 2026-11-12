@@ -6,6 +6,9 @@
 
 import p1  from '../assets/sinalizacao/p1.png'
 import p2  from '../assets/sinalizacao/p2.jpg'
+import p3  from '../assets/sinalizacao/p3.jpg'
+import p4  from '../assets/sinalizacao/p4.jpg'
+import p5  from '../assets/sinalizacao/p5.jpg'
 import a1  from '../assets/sinalizacao/a1.png'
 import a2  from '../assets/sinalizacao/a2.jpg'
 import a3  from '../assets/sinalizacao/a3.jpg'
@@ -46,6 +49,9 @@ import e17 from '../assets/sinalizacao/e17.png'
 export const IMAGEM_PLACA = {
   'p1': p1,
   'p2': p2,
+  'p3': p3,
+  'p4': p4,
+  'p5': p5,
   'a1': a1,
   'a2': a2,
   'a3': a3,

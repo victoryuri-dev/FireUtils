@@ -8,6 +8,9 @@
 
 import p1  from '../../../assets/sinalizacao/p1.png'
 import p2  from '../../../assets/sinalizacao/p2.jpg'
+import p3  from '../../../assets/sinalizacao/p3.jpg'
+import p4  from '../../../assets/sinalizacao/p4.jpg'
+import p5  from '../../../assets/sinalizacao/p5.jpg'
 import a1  from '../../../assets/sinalizacao/a1.png'
 import a2  from '../../../assets/sinalizacao/a2.jpg'
 import a3  from '../../../assets/sinalizacao/a3.jpg'
@@ -63,6 +66,12 @@ export const TIPOS_PLACA = [
     img: p1, localInstalacao: 'Ambientes e áreas onde é proibido fumar' },
   { key: 'p2', codigo: 'P2', categoria: 'proibicao', label: 'Proibido produzir chama',
     img: p2, localInstalacao: 'Áreas com risco de incêndio onde é proibido produzir chama' },
+  { key: 'p3', codigo: 'P3', categoria: 'proibicao', label: 'Proibido utilizar água para apagar o fogo',
+    img: p3, localInstalacao: 'Toda situação em que o uso de água for impróprio para extinguir o fogo' },
+  { key: 'p4', codigo: 'P4', categoria: 'proibicao', label: 'Proibido utilizar elevador em caso de incêndio',
+    img: p4, localInstalacao: 'Nos locais de acesso aos elevadores comuns e monta-cargas' },
+  { key: 'p5', codigo: 'P5', categoria: 'proibicao', label: 'Proibido obstruir este local',
+    img: p5, localInstalacao: 'Em locais sujeitos a depósito de mercadorias onde a obstrução possa apresentar perigo de acesso às saídas de emergência, rotas de fuga, equipamentos de combate a incêndio etc.' },
 
   // Alerta — fundo amarelo, faixa preta (NBR 13434-2)
   { key: 'a1', codigo: 'A1', categoria: 'alerta', label: 'Alerta geral',
