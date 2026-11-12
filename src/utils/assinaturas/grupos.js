@@ -94,6 +94,12 @@ export function reducer(state, action) {
       return { ...state, grupos: [...state.grupos, grupo], grupoAtivoId: grupo.id }
     }
 
+    case 'RENOMEAR_GRUPO': {
+      const nome = String(action.nome ?? '').trim().slice(0, 60)
+      if (!nome) return state
+      return { ...state, grupos: state.grupos.map(g => (g.id === action.id ? { ...g, nome } : g)) }
+    }
+
     case 'REMOVER_GRUPO': {
       // Nunca fica sem grupo; os arquivos vão para o grupo vizinho.
       if (state.grupos.length <= 1 || !grupoExiste(state, action.id)) return state

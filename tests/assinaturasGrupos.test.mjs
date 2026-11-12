@@ -72,6 +72,15 @@ test('remover arquivos também tira da seleção', () => {
   assert.deepEqual(s.selecionados, [])
 })
 
+test('renomear grupo: ignora nome vazio, apara espaços e limita o tamanho', () => {
+  let s = estadoInicial('g1')
+  assert.equal(reducer(s, { type: 'RENOMEAR_GRUPO', id: 'g1', nome: '   ' }), s)
+  s = reducer(s, { type: 'RENOMEAR_GRUPO', id: 'g1', nome: ' Pranchas A1 ' })
+  assert.equal(s.grupos[0].nome, 'Pranchas A1')
+  s = reducer(s, { type: 'RENOMEAR_GRUPO', id: 'g1', nome: 'x'.repeat(200) })
+  assert.equal(s.grupos[0].nome.length, 60)
+})
+
 test('a página do grupo é mesclada', () => {
   let s = estadoInicial('g1')
   s = reducer(s, { type: 'DEFINIR_PAGINA', id: 'g1', pagina: { modo: 'numero', numero: 2 } })

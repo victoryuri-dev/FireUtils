@@ -5,11 +5,11 @@ import { lerCertificado, assinarPdf, ErroAssinatura } from '../lib/pades'
 // Deixa o navegador pintar o "assinando…" antes do trabalho pesado do arquivo.
 const pausa = () => new Promise(r => setTimeout(r, 30))
 
-// Nome do arquivo assinado, sem repetir nomes dentro do mesmo ZIP.
+// Nome do arquivo assinado: o mesmo do original (sem sufixo), sem repetir nomes dentro do mesmo ZIP.
 function nomeAssinado(nome, usados) {
   const base = nome.replace(/\.pdf$/i, '')
-  let candidato = `${base}_assinado.pdf`
-  for (let n = 2; usados.has(candidato.toLowerCase()); n++) candidato = `${base}_assinado (${n}).pdf`
+  let candidato = `${base}.pdf`
+  for (let n = 2; usados.has(candidato.toLowerCase()); n++) candidato = `${base} (${n}).pdf`
   usados.add(candidato.toLowerCase())
   return candidato
 }
@@ -106,7 +106,7 @@ export function useAssinarLote({ grupos, arquivos }) {
     } else if (nomes.length > 1) {
       // Os PDFs já são comprimidos: guardar sem recomprimir é mais rápido.
       const zip = zipSync(Object.fromEntries(nomes.map(n => [n, [saidas[n], { level: 0 }]])))
-      saida = { blob: new Blob([zip], { type: 'application/zip' }), nome: 'documentos_assinados.zip' }
+      saida = { blob: new Blob([zip], { type: 'application/zip' }), nome: 'documentos.zip' }
     }
     setResultado({ ...saida, assinados: nomes.length, falhas, cancelado: cancelado.current })
     setFase('concluido')

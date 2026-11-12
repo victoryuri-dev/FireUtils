@@ -1,9 +1,52 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useDndContext } from '@dnd-kit/core'
 import { arquivosDoGrupo, formatarTamanho } from '../../utils/assinaturas/grupos'
 import { useAlvoGrupo, useArquivoArrastavel } from '../../hooks/useArrastarArquivos'
 import Icon from '../ui/Icon'
 import Checkbox from '../ui/Checkbox'
+
+// Nome do grupo, com botão para renomear (Enter confirma, Esc cancela; nome vazio é ignorado).
+function NomeDoGrupo({ grupo, onRenomear }) {
+  const [editando, setEditando] = useState(false)
+  const [texto, setTexto] = useState(grupo.nome)
+
+  function confirmar() {
+    setEditando(false)
+    if (texto.trim() && texto.trim() !== grupo.nome) onRenomear(grupo.id, texto)
+  }
+
+  if (editando) {
+    return (
+      <input
+        autoFocus
+        value={texto}
+        maxLength={60}
+        onChange={e => setTexto(e.target.value)}
+        onBlur={confirmar}
+        onKeyDown={e => {
+          if (e.key === 'Enter') confirmar()
+          if (e.key === 'Escape') setEditando(false)
+        }}
+        aria-label="Nome do grupo"
+        className="min-w-0 flex-1 h-7 py-0 px-2 text-[13px] rounded-md border border-solid border-border bg-bg text-ink"
+      />
+    )
+  }
+  return (
+    <>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{grupo.nome}</span>
+      <button
+        type="button"
+        onClick={() => { setTexto(grupo.nome); setEditando(true) }}
+        title="Renomear grupo"
+        aria-label={`Renomear ${grupo.nome}`}
+        className="w-6 h-6 grid place-items-center rounded-sm text-ink-faint hover:text-ink hover:bg-surface-2"
+      >
+        <Icon name="edit" size={12}/>
+      </button>
+    </>
+  )
+}
 
 // Box de um arquivo: o box inteiro é a área de arrastar. Selecionar e remover
 // só aparecem com o mouse em cima ou com o arquivo selecionado, e somem
@@ -69,7 +112,7 @@ function ItemGrupo({ grupo, arquivos, ativo, podeRemover, selecionados, soltar, 
           aria-pressed={ativo}
           className={`w-2.5 h-2.5 rounded-full border-2 border-solid shrink-0 ${ativo ? 'border-red bg-red' : 'border-ink-hint bg-transparent hover:border-ink-muted'}`}
         />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{grupo.nome}</span>
+        <NomeDoGrupo grupo={grupo} onRenomear={(id, nome) => dispatch({ type: 'RENOMEAR_GRUPO', id, nome })}/>
         <span className="text-[11px] text-ink-faint tabular-nums shrink-0">{arquivos.length}</span>
         {podeRemover && (
           <button
