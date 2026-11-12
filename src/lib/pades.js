@@ -24,6 +24,7 @@ import {
 } from 'pdf-lib'
 import { retanguloPdf, indiceDaPagina, normalizarRotacao } from '../utils/assinaturas/geometria.js'
 import { montarSelo } from '../utils/assinaturas/seloLayout.js'
+import { acrescentarObjetos, refsAlteradasPorAssinatura, lerTabelaAnterior } from './pdfIncremental.js'
 import { NOME_DA_CIFRA } from './pkcs12Legado.js'
 import { lerPfx, ErroPfx } from './pkcs12.js'
 
@@ -253,7 +254,7 @@ const MATRIZ_ROTACAO = { 0: [1, 0, 0, 1, 0, 0], 90: [0, 1, -1, 0, 0, 0], 180: [-
 
 // ── Assinatura de um PDF ──────────────────────────────────────────────
 
-// PDF já assinado: regravá-lo invalidaria a assinatura anterior.
+// PDF já assinado: não pode ser regravado (invalidaria a assinatura anterior); é atualizado de forma incremental.
 function jaTemAssinatura(pdfDoc) {
   try {
     const acro = pdfDoc.catalog.lookup(PDFName.of('AcroForm'))
@@ -275,8 +276,25 @@ function jaTemAssinatura(pdfDoc) {
   }
 }
 
+// Documento certificado (DocMDP, P=1): o autor proibiu qualquer alteração, inclusive novas assinaturas.
+function certificacaoImpedeAlteracoes(pdfDoc) {
+  try {
+    const perms = pdfDoc.catalog.lookup(PDFName.of('Perms'))
+    const sig = perms instanceof PDFDict ? perms.lookup(PDFName.of('DocMDP')) : null
+    if (!(sig instanceof PDFDict)) return false
+    const refs = sig.lookup(PDFName.of('Reference'))
+    const transform = refs instanceof PDFArray ? refs.lookup(0) : null
+    const params = transform instanceof PDFDict ? transform.lookup(PDFName.of('TransformParams')) : null
+    const p = params instanceof PDFDict ? params.lookup(PDFName.of('P')) : null
+    return p instanceof PDFNumber && p.asNumber() === 1
+  } catch {
+    return false
+  }
+}
+
 /**
- * Assina um PDF no campo do grupo e devolve os bytes do PDF assinado.
+ * Assina um PDF no campo do grupo e devolve os bytes do PDF assinado. Se o PDF já tiver assinaturas, a nova é
+ * acrescentada sem mexer nos bytes anteriores (as assinaturas anteriores continuam válidas).
  *
  * @param {Uint8Array|ArrayBuffer} bytes   PDF original
  * @param {object} certificado             resultado de lerCertificado
@@ -284,7 +302,7 @@ function jaTemAssinatura(pdfDoc) {
  *           agora?: Date, motivo?: string, local?: string }} opcoes
  * @returns {Promise<{ pdf: Uint8Array, pagina: number }>}  `pagina` é base 1
  */
-export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agora = new Date(), motivo, local }) {
+export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agora = new Date(), motivo, local, forcarIncremental = false }) {
   let pdfDoc
   try {
     pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false })
@@ -294,9 +312,23 @@ export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agor
     }
     throw new ErroAssinatura('leitura', 'Não foi possível ler este PDF. Ele pode estar corrompido.')
   }
-  if (jaTemAssinatura(pdfDoc)) {
-    throw new ErroAssinatura('ja-assinado', 'O arquivo já tem assinatura digital; assiná-lo de novo invalidaria a anterior.')
+  // Com assinatura anterior (ou pedido explícito) o arquivo NÃO é regravado: a nova assinatura é
+  // acrescentada ao final (atualização incremental) e as anteriores continuam válidas.
+  const original = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const incremental = forcarIncremental || jaTemAssinatura(pdfDoc)
+  if (incremental && certificacaoImpedeAlteracoes(pdfDoc)) {
+    throw new ErroAssinatura('certificado-fechado', 'O documento foi certificado para não aceitar alterações; não é possível acrescentar outra assinatura.')
   }
+  if (incremental) {
+    try {
+      // Números novos sempre acima dos já usados no arquivo (inclusive os livres no fim da tabela).
+      const { tamanho } = lerTabelaAnterior(original)
+      pdfDoc.context.largestObjectNumber = Math.max(pdfDoc.context.largestObjectNumber, tamanho - 1)
+    } catch {
+      throw new ErroAssinatura('leitura', 'Não foi possível ler a estrutura deste PDF para acrescentar a assinatura.')
+    }
+  }
+  const maiorOriginal = pdfDoc.context.largestObjectNumber
 
   const paginas = pdfDoc.getPages()
   const indice = indiceDaPagina(pagina, paginas.length)
@@ -355,13 +387,29 @@ export async function assinarPdf(bytes, certificado, { campo, pagina, selo, agor
     P: pg.ref,
     AP: { N: aparencia },
   }))
-  pg.node.addAnnot(widget)
+  if (incremental) {
+    // `addAnnot` do pdf-lib "normaliza" a página (embrulha o conteúdo em q/Q e mexe nos recursos), o que
+    // alteraria o que as assinaturas anteriores cobrem. Aqui só se acrescenta o campo a /Annots.
+    const anots = pg.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
+    if (anots) anots.push(widget)
+    else pg.node.set(PDFName.of('Annots'), ctx.obj([widget]))
+  } else {
+    pg.node.addAnnot(widget)
+  }
   const acro = pdfDoc.catalog.getOrCreateAcroForm()
   acro.addField(widget)
   acro.dict.set(PDFName.of('SigFlags'), PDFNumber.of(3)) // SignaturesExist | AppendOnly
 
-  // Sem object streams: o dicionário da assinatura precisa estar em texto puro.
-  const salvo = await pdfDoc.save({ useObjectStreams: false })
+  let salvo
+  if (incremental) {
+    // Só os objetos novos e os que mudaram (página, catálogo, campos) vão para o final do arquivo.
+    await pdfDoc.flush()
+    const novos = [...ctx.enumerateIndirectObjects()].map(([r]) => r).filter(r => r.objectNumber > maiorOriginal)
+    salvo = acrescentarObjetos(original, pdfDoc, [...novos, ...refsAlteradasPorAssinatura(pdfDoc, pg)])
+  } else {
+    // Sem object streams: o dicionário da assinatura precisa estar em texto puro.
+    salvo = await pdfDoc.save({ useObjectStreams: false })
+  }
   return { pdf: await selar(salvo, certificado), pagina: indice + 1 }
 }
 
