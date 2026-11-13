@@ -29,57 +29,45 @@ function Campo({ rotulo, children }) {
   )
 }
 
-function CartaoModulo({ modulo, licencas }) {
-  const licenca = licencas[modulo.key]
+// Licença do PRO em destaque: é a que libera tudo, então leva plano e validade.
+function CartaoPro({ licenca }) {
   const s = situacaoLicenca(licenca)
-  const acesso = temAcesso(licencas, modulo.key)
-  // Sem licença própria válida, mas liberado pelo PRO.
-  const peloPro = acesso && !s.valida
-
   return (
-    <article className={`profile-tool-card ${modulo.key === 'pro' ? 'is-pro' : ''}`}>
-      <div className="profile-tool-main">
-        <div className="profile-tool-icon">
-          {modulo.key === 'pro'
-            ? <img src={fireutilsMark} alt="" className="profile-tool-brand-mark"/>
-            : <Icon name={modulo.icon} size={18}/>
-          }
-        </div>
-        <div className="profile-tool-copy">
-          <div className="profile-tool-title-row">
-            <h3 className="text-[15px] font-semibold text-ink">{modulo.nome}</h3>
-          </div>
-          <p className="text-[12px] text-ink-faint leading-[1.5] mt-1 mb-0">{modulo.descricao}</p>
-        </div>
+    <article className="hub-license-pro">
+      <div className="hub-license-pro-head">
+        <span className="hub-license-pro-icon"><img src={fireutilsMark} alt="" className="profile-tool-brand-mark"/></span>
+        <h3>FireUtils PRO</h3>
+        <Selo tom={s.tom}>{s.rotulo}</Selo>
       </div>
-
-      <div className="profile-tool-meta">
-        <div className="profile-tool-badges">
-          <Selo tom={peloPro ? 'green' : s.tom}>
-            {!acesso && <Icon name="lock" size={11} className="mr-1.5"/>}
-            {peloPro ? 'Incluído no PRO' : s.rotulo}
-          </Selo>
-        </div>
-        {licenca && (
-          <div className="profile-tool-meta-grid">
-            <Campo rotulo="Plano">{licenca.plano || '—'}</Campo>
-            <Campo rotulo="Situação">{s.rotulo}</Campo>
-            <Campo rotulo="Início">{formatarData(licenca.inicio_em) || '—'}</Campo>
-            <Campo rotulo="Validade">{licenca.expira_em ? formatarData(licenca.expira_em) : 'Sem data de término'}</Campo>
-          </div>
-        )}
-        {modulo.key !== 'pro' && (
-          <p className="text-[12px] leading-[1.5] m-0 text-ink-muted">
-            {peloPro ? 'Liberado pela licença do FireUtils PRO desta conta.' : s.detalhe}
-          </p>
-        )}
+      <div className="hub-license-meta">
+        <Campo rotulo="Plano">{licenca.plano || '—'}</Campo>
+        <Campo rotulo="Início">{formatarData(licenca.inicio_em) || '—'}</Campo>
+        <Campo rotulo="Validade">{licenca.expira_em ? formatarData(licenca.expira_em) : 'Sem data de término'}</Campo>
       </div>
+      <p className="hub-license-note">{s.detalhe}</p>
     </article>
   )
 }
 
-// Seção "Licenças ativas" do perfil: os módulos que a conta pode usar hoje (por
-// licença própria ou pelo PRO), com plano, validade e situação de cada um.
+// Módulo em linha compacta: nome, de onde vem o acesso e a validade.
+function LinhaModulo({ modulo, licencas }) {
+  const licenca = licencas[modulo.key]
+  const s = situacaoLicenca(licenca)
+  const peloPro = !s.valida
+  return (
+    <li className="hub-license-row">
+      <span className="hub-license-row-icon"><Icon name={modulo.icon} size={16}/></span>
+      <div className="hub-license-row-copy">
+        <strong>{modulo.nome}</strong>
+        <span>{peloPro ? 'Liberado pelo FireUtils PRO' : s.detalhe}</span>
+      </div>
+      <Selo tom={peloPro ? 'green' : s.tom}>{peloPro ? 'Incluído no PRO' : s.rotulo}</Selo>
+    </li>
+  )
+}
+
+// "Sua licença": o plano que a conta tem hoje e o que ele libera. Módulos
+// cobertos pelo PRO aparecem como linhas curtas, não como cartões repetidos.
 export default function LicencasAtivas() {
   const { licencas, erro } = useLicencas()
 
@@ -88,18 +76,23 @@ export default function LicencasAtivas() {
   }
 
   const ativos = MODULOS.filter(m => temAcesso(licencas, m.key))
+  const pro = situacaoLicenca(licencas.pro).valida ? licencas.pro : null
+  const modulos = ativos.filter(m => m.key !== 'pro')
 
   return (
-    <div className="profile-tools-content">
+    <div className="hub-licenses">
       {erro && (
         <div className="ibox red mb-5" role="alert">
           <Icon name="warn" size={13} color="var(--color-red)" className="shrink-0"/>
           <span className="text-xs">{erro}</span>
         </div>
       )}
-      {!erro && ativos.length > 0 && <div className="profile-tools-grid">{ativos.map(m => (
-        <CartaoModulo key={m.key} modulo={m} licencas={licencas}/>
-      ))}</div>}
+      {!erro && pro && <CartaoPro licenca={pro}/>}
+      {!erro && modulos.length > 0 && (
+        <ul className="hub-license-list">
+          {modulos.map(m => <LinhaModulo key={m.key} modulo={m} licencas={licencas}/>)}
+        </ul>
+      )}
       {!erro && ativos.length === 0 && (
         <div className="profile-empty">
           <p>Esta conta não tem nenhuma licença ativa.</p>

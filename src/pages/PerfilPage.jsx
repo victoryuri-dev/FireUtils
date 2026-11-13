@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { usePerfil, nomeDeUsuario } from '../hooks/usePerfil'
+import { usePerfil, nomeDeUsuario, temDadosRT } from '../hooks/usePerfil'
 import FormSection from '../components/ui/FormSection'
 import Icon from '../components/ui/Icon'
 import Loader from '../components/ui/Loader'
 import FerramentasDisponiveis from '../components/perfil/FerramentasDisponiveis'
 import LicencasAtivas from '../components/perfil/LicencasAtivas'
+import PrimeirosPassos from '../components/perfil/PrimeirosPassos'
 import CampoRubrica from '../components/perfil/CampoRubrica'
 import CampoConselho from '../components/ui/CampoConselho'
 import './PerfilPage.css'
 
 
+// O perfil é o hub da conta: "Início" (ferramentas, licença, primeiros passos)
+// e "Meus dados" (formulário). A aba vive na URL (?aba=dados) para poder ser
+// linkada; qualquer outro valor — inclusive o antigo `ferramentas` — é o início.
+const ABAS = [
+  { id: 'inicio', rotulo: 'Início' },
+  { id: 'dados', rotulo: 'Meus dados' },
+]
+
 export default function PerfilPage() {
   const { user } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const aba = params.get('aba') === 'dados' ? 'dados' : 'inicio'
+  const irPara = id => setParams(id === 'inicio' ? {} : { aba: id }, { replace: true })
   const { perfil, erro, salvar } = usePerfil()
   // Copia local pro formulario: o usuario edita a vontade e so o botao grava.
   // `null` ate o perfil chegar — e o que segura o Loader abaixo.
@@ -52,10 +65,42 @@ export default function PerfilPage() {
           <header className="profile-overview-header">
             <div>
               <h1>Olá, {nomeSalvo}.</h1>
+              <p>Seu painel FireUtils: ferramentas, licença e dados da conta num só lugar.</p>
             </div>
           </header>
 
-          <div className="profile-overview-grid">
+          <nav className="hub-tabs" role="tablist" aria-label="Seções do perfil">
+            {ABAS.map(a => (
+              <button
+                key={a.id}
+                type="button"
+                role="tab"
+                aria-selected={aba === a.id}
+                className={aba === a.id ? 'is-active' : ''}
+                onClick={() => irPara(a.id)}
+              >{a.rotulo}</button>
+            ))}
+          </nav>
+
+          {aba === 'inicio' && (
+            <div className="hub-home">
+              <div className="hub-home-main">
+                {perfil && !temDadosRT(perfil.responsavelTecnico) && (
+                  <PrimeirosPassos onDados={() => irPara('dados')}/>
+                )}
+                <section aria-labelledby="hub-tools-title">
+                  <div className="profile-section-heading"><h2 id="hub-tools-title">Suas ferramentas</h2></div>
+                  <FerramentasDisponiveis/>
+                </section>
+              </div>
+              <aside className="hub-home-aside" aria-labelledby="hub-license-title">
+                <div className="profile-section-heading"><h2 id="hub-license-title">Sua licença</h2></div>
+                <LicencasAtivas/>
+              </aside>
+            </div>
+          )}
+
+          {aba === 'dados' && (
             <section className="profile-data-column" aria-label="Seus dados">
 
           {!form && (
@@ -135,21 +180,7 @@ export default function PerfilPage() {
 
           </>)}
             </section>
-
-            <section className="profile-tools-column" aria-labelledby="profile-tools-title">
-              <div className="profile-section-heading">
-                <div><h2 id="profile-tools-title">Ferramentas disponíveis</h2></div>
-              </div>
-              <FerramentasDisponiveis/>
-
-              <div className="profile-section-heading profile-section-heading-next">
-                <div><h2 id="profile-licenses-title">Licenças ativas</h2></div>
-              </div>
-              <div aria-labelledby="profile-licenses-title">
-                <LicencasAtivas/>
-              </div>
-            </section>
-          </div>
+          )}
         </main>
       </div>
     </div>
