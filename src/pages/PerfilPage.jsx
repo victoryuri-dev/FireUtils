@@ -84,19 +84,17 @@ export default function PerfilPage() {
 
           {aba === 'inicio' && (
             <div className="hub-home">
-              <div className="hub-home-main">
-                {perfil && !temDadosRT(perfil.responsavelTecnico) && (
-                  <PrimeirosPassos onDados={() => irPara('dados')}/>
-                )}
-                <section aria-labelledby="hub-tools-title">
-                  <div className="profile-section-heading"><h2 id="hub-tools-title">Suas ferramentas</h2></div>
-                  <FerramentasDisponiveis/>
-                </section>
-              </div>
-              <aside className="hub-home-aside" aria-labelledby="hub-license-title">
+              {perfil && !temDadosRT(perfil.responsavelTecnico) && (
+                <PrimeirosPassos onDados={() => irPara('dados')}/>
+              )}
+              <section aria-labelledby="hub-tools-title">
+                <div className="profile-section-heading"><h2 id="hub-tools-title">Suas ferramentas</h2></div>
+                <FerramentasDisponiveis/>
+              </section>
+              <section aria-labelledby="hub-license-title">
                 <div className="profile-section-heading"><h2 id="hub-license-title">Sua licença</h2></div>
                 <LicencasAtivas/>
-              </aside>
+              </section>
             </div>
           )}
 
