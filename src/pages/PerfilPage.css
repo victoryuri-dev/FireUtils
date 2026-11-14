@@ -30,7 +30,7 @@
 .profile-overview-header p{max-width:650px;margin:12px 0 0;color:var(--color-ink-faint);font-size:13px;line-height:1.6}
 
 /* Abas do hub */
-.hub-tabs{display:flex;gap:4px;margin-top:6px;border-bottom:1px solid var(--color-border)}
+.hub-tabs{display:flex;justify-content:center;gap:4px;margin-top:6px;border-bottom:1px solid var(--color-border)}
 .hub-tabs button{position:relative;padding:14px 16px;border:0;background:none;color:var(--color-ink-faint);font-size:13px;font-weight:500;cursor:pointer;transition:color .18s ease}
 .hub-tabs button:hover{color:var(--color-ink)}
 .hub-tabs button.is-active{color:var(--color-ink)}
