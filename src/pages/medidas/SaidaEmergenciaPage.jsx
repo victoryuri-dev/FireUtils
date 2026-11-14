@@ -15,7 +15,7 @@ import { statusEstrutura } from '../../utils/statusEstrutura'
 import { useToast } from '../../hooks/useToast'
 import { SISTEMA_ICON } from '../../data/sistemasIcons'
 import { fmtUn } from '../../utils/numero'
-import AcessosDescargasView from './AcessosDescargasView'
+import FluxogramaSaidas from './FluxogramaSaidas'
 import { calcPopPav, contarSaidasPavimento, getDistanciaPavimento, tipoEscadaEstrutura } from '../../data/se_calc'
 import ObservacoesComplementares from '../../components/ui/ObservacoesComplementares'
 
@@ -25,9 +25,9 @@ const uid  = () => `se-${Date.now()}-${++_seq}`
 
 // Ambientes ficam no reducer compartilhado (state.pavimentos[].ambientes) —
 // aqui só remodela pro formato que esta página usa. `pisoDescarga`/
-// `acessos` são repassados como estão no reducer — o popup de Acessos e
-// Descargas (AcessosDescargasView) lê o pavimento cru direto de
-// state.pavimentos, não esta versão remodelada. `divisao` é a
+// `acessos` são repassados como estão no reducer — o fluxograma de saídas
+// (FluxogramaSaidas) lê o pavimento cru direto de state.pavimentos, não
+// esta versão remodelada. `divisao` é a
 // classificação de ocupação da Etapa 4 (Step4.jsx) — usada pela distância
 // máxima a percorrer, não pelas divisões dos ambientes daqui.
 function derivarPavimentos(projetoPavs) {
@@ -100,9 +100,10 @@ function resolverPavimentoSite(payloadPavimento, estruturaId, projetoPavimentos)
 // importação de ambientes deva sobrescrever silenciosamente.
 //
 // Ambiente já existente no pavimento é ATUALIZADO no lugar — mantém `id` e
-// `acessoId`, só troca os dados que são autoridade do Revit (nome/divisão/
-// área) — em vez de recriado do zero, o que soltava (órfão) qualquer
-// ambiente que já estivesse dentro de um Acesso/Saída a cada nova
+// `grupoId` (o box em que está no fluxograma; `acessoId` é derivado dele no
+// reducer), só troca os dados que são autoridade do Revit (nome/divisão/
+// área) — em vez de recriado do zero, o que tirava do box qualquer
+// ambiente que já estivesse posicionado no fluxograma a cada nova
 // importação. Casamento é primeiro por `revitId` (Room.UniqueId, ver
 // rooms.get_rooms_classificados no plugin) — estável mesmo se o ambiente
 // for renomeado numa reclassificação ou tiver só a área editada — com
@@ -115,7 +116,7 @@ function resolverPavimentoSite(payloadPavimento, estruturaId, projetoPavimentos)
 // três campos sempre preservam o valor já cadastrado, nunca são
 // sobrescritos por uma importação do Revit. `origem: 'revit'` marca todo
 // ambiente que passa por aqui — distingue do `origem: 'manual'` de quem
-// nasce pelo botão "Adicionar Ambiente" (ver AcessosDescargasView.jsx).
+// nasce pelo botão "Adicionar Ambiente" (ver FluxogramaSaidas.jsx).
 function resolverImportacaoSaidas(payloadSE, estruturaIdForcado, projetoPavimentos) {
   if (!payloadSE?.pavimentos) throw new Error('Chave "pavimentos" não encontrada nos dados.')
 
@@ -145,7 +146,7 @@ function resolverImportacaoSaidas(payloadSE, estruturaIdForcado, projetoPaviment
         if (existente) idsUsados.add(existente.id)
         return {
           id:        existente?.id        ?? uid(),
-          acessoId:  existente?.acessoId  ?? null,
+          grupoId:   existente?.grupoId   ?? null,
           nome,
           divisao:   a.divisao   || '',
           area:      a.area      ?? 0,
@@ -430,7 +431,7 @@ export default function SaidaEmergenciaPage({ extra = null }) {
                 <Icon name={SISTEMA_ICON.saida_emergencia} size={20} color="var(--color-red)" className="shrink-0"/>
                 Saídas de Emergência
               <LinkNorma sistema="saida_emergencia"/>
-            <InfoTip side="bottom" align="start" text={<>Clique em um pavimento para cadastrar os ambientes e montar a árvore de acessos, saídas e escadas/rampas, conforme {info?.nome || 'NT vigente'} / NBR 9077.</>}/>
+            <InfoTip side="bottom" align="start" text={<>Clique em um pavimento para cadastrar os ambientes e montar o fluxograma de acessos, saídas e escadas/rampas, conforme {info?.nome || 'NT vigente'} / NBR 9077.</>}/>
           </h2>
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1.5">
@@ -456,7 +457,7 @@ export default function SaidaEmergenciaPage({ extra = null }) {
           <div className="flex flex-col gap-4">
             {porEstrutura.filter(g => g.dadosPav.length > 0).map(({ estrutura, dadosPav: dadosDaEstrutura }) => {
               // Ambiente sem acesso atribuído = acesso direto à área de relativa
-              // segurança, não é pendência (ver AcessosDescargasView/memorial).
+              // segurança, não é pendência (ver FluxogramaSaidas/memorial).
               const status = statusEstrutura('concluido', 'Dados carregados')
               return (
                 <EstruturaSection
@@ -514,7 +515,7 @@ export default function SaidaEmergenciaPage({ extra = null }) {
         {extra}
       </div>
 
-      {viewPav && <AcessosDescargasView pav={viewPav} seNorma={seNorma} ocupacoes={ocupacoes} dispatch={dispatch} onClose={() => setViewPavId(null)}/>}
+      {viewPav && <FluxogramaSaidas pav={viewPav} seNorma={seNorma} ocupacoes={ocupacoes} dispatch={dispatch} onClose={() => setViewPavId(null)}/>}
     </div>
   )
 }

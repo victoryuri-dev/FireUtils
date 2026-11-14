@@ -6,7 +6,7 @@
 // Acessos e Descargas, uma tabela única com todos os ambientes do
 // pavimento, e uma tabela individual pra cada Saída/Circulação). Mesmo
 // motor de cálculo (se_calc.js) que alimenta pages/medidas/
-// AcessosDescargasView.jsx — nunca duplica a lógica aqui, só narra o
+// FluxogramaSaidas.jsx — nunca duplica a lógica aqui, só narra o
 // resultado.
 //
 // Diferente dos builders mais antigos (extintores.js, seg_estrutural.js),
@@ -17,7 +17,7 @@
 
 import { getSE } from '../normas/index'
 import {
-  contarSaidasPavimento, getDistancia, calcPopPav,
+  contarSaidasPavimento, raizesDoPavimento, getDistancia, calcPopPav,
   calcDimsAcesso, dimsDoAcesso, calcNoAmbientePT, tipoEscadaEstrutura, ARQUIBANCADA_TAXA,
 } from '../se_calc'
 import { fmtNum } from '../../utils/numero'
@@ -91,7 +91,7 @@ function blocosGeneralidades(larguras) {
 function montarArvorePavimento(pav) {
   const acessos = pav.acessos || []
   const ambientes = pav.ambientes || []
-  const raizes = acessosFilhos(acessos, null)
+  const raizes = raizesDoPavimento(acessos)
 
   let nCirculacao = 0
   const listaAmbientes = [] // [{ amb }] em ordem de aparição
@@ -115,7 +115,7 @@ function montarArvorePavimento(pav) {
   // Ambiente ainda sem acesso atribuído não tem nó pra pendurar no
   // organograma, mas continua entrando na tabela única de portas — não
   // faz sentido escondê-lo da tabela só por ainda não ter posição na
-  // árvore (ver AcessosDescargasView.jsx).
+  // fluxo (ver FluxogramaSaidas.jsx).
   ambientes.filter(a => !a.acessoId).forEach(amb => listaAmbientes.push({ amb }))
 
   return { organograma, listaAmbientes, nos }
@@ -183,7 +183,7 @@ function notaAcessoDireto(pav) {
 
 // ── Tabela individual de um nó (Saída/Escada-Rampa raiz, ou Circulação) —
 // uma linha por dimensionamento LIGADO no nó (AD/ER/PT, ver acesso.dims em
-// AcessosDescargasView.jsx) — um nó pode ter mais de um ao mesmo tempo
+// FluxogramaSaidas.jsx) — um nó pode ter mais de um ao mesmo tempo
 // (ex.: piso de descarga que é corredor de saída E chegada de escada). ──
 function tabelaNo({ acesso, label }, ambientes, acessos, taxaPopulacional, larguras, pisoDescarga) {
   const dims = dimsDoAcesso(acesso, pisoDescarga)
@@ -208,7 +208,7 @@ function blocosDoPavimento(pav, seNorma, temChuveiros, temDeteccao) {
   const { TAXA_POPULACIONAL, LARGURAS_MINIMAS, DISTANCIAS_MAXIMAS } = seNorma
   const acessos = pav.acessos || []
   const ambientes = pav.ambientes || []
-  const raizes = acessosFilhos(acessos, null)
+  const raizes = raizesDoPavimento(acessos)
   const rotuloRaiz = pav.pisoDescarga ? 'saída' : 'escada/rampa'
 
   const blocos = [{ tipo: 'titulo2', texto: pav.pisoDescarga ? `${pav.label} (Piso de Descarga)` : pav.label }]

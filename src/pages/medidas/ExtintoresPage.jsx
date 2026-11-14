@@ -197,7 +197,7 @@ function agruparPorAmbiente(extintores) {
 }
 
 // ── Unidade extintora (folha do ambiente) — arrastável, card inteiro clicável ─
-// Mesmo padrão do AmbienteChip das Saídas de Emergência (AcessosDescargasView):
+// Mesmo padrão da linha de ambiente das Saídas de Emergência (AmbienteLinha, FluxogramaSaidas):
 // grip + checkbox de seleção + nome à esquerda, resumo à direita, clique
 // abre o formulário de edição (ver ExtintorForm). O grip e o checkbox ficam
 // fora do clique de editar. Com pelo menos uma unidade já selecionada

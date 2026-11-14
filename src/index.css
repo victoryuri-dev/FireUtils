@@ -475,3 +475,22 @@
 .pbf-anexo { text-align: center; margin-top: 14pt; }
 .pbf-anexo-titulo { font-weight: 700; text-decoration: underline; }
 .pbf-assinatura { margin: 40pt auto 0; width: 70mm; text-align: center; border-top: 1px solid #000; padding-top: 3pt; font-weight: 700; }
+
+/* Fluxograma de saídas (React Flow): usa os tokens do tema da plataforma em
+   vez do tema claro/escuro próprio da biblioteca. */
+.fluxo-saidas .react-flow {
+  --xy-background-color: var(--color-bg);
+  --xy-background-pattern-dots-color-default: var(--color-border);
+  --xy-edge-stroke-default: var(--color-ink-faint);
+  --xy-edge-stroke-selected-default: var(--color-red);
+  --xy-node-boxshadow-selected-default: none;
+  --xy-minimap-background-color-default: var(--color-surface);
+  --xy-minimap-mask-background-color-default: rgba(0, 0, 0, .35);
+  --xy-controls-button-background-color-default: var(--color-surface);
+  --xy-controls-button-background-color-hover-default: var(--color-surface-2);
+  --xy-controls-button-color-default: var(--color-ink);
+  --xy-controls-button-border-color-default: var(--color-border);
+  --xy-attribution-background-color-default: transparent;
+}
+.fluxo-saidas .react-flow__edge-path { stroke-width: 2; }
+.fluxo-saidas .react-flow__marker path { fill: var(--color-ink-faint); stroke: var(--color-ink-faint); }

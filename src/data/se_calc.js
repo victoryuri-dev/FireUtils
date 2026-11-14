@@ -108,50 +108,59 @@ export function calcPT(pop, capPT, larguras) {
   return { n, lc, la, lMin: ptInfo.largura, tipo: ptInfo.tipo }
 }
 
-// ── Rede de saída (Ambiente -> Acesso -> Acesso/Descarga ou Escada/Rampa) ────
+// ── Rede de saída (Ambiente -> Acesso -> Saída ou Escada/Rampa) ──────────────
 //
-// Substitui o modelo antigo de "um AD e um ER por pavimento inteiro" por uma
-// árvore montada pelo usuário, sem limite de profundidade:
+// Fluxograma montado pelo usuário por pavimento (ver pages/medidas/
+// FluxogramaSaidas.jsx), sem limite de profundidade:
 //
 //   ambiente.acessoId : string|null
-//     -- a qual nó de Acesso este ambiente alimenta (null = ainda não
-//        posicionado na árvore).
+//     -- a qual nó (acesso/saída/escada) este ambiente alimenta. Derivado do
+//        box de ambientes (`grupo`) em que o ambiente está: o reducer mantém
+//        `ambiente.acessoId === grupo.acessoId` — null = box ainda sem
+//        ligação (ou ambiente fora de qualquer box).
 //
-//   acesso = { id, nome, alimentaEm: string|null }
-//     -- `alimentaEm` aponta pro id de outro acesso (cascata: a população
-//        deste nó soma na do próximo) ou é null quando este acesso É a
-//        RAIZ da árvore daquele pavimento.
+//   acesso = { id, nome, tipo, alimentaEm: string|null, dims }
+//     -- `tipo`: 'acesso' (nó intermediário, corredor/porta de passagem),
+//        'saida' ou 'escada' (Escada/Rampa) — o usuário escolhe por nó.
+//     -- `alimentaEm` aponta pro id do nó seguinte (cascata: a população
+//        deste nó soma na do próximo). Saída e escada são as RAÍZES do
+//        fluxo (alimentaEm null); um 'acesso' sem `alimentaEm` ainda não
+//        foi ligado a nenhuma saída/escada e não conta como raiz.
+//     -- Nós salvos antes de `tipo` existir (sem o campo): raiz vira
+//        saída/escada conforme `pavimento.pisoDescarga`, o resto é acesso.
 //     -- A "quantidade de saídas" do pavimento NÃO é um campo armazenado —
-//        é sempre a contagem de raízes (ver contarSaidasPavimento), já que
-//        a criação de saídas é dinâmica.
+//        é sempre a contagem de raízes (ver contarSaidasPavimento).
 //
-// O tipo de cálculo de um nó (ver tipoDoNo) depende só da posição na árvore
-// e de `pavimento.pisoDescarga`:
-//   - Nó raiz (alimentaEm=null) num piso de descarga        -> AD (Saída)
-//   - Nó raiz (alimentaEm=null) num pavimento QUALQUER OUTRO -> ER (a raiz
-//     ali é a escada/rampa que desce até o piso de descarga — cada
-//     pavimento dimensiona a própria escada pela população que chega até
-//     ela pela SUA árvore, não mais pelo "pavimento mais populoso da
-//     estrutura" fixo).
-//   - Qualquer nó que NÃO é raiz (alimenta outro acesso) -> sempre AD,
-//     em qualquer pavimento (é sempre um "acesso" interno, corredor/porta
-//     de passagem, nunca a escada em si).
+// O dimensionamento padrão de um nó (ver dimsPadrao) vem do `tipo`: escada
+// -> ER, saída/acesso -> AD. Cada nó ainda liga/desliga AD/ER/PT à parte
+// (`dims`).
 //
-// Portas (PT) não passam por essa árvore: são por ambiente, direto —
+// Portas (PT) não passam por essa rede: são por ambiente, direto —
 // ver calcNoAmbientePT.
 
-/** Quantidade de saídas de um pavimento = quantidade de raízes da árvore
- * (acessos com alimentaEm null) — nunca um campo indicado manualmente. */
-export function contarSaidasPavimento(acessos) {
-  return (acessos || []).filter(ac => ac.alimentaEm === null).length
+/** Raiz do fluxo = saída ou escada/rampa (nó que não alimenta outro).
+ * Acesso solto (tipo 'acesso' sem `alimentaEm`) não é raiz. */
+export function ehRaiz(acesso) {
+  return acesso.alimentaEm === null && acesso.tipo !== 'acesso'
 }
 
-/** Decide o tipo de cálculo/rótulo de um nó da árvore — ver explicação
- * acima. `pisoDescarga` é o campo do pavimento (não do nó). */
-export function tipoDoNo(acesso, pisoDescarga) {
-  const isRaiz = acesso.alimentaEm === null
-  if (isRaiz && !pisoDescarga) return { tipo: 'ER', label: 'ESCADA/RAMPA' }
-  return { tipo: 'AD', label: 'ACESSO/DESCARGA' }
+/** Raízes do pavimento (saídas e escadas/rampas). */
+export function raizesDoPavimento(acessos) {
+  return (acessos || []).filter(ehRaiz)
+}
+
+/** Quantidade de saídas de um pavimento = quantidade de raízes do
+ * fluxo — nunca um campo indicado manualmente. */
+export function contarSaidasPavimento(acessos) {
+  return raizesDoPavimento(acessos).length
+}
+
+/** Tipo do nó ('acesso'|'saida'|'escada'), com fallback pros nós antigos
+ * sem o campo — ver explicação acima. `pisoDescarga` é do pavimento. */
+export function tipoNo(acesso, pisoDescarga) {
+  if (acesso.tipo) return acesso.tipo
+  if (acesso.alimentaEm !== null) return 'acesso'
+  return pisoDescarga ? 'saida' : 'escada'
 }
 
 function ambientesDiretosDoAcesso(acessoId, ambientes) {
@@ -203,26 +212,21 @@ export function calcNoAmbientePT(amb, taxaPopulacional, larguras) {
   return { pop, capPT, pt }
 }
 
-/** Dimensionamentos padrão de um nó recém-criado — raiz num piso de
- * descarga nasce só com AD; raiz em outro pavimento nasce só com ER;
- * qualquer nó que não é raiz nasce só com AD (nunca é a escada em si) —
- * mesmo critério que tipoDoNo. PT sempre nasce ligado. O usuário pode
- * depois ligar/desligar cada um independente (ver SET_ACESSO_DIM) —
- * ex.: o ponto de descarga que recebe tanto o corredor (AD) quanto a
- * escada que desce até ali (ER) precisa dos dois ao mesmo tempo. */
-export function dimsPadrao(acesso, pisoDescarga) {
-  const isRaiz = acesso.alimentaEm === null
-  if (isRaiz) return pisoDescarga ? { AD: true, ER: false, PT: true } : { AD: false, ER: true, PT: true }
-  return { AD: true, ER: false, PT: true }
+/** Dimensionamentos padrão de um nó pelo `tipo` ('acesso'|'saida'|
+ * 'escada'): escada/rampa nasce só com ER; saída e acesso só com AD. PT
+ * sempre nasce ligado. O usuário pode depois ligar/desligar cada um
+ * independente (ver SET_ACESSO_DIM) — ex.: o ponto de descarga que recebe
+ * tanto o corredor (AD) quanto a escada que desce até ali (ER) precisa dos
+ * dois ao mesmo tempo. */
+export function dimsPadrao(tipo) {
+  return tipo === 'escada' ? { AD: false, ER: true, PT: true } : { AD: true, ER: false, PT: true }
 }
 
-/** `acesso.dims` com fallback pro padrão de tipoDoNo — projetos criados
- * antes deste campo existir não têm `dims` gravado; sem isso, um nó
- * antigo apareceria sem nenhum dimensionamento marcado. */
+/** `acesso.dims` com fallback pro padrão do tipo — projetos criados antes
+ * deste campo existir não têm `dims` gravado; sem isso, um nó antigo
+ * apareceria sem nenhum dimensionamento marcado. */
 export function dimsDoAcesso(acesso, pisoDescarga) {
-  if (acesso.dims) return acesso.dims
-  const { tipo } = tipoDoNo(acesso, pisoDescarga)
-  return { AD: tipo === 'AD', ER: tipo === 'ER', PT: true }
+  return acesso.dims || dimsPadrao(tipoNo(acesso, pisoDescarga))
 }
 
 /** Dimensionamento de um nó de Acesso pra cada AD/ER/PT independentemente
@@ -279,7 +283,7 @@ export function getDistancia(divisao, pisoDescarga, nSaidas, temChuveiros, temDe
  * configurada nele na Etapa 4 (pav.divisao, ver Step4.jsx), não as
  * divisões dos ambientes cadastrados aqui em Saída de Emergência. Assim
  * aparece pra qualquer pavimento classificado, mesmo sem nenhum ambiente
- * ainda cadastrado na árvore de Acessos e Descargas. `pav.pisoDescarga` é
+ * ainda cadastrado no fluxograma de saídas. `pav.pisoDescarga` é
  * um booleano explícito por pavimento — ver ProjetoContext.jsx. */
 export function getDistanciaPavimento(pav, nSaidas, temChuveiros, temDeteccao, distanciasMaximas) {
   if (!pav.divisao) return null

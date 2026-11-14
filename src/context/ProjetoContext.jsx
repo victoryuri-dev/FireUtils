@@ -4,6 +4,7 @@ import { carregarNormasRemotas, carregarCatalogoNormas } from '../lib/normasRemo
 import { useAuth } from './AuthContext'
 import { PROCEDIMENTOS_PADRAO } from '../utils/planoEmergencia'
 import { dimsPadrao } from '../data/se_calc'
+import { fluxoPadrao, migrarFluxoPavimento, sincronizarAmbientes } from '../data/se_fluxo'
 import { alturaEdificacaoBase, limparAlturasOcultas } from '../data/trrf_calc'
 
 // Gera um ID interno único
@@ -121,19 +122,21 @@ function idAcesso() {
   return `acs-${Date.now().toString(36)}-${acessoSeq}-${Math.random().toString(36).slice(2, 5)}`
 }
 
-// Árvore inicial de todo pavimento novo: uma raiz (Saída, se o pavimento
-// nasce como piso de descarga; Escada/Rampa nos demais — ver tipoDoNo em
-// se_calc.js, que decide isso pela posição na árvore + `pisoDescarga` do
-// pavimento, não por um campo aqui) já com um Acesso dentro dela, pronto
-// pra receber ambientes. Evita a tela vazia "Nenhuma saída criada ainda"
-// no primeiro uso — o usuário sempre pode renomear, criar mais raízes/
-// acessos ou remover estes, como qualquer outro nó da árvore.
-function acessosPadrao(pisoDescarga) {
-  const raizId = idAcesso()
-  return [
-    { id: raizId, nome: pisoDescarga ? 'Saída 01' : 'Escada/Rampa 01', alimentaEm: null },
-    { id: idAcesso(), nome: 'Acesso 1', alimentaEm: raizId },
-  ]
+// Fluxo inicial de todo pavimento novo: uma saída (piso de descarga) ou
+// escada/rampa (demais pavimentos) já com um acesso ligado a ela, pronto
+// pra receber boxes de ambientes — ver fluxoPadrao em se_fluxo.js. Evita a
+// área de trabalho vazia no primeiro uso; o usuário renomeia, cria mais nós
+// ou remove estes como qualquer outro.
+function fluxoNovo(pisoDescarga) {
+  return fluxoPadrao(pisoDescarga, idAcesso)
+}
+
+// Mesma lógica de idAcesso — evita colisão entre boxes de ambientes
+// criados no mesmo milissegundo (fluxograma de saídas).
+let grupoSeq = 0
+function idGrupo() {
+  grupoSeq += 1
+  return `grp-${Date.now().toString(36)}-${grupoSeq}-${Math.random().toString(36).slice(2, 5)}`
 }
 
 // Item de sinalização de emergência — granularidade só até estrutura (sem
@@ -319,7 +322,7 @@ export function hydrateState(saved) {
     planoEmergencia: hydratarPlanoEmergencia(saved.planoEmergencia),
     memorialPB: { ...INITIAL_STATE.memorialPB, ...(saved.memorialPB || {}) },
     // Migração: pavimentos salvos antes de `ambientes` (Saída de Emergência)
-    // ou de `acessos`/`pisoDescarga` (árvore de Acessos e Descargas)
+    // ou de `acessos`/`pisoDescarga` (fluxograma de saídas)
     // existirem não têm esses campos — sem isso, o reducer quebraria ao
     // tentar ler/mapear `p.ambientes`/`p.acessos` de um pavimento antigo.
     // `pisoDescarga` nasce do `tipo` antigo (só o térreo era considerado
@@ -329,8 +332,10 @@ export function hydrateState(saved) {
     // Segurança), igual chuveiros automáticos. Pavimentos antigos sem
     // acessos ficam com `[]` mesmo (não ganham a árvore padrão
     // retroativamente) — só pavimentos criados a partir de agora nascem com
-    // ela, ver acessosPadrao.
-    pavimentos: (saved.pavimentos || INITIAL_STATE.pavimentos).map(p => ({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) })),
+    // ela, ver fluxoNovo. Pavimentos anteriores ao fluxograma de saídas
+    // (sem `grupos`/`fluxoPos`/`tipo` nos nós) são migrados por
+    // migrarFluxoPavimento.
+    pavimentos: (saved.pavimentos || INITIAL_STATE.pavimentos).map(p => migrarFluxoPavimento({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) })),
     ...migrarParaPorEstrutura(saved),
   }
 }
@@ -404,14 +409,14 @@ export function normalizarRotuloPavimento(label) {
 // pavimento de saída, em vez de deixar `pavimentos` vazio até o usuário
 // mexer nos campos do Step2 (mesmo formato produzido pelo térreo em
 // REBUILD_PAVIMENTOS, que o reaproveita ao invés de recriar quando os
-// valores mudam). `acessos`/`pisoDescarga`: ver árvore de Acessos e
-// Descargas (tela dedicada, dentro de Saída de Emergência) — piso de
+// valores mudam). `acessos`/`grupos`/`fluxoPos`/`pisoDescarga`: ver
+// fluxograma de saídas (tela dedicada, dentro de Saída de Emergência) — piso de
 // descarga nasce true aqui (é o térreo), mas fica editável lá.
 // `populacaoFixa`: ocupantes fixos DESTE pavimento, usada pelo dimensionamento
 // da Brigada de Incêndio (Tabela A.1, NT 17) — é também a fonte da população
 // fixa total mostrada no Plano de Emergência (ver utils/planoEmergencia.js).
 function pavimentoTerreo(estruturaId) {
-  return { id: `${estruturaId}-P1`, estruturaId, tipo:'terreo', label: 'Térreo', grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(true), pisoDescarga: true }
+  return { id: `${estruturaId}-P1`, estruturaId, tipo:'terreo', label: 'Térreo', grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], ...fluxoNovo(true), pisoDescarga: true }
 }
 
 const INITIAL_STATE = {
@@ -680,6 +685,28 @@ const INITIAL_STATE = {
   },
 }
 
+// Cópia do objeto sem uma chave (posição de um nó removido do fluxo).
+function omitirChave(obj, chave) {
+  const copia = { ...(obj || {}) }
+  delete copia[chave]
+  return copia
+}
+
+// Aplica `fn` ao pavimento e re-sincroniza `ambiente.acessoId` com o box de
+// cada ambiente (ver sincronizarAmbientes) — toda mudança no fluxo de saídas
+// (nós, ligações, ambientes) passa por aqui, então motor de cálculo e
+// memorial sempre leem um `acessoId` consistente com o desenho.
+function atualizarPavSE(state, pavimentoId, fn) {
+  return {
+    ...state,
+    pavimentos: state.pavimentos.map(p => {
+      if (p.id !== pavimentoId) return p
+      const novo = fn(p)
+      return { ...novo, ambientes: sincronizarAmbientes(novo.ambientes, novo.grupos, novo.acessos) }
+    }),
+  }
+}
+
 // Registra que os dados da medida nas estruturas recebidas vieram do Revit
 // (estrutura.origemRevit[medida]). A tela decide se isso já vale como
 // "concluída" (só quando não há pendências); o usuário pode reabrir/concluir.
@@ -687,7 +714,9 @@ function marcarOrigemRevit(estruturas, ids, medida) {
   return estruturas.map(e => ids.has(e.id) ? { ...e, origemRevit: { ...(e.origemRevit || {}), [medida]: true } } : e)
 }
 
-function reducer(state, action) {
+// Exportado só pros testes (tests/fluxoSaidas.test.mjs).
+// eslint-disable-next-line react-refresh/only-export-components
+export function reducer(state, action) {
   switch (action.type) {
     // `uf` é escolhido uma única vez, na criação do projeto (NEW_PROJECT —
     // ver EscolhaEstadoModal em ProjetosPage.jsx), e não muda mais: a norma,
@@ -746,14 +775,14 @@ function reducer(state, action) {
       const list = []
       for (let s = nSub; s >= 1; s--) {
         const id = `${estruturaId}-sub-${s}`
-        list.push(find(id) || { id, estruturaId, tipo:'subsolo', label: `${s}º Subsolo`, grupo: 'G', divisao: 'G-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
+        list.push(find(id) || { id, estruturaId, tipo:'subsolo', label: `${s}º Subsolo`, grupo: 'G', divisao: 'G-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], ...fluxoNovo(false), pisoDescarga: false })
       }
       const terId = `${estruturaId}-P1`
       const ter = find(terId)
       list.push(ter || pavimentoTerreo(estruturaId))
       for (let p = 2; p <= nPav; p++) {
         const id = `${estruturaId}-P${p}`
-        list.push(find(id) || { id, estruturaId, tipo:'pav', label: `${p - 1}º Pavimento`, grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], acessos: acessosPadrao(false), pisoDescarga: false })
+        list.push(find(id) || { id, estruturaId, tipo:'pav', label: `${p - 1}º Pavimento`, grupo: 'E', divisao: 'E-1', cnae: '', cnaeDesc: '', area: '', populacaoFixa: '', acess: [], ambientes: [], ...fluxoNovo(false), pisoDescarga: false })
       }
       const idsValidos = new Set(list.map(p => p.id))
       return {
@@ -959,8 +988,10 @@ function reducer(state, action) {
     // despachadas ao clicar em "Adicionar"/"Salvar"/lixeira no modal — o
     // formulário em si (nome, divisão, área...) fica em useState local até
     // esse clique, então não gera broadcast a cada tecla digitada.
+    // `ambiente.grupoId` (box) opcional; `acessoId` nasce do box, nunca é
+    // informado direto — ver sincronizarAmbientes.
     case 'ADD_AMBIENTE_SE':
-      return { ...state, pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId ? { ...p, ambientes: [...(p.ambientes || []), { id: action.id, ...action.ambiente }] } : p) }
+      return atualizarPavSE(state, action.pavimentoId, p => ({ ...p, ambientes: [...(p.ambientes || []), { id: action.id, ...action.ambiente }] }))
     case 'UPDATE_AMBIENTE_SE':
       return { ...state, pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId ? { ...p, ambientes: (p.ambientes || []).map(a => a.id === action.ambienteId ? { ...a, ...action.changes } : a) } : p) }
     case 'REMOVE_AMBIENTE_SE':
@@ -971,32 +1002,49 @@ function reducer(state, action) {
     case 'IMPORT_AMBIENTES_SE': {
       const porPavimento = new Map(action.atualizacoes.map(a => [a.pavimentoId, a.ambientes]))
       const estruturasDoLote = new Set(state.pavimentos.filter(p => porPavimento.has(p.id)).map(p => p.estruturaId))
-      return { ...state, estruturas: marcarOrigemRevit(state.estruturas, estruturasDoLote, 'saida_emergencia'), pavimentos: state.pavimentos.map(p => porPavimento.has(p.id) ? { ...p, ambientes: porPavimento.get(p.id) } : p) }
+      return {
+        ...state,
+        estruturas: marcarOrigemRevit(state.estruturas, estruturasDoLote, 'saida_emergencia'),
+        pavimentos: state.pavimentos.map(p => porPavimento.has(p.id)
+          ? { ...p, ambientes: sincronizarAmbientes(porPavimento.get(p.id), p.grupos, p.acessos) }
+          : p),
+      }
     }
-    // ── Árvore de Acessos e Descargas (Ambiente -> Acesso -> Acesso/Saída) ──
-    // Ver se_calc.js (calcNoAcesso/ambientesDoAcesso) pro motor de cálculo.
-    // Um "Acesso" com alimentaEm=null é uma Saída (raiz da árvore daquele
-    // pavimento) — não existe um tipo de nó separado pra Saída, só a posição
-    // na árvore muda.
-    case 'CRIAR_SAIDA':
-      return {
-        ...state,
-        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, acessos: [...(p.acessos || []), { id: action.id, nome: action.nome, alimentaEm: null, dims: dimsPadrao({ alimentaEm: null }, !!p.pisoDescarga) }] }
-          : p),
-      }
-    case 'CRIAR_ACESSO':
-      return {
-        ...state,
-        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, acessos: [...(p.acessos || []), { id: action.id, nome: action.nome, alimentaEm: action.alimentaEm, dims: dimsPadrao({ alimentaEm: action.alimentaEm }, !!p.pisoDescarga) }] }
-          : p),
-      }
-    // Liga/desliga um dimensionamento (AD/ER/PT) de um nó específico da
-    // árvore — um nó pode precisar de mais de um ao mesmo tempo (ex.: o
-    // ponto de descarga que é ao mesmo tempo corredor de saída e chegada
-    // da escada que desce até ali). Ver dimsPadrao/calcDimsAcesso em
-    // se_calc.js.
+    // ── Fluxograma de saídas (Box de ambientes -> Acesso -> Saída/Escada) ──
+    // Ver se_fluxo.js (dados) e se_calc.js (motor de cálculo). Nó = acesso
+    // (`tipo` 'acesso'|'saida'|'escada', escolhido por nó) ou box de
+    // ambientes (`grupo`). Cada nó alimenta no máximo UM seguinte
+    // (`alimentaEm` / `grupo.acessoId`); saída e escada são as raízes.
+    case 'CRIAR_NO_FLUXO':
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        acessos: [...(p.acessos || []), { id: action.id, nome: action.nome, tipo: action.tipo, alimentaEm: null, dims: dimsPadrao(action.tipo) }],
+        fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
+      }))
+    // Box novo; com `ambienteIds`, já nasce com esses ambientes dentro.
+    case 'CRIAR_GRUPO_AMBIENTES': {
+      const idsMovidos = new Set(action.ambienteIds || [])
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        grupos: [...(p.grupos || []), { id: action.id, nome: action.nome, acessoId: null }],
+        fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
+        ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.id } : a),
+      }))
+    }
+    // Troca o tipo do nó (acesso/saída/escada) e volta pro dimensionamento
+    // padrão do novo tipo. Saída/escada são raízes: deixam de alimentar
+    // outro nó.
+    case 'SET_ACESSO_TIPO':
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        acessos: (p.acessos || []).map(ac => ac.id === action.acessoId
+          ? { ...ac, tipo: action.tipo, dims: dimsPadrao(action.tipo), alimentaEm: action.tipo === 'acesso' ? ac.alimentaEm : null }
+          : ac),
+      }))
+    // Liga/desliga um dimensionamento (AD/ER/PT) de um nó específico — um
+    // nó pode precisar de mais de um ao mesmo tempo (ex.: o ponto de
+    // descarga que é ao mesmo tempo corredor de saída e chegada da escada
+    // que desce até ali). Ver dimsPadrao/calcDimsAcesso em se_calc.js.
     case 'SET_ACESSO_DIM':
       return {
         ...state,
@@ -1013,53 +1061,18 @@ function reducer(state, action) {
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, nome: action.nome } : ac) }
           : p),
       }
-    // Move um ambiente pra outro Acesso — inclusive entre Saídas diferentes
-    // do mesmo pavimento (arrastar o quadradinho do Ambiente).
-    case 'MOVER_AMBIENTE_ACESSO':
+    case 'RENOMEAR_GRUPO':
       return {
         ...state,
         pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, ambientes: (p.ambientes || []).map(a => a.id === action.ambienteId ? { ...a, acessoId: action.novoAcessoId } : a) }
+          ? { ...p, grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, nome: action.nome } : g) }
           : p),
       }
-    // Mesma coisa que MOVER_AMBIENTE_ACESSO, mas pra vários ambientes de
-    // uma vez (seleção em massa na tela de Acessos e Descargas) — um único
-    // despacho em vez de um por ambiente, pra não gerar N re-renders/broadcasts.
-    case 'MOVER_AMBIENTES_ACESSO': {
-      const idsMovidos = new Set(action.ambienteIds)
-      return {
-        ...state,
-        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, acessoId: action.novoAcessoId } : a) }
-          : p),
-      }
-    }
-    // "Apagar selecionados" na barra de seleção em massa: comportamento
-    // igual ao botão individual de cada card — ambiente já órfão é
-    // excluído de verdade; ambiente dentro de um Acesso/Saída só é
-    // desvinculado (fica órfão), nunca apagado por engano numa seleção
-    // que misturou os dois tipos.
-    case 'APAGAR_AMBIENTES_SE': {
-      const idsAlvo = new Set(action.ambienteIds)
-      return {
-        ...state,
-        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? {
-              ...p,
-              ambientes: (p.ambientes || []).reduce((acc, a) => {
-                if (!idsAlvo.has(a.id)) { acc.push(a); return acc }
-                if (a.acessoId) acc.push({ ...a, acessoId: null })
-                return acc
-              }, []),
-            }
-          : p),
-      }
-    }
-    // Move um Acesso (e, por consequência do cálculo recursivo em
-    // se_calc.js, todo o conjunto de ambientes/acessos que já alimentavam
-    // ele) pra alimentar outro nó — ou pra null, virando uma Saída nova.
-    // Validar ciclo (um acesso não pode alimentar seu próprio descendente)
-    // é responsabilidade de quem despacha, não do reducer.
+    // Liga um acesso a outro nó (`novoAlimentaEm`) — por consequência do
+    // cálculo recursivo em se_calc.js, leva junto tudo que já o alimentava.
+    // null desliga. Validar ciclo (um nó não pode alimentar seu próprio
+    // descendente) é responsabilidade de quem despacha (ver
+    // criaCicloNoFluxo), não do reducer.
     case 'MOVER_ACESSO':
       return {
         ...state,
@@ -1067,26 +1080,60 @@ function reducer(state, action) {
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac) }
           : p),
       }
-    // Remove um nó de Acesso/Saída sem apagar em cascata: o que alimentava
-    // ele (ambientes e/ou outros acessos) fica órfão (acessoId/alimentaEm
-    // voltam a null) em vez de sumir — o usuário reposiciona depois, mas
-    // não perde nenhum ambiente cadastrado.
+    // Liga um box de ambientes a um nó (ou null pra desligar) — os
+    // ambientes dentro dele passam a alimentar esse nó.
+    case 'LIGAR_GRUPO':
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, acessoId: action.acessoId } : g),
+      }))
+    // Move ambientes pra dentro de um box — inclusive entre boxes
+    // diferentes — ou pra fora de qualquer box (`grupoId` null).
+    case 'MOVER_AMBIENTES_GRUPO': {
+      const idsMovidos = new Set(action.ambienteIds)
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.grupoId } : a),
+      }))
+    }
+    // Remove um acesso/saída/escada sem apagar em cascata: o que alimentava
+    // ele (boxes e/ou outros acessos) fica sem ligação em vez de sumir — o
+    // usuário religa depois, mas não perde nenhum ambiente cadastrado.
     case 'REMOVER_ACESSO': {
       const { pavimentoId, acessoId } = action
+      return atualizarPavSE(state, pavimentoId, p => {
+        return {
+          ...p,
+          fluxoPos: omitirChave(p.fluxoPos, acessoId),
+          acessos: (p.acessos || [])
+            .filter(ac => ac.id !== acessoId)
+            .map(ac => ac.alimentaEm === acessoId ? { ...ac, alimentaEm: null } : ac),
+          grupos: (p.grupos || []).map(g => g.acessoId === acessoId ? { ...g, acessoId: null } : g),
+        }
+      })
+    }
+    // Remove um box; os ambientes dentro dele ficam soltos (sem box), nunca
+    // são apagados junto.
+    case 'REMOVER_GRUPO': {
+      const { pavimentoId, grupoId } = action
+      return atualizarPavSE(state, pavimentoId, p => {
+        return {
+          ...p,
+          fluxoPos: omitirChave(p.fluxoPos, grupoId),
+          grupos: (p.grupos || []).filter(g => g.id !== grupoId),
+          ambientes: (p.ambientes || []).map(a => a.grupoId === grupoId ? { ...a, grupoId: null } : a),
+        }
+      })
+    }
+    // Posição dos nós na área de trabalho — despachada só ao soltar o
+    // arrasto (não a cada movimento), pra não inundar o broadcast.
+    case 'SET_POSICOES_FLUXO':
       return {
         ...state,
-        pavimentos: state.pavimentos.map(p => {
-          if (p.id !== pavimentoId) return p
-          return {
-            ...p,
-            acessos: (p.acessos || [])
-              .filter(ac => ac.id !== acessoId)
-              .map(ac => ac.alimentaEm === acessoId ? { ...ac, alimentaEm: null } : ac),
-            ambientes: (p.ambientes || []).map(a => a.acessoId === acessoId ? { ...a, acessoId: null } : a),
-          }
-        }),
+        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
+          ? { ...p, fluxoPos: { ...(p.fluxoPos || {}), ...action.posicoes } }
+          : p),
       }
-    }
     case 'SET_AREA_COMPARTIMENTACAO':
       return { ...state, areaCompartimentacaoHorizontal: { ...state.areaCompartimentacaoHorizontal, [action.pavimentoId]: action.valor } }
     case 'SET_ACESSO_VIATURA':
@@ -1219,8 +1266,8 @@ function resolverAcaoLocal(action, state) {
     case 'ADD_ESTRUTURA':
     case 'ADD_AMBIENTE_SE':
     case 'ADD_AMBIENTE_ACABAMENTO':
-    case 'CRIAR_SAIDA':
-    case 'CRIAR_ACESSO':
+    case 'CRIAR_NO_FLUXO':
+    case 'CRIAR_GRUPO_AMBIENTES':
       return action.id ? action : { ...action, id: idParaTipo(action.type)() }
     // Além do id, precisa fixar `atualizadoEm` aqui também — senão cada
     // aba calcularia o próprio `new Date()` ao aplicar a action (local ou
@@ -1261,7 +1308,8 @@ function idParaTipo(tipo) {
   if (tipo === 'ADD_ESTRUTURA')    return idEstrutura
   if (tipo === 'ADD_AMBIENTE_SE')  return idAmbienteSE
   if (tipo === 'ADD_AMBIENTE_ACABAMENTO') return idAmbienteAcabamento
-  return idAcesso // CRIAR_SAIDA / CRIAR_ACESSO
+  if (tipo === 'CRIAR_GRUPO_AMBIENTES') return idGrupo
+  return idAcesso // CRIAR_NO_FLUXO
 }
 
 const Ctx = createContext(null)
