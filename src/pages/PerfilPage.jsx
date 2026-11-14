@@ -94,7 +94,7 @@ export default function PerfilPage() {
           )}
 
           {aba === 'licencas' && (
-            <section className="hub-home" aria-labelledby="hub-license-title">
+            <section className="hub-licencas-tab" aria-labelledby="hub-license-title">
               <div className="profile-section-heading"><h2 id="hub-license-title">Sua licença</h2></div>
               <LicencasAtivas/>
             </section>

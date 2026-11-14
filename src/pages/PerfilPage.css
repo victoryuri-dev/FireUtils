@@ -52,7 +52,8 @@
 .hub-step-n{display:grid;width:26px;height:26px;flex:0 0 26px;place-items:center;border:1px solid rgba(234,19,48,.5);border-radius:50%;color:#f0445b;font-size:12px;font-weight:600}
 
 /* Licença */
-.hub-licenses{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.3fr);align-items:start;gap:14px}.hub-licenses>.ibox,.hub-licenses>.profile-empty{grid-column:1/-1}
+.hub-licenses{display:grid;grid-template-columns:1fr;gap:14px}
+.hub-licencas-tab{padding-top:32px}
 .hub-license-pro{padding:20px;border:1px solid rgba(234,19,48,.46);border-radius:var(--radius-lg);background:linear-gradient(145deg,#2a1017 0%,#171218 44%,#111116 100%)}
 .hub-license-pro-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .hub-license-pro-head h3{flex:1;margin:0;color:#f7f5f6;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600}
@@ -70,7 +71,7 @@
 .profile-empty{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;border:1px dashed var(--color-border);border-radius:var(--radius-lg)}
 .profile-empty p,.profile-empty-text{margin:0;color:var(--color-ink-faint);font-size:12px}
 
-@media(max-width:940px){.profile-overview{padding-inline:28px}.hub-licenses{grid-template-columns:1fr}}
+@media(max-width:940px){.profile-overview{padding-inline:28px}}
 @media(max-width:700px){.profile-overview{padding:24px 18px 52px}.g2{grid-template-columns:1fr}.hub-steps li{flex-wrap:wrap}.hub-license-meta{grid-template-columns:1fr 1fr}}
 
 /* Pôsteres: a arte traz badge e título; a UI é a descrição (hover) e o botão */
