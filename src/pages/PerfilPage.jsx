@@ -67,7 +67,6 @@ export default function PerfilPage() {
           <header className="profile-overview-header">
             <div>
               <h1>Olá, {nomeSalvo}.</h1>
-              <p>Seu painel FireUtils: ferramentas, licença e dados da conta num só lugar.</p>
             </div>
           </header>
 
