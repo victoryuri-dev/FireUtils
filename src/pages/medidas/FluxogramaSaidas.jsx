@@ -53,7 +53,7 @@ function BuscaNoBox({ grupo }) {
   const c = useContext(FluxoCtx)
   const [busca, setBusca] = useState('')
   const termo = normalizar(busca)
-  const nomeBox = new Map(c.grupos.map(g => [g.id, g.nome]))
+  const rotuloBox = new Map(c.grupos.map((g, i) => [g.id, `Box ${i + 1}`]))
   const achados = termo
     ? c.ambientes.filter(a => a.grupoId !== grupo.id && normalizar(a.nome).includes(termo))
     : []
@@ -66,7 +66,7 @@ function BuscaNoBox({ grupo }) {
             <button key={a.id} type="button" onClick={() => { c.moverParaBox([a.id], grupo.id); setBusca('') }}
               className="flex items-center justify-between gap-2 text-left py-1.5 px-2.5 rounded-md border border-solid border-border-2 bg-surface hover:border-red cursor-pointer">
               <span className="font-heading text-[12px] font-semibold text-ink truncate">{a.nome}</span>
-              <span className="text-[10px] text-ink-faint whitespace-nowrap shrink-0">{a.grupoId ? `em ${nomeBox.get(a.grupoId) || 'outro box'}` : 'sem box'}</span>
+              <span className="text-[10px] text-ink-faint whitespace-nowrap shrink-0">{a.grupoId ? `em ${rotuloBox.get(a.grupoId) || 'outro box'}` : 'sem box'}</span>
             </button>
           ))}
           {achados.length === 0 && <div className="text-[11px] text-ink-faint italic px-1">Nenhum ambiente encontrado fora deste box.</div>}
@@ -172,9 +172,7 @@ function GrupoNode({ data }) {
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 bg-surface-2 rounded-t-lg border-b border-solid border-border-2 cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
-          <span className="nodrag min-w-0">
-            <InlineEditableNome value={grupo.nome} onCommit={nome => c.dispatch({ type: 'RENOMEAR_GRUPO', pavimentoId: c.pavId, grupoId: grupo.id, nome })} textClassName="font-heading text-[14px] font-bold text-ink truncate"/>
-          </span>
+          <span className="font-heading text-[14px] font-bold text-ink truncate">{data.rotulo}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-ink-faint whitespace-nowrap">{pop} pessoas</span>
@@ -317,7 +315,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     dispatch({ type: 'CRIAR_NO_FLUXO', pavimentoId: pav.id, tipo, nome, pos: posicaoNova() })
   }
   const criarBox = ambienteIds => {
-    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pav.id, nome: `Ambientes ${grupos.length + 1}`, pos: posicaoNova(), ambienteIds })
+    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pav.id, pos: posicaoNova(), ambienteIds })
   }
 
   // ── Ambientes ──
@@ -353,7 +351,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
 
   const removerGrupo = grupo => {
     const n = ambientes.filter(a => a.grupoId === grupo.id).length
-    if (n > 0 && !window.confirm(`Remover o box "${grupo.nome}"? Os ${n} ambiente(s) dentro dele ficarão soltos, mas não serão apagados.`)) return
+    if (n > 0 && !window.confirm(`Remover este box? Os ${n} ambiente(s) dentro dele ficarão soltos, mas não serão apagados.`)) return
     dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pav.id, grupoId: grupo.id })
   }
   const removerAcesso = acesso => {
@@ -392,11 +390,11 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const nosBase = useMemo(() => {
     const pos = id => fluxoPos?.[id] || { x: 0, y: 0 }
     return [
-      ...grupos.map(g => {
+      ...grupos.map((g, i) => {
         const ambs = ambientes.filter(a => a.grupoId === g.id)
         return {
           id: g.id, type: 'grupo', position: pos(g.id),
-          data: { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) },
+          data: { grupo: g, rotulo: `Box ${i + 1}`, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) },
         }
       }),
       ...acessos.map(ac => {
@@ -464,7 +462,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   })
 
   const [sobreSoltos, setSobreSoltos] = useState(false)
-  const alvosBox = grupos.map(g => ({ id: g.id, label: g.nome }))
+  const alvosBox = grupos.map((g, i) => ({ id: g.id, label: `Box ${i + 1} (${ambientes.filter(a => a.grupoId === g.id).length} ambientes)` }))
 
   return (
     <div className="fixed inset-0 z-[500] bg-black/65 backdrop-blur-sm flex items-center justify-center p-3" onClick={onClose}>

@@ -1026,7 +1026,7 @@ export function reducer(state, action) {
       const idsMovidos = new Set(action.ambienteIds || [])
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
-        grupos: [...(p.grupos || []), { id: action.id, nome: action.nome, acessoId: null }],
+        grupos: [...(p.grupos || []), { id: action.id, acessoId: null }],
         fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
         ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.id } : a),
       }))
@@ -1059,13 +1059,6 @@ export function reducer(state, action) {
         ...state,
         pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, nome: action.nome } : ac) }
-          : p),
-      }
-    case 'RENOMEAR_GRUPO':
-      return {
-        ...state,
-        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, nome: action.nome } : g) }
           : p),
       }
     // Liga um acesso a outro nó (`novoAlimentaEm`) — por consequência do
