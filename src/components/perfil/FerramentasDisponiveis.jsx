@@ -7,31 +7,40 @@ import Icon from '../ui/Icon'
 import Loader from '../ui/Loader'
 import ArtePoster from './ArtePoster'
 
-// Pôster de ferramenta do hub: cada uma tem a sua composição (ver ArtePoster).
-// Liberada: chamada principal. Bloqueada: o pôster fica apagado, com cadeado e
-// caminho para os planos — a conta vê tudo o que existe, não só o que assinou.
-function Poster({ id, tag, titulo, descricao, liberado, acao }) {
+// Pôster do hub: a arte (badge + título) vem pronta; aqui entram só a descrição,
+// que sobe no hover, e o botão. Sem licença, o botão vira "Liberar Módulo" e o
+// cadeado abre no hover. `claro`: arte clara, então o botão em repouso é escuro.
+function Poster({ id, titulo, descricao, claro = false, liberado, acao, rotuloBloqueado = 'Ver planos' }) {
   return (
-    <article className={`poster poster-${id} ${liberado ? '' : 'is-locked'}`}>
-      <div className="poster-art"><ArtePoster id={id}/></div>
-      <div className="poster-top">
-        <span className="poster-tag">{tag}</span>
-        {!liberado && <span className="poster-lock" title="Fora da sua licença"><Icon name="lock" size={12}/></span>}
-      </div>
-      <h3 className="poster-title">{titulo}</h3>
+    <article className={`poster ${claro ? 'is-claro' : ''} ${liberado ? '' : 'is-locked'}`}>
+      <div className="poster-art"><ArtePoster id={id} titulo={titulo}/></div>
+      <h3 className="sr-only">{titulo}</h3>
       <div className="poster-foot">
         <p>{descricao}</p>
         {liberado ? acao : (
-          <Link to="/pricing" className="poster-btn"><Icon name="right" size={13}/> Ver planos</Link>
+          <Link to="/pricing" className="poster-btn">
+            <Icon name="lock" size={14} className="poster-ico-fechado"/>
+            <Icon name="lockOpen" size={14} className="poster-ico-aberto"/>
+            {rotuloBloqueado}
+          </Link>
         )}
       </div>
     </article>
   )
 }
 
-// "Suas ferramentas": todas as ferramentas da plataforma, assinadas ou não.
-// Memorial e Assinaturas rodam aqui na Web; Hidrantes e Saídas rodam no Revit,
-// pelo plugin (que também vem com o PRO).
+function Secao({ id, titulo, children }) {
+  return (
+    <section aria-labelledby={id}>
+      <div className="profile-section-heading"><h2 id={id}>{titulo}</h2></div>
+      {children}
+    </section>
+  )
+}
+
+// Hub de ferramentas e módulos. Ferramentas: o que roda na plataforma e o
+// plugin. Módulos: o que roda dentro do Revit (Hidrantes, Saídas) e a
+// biblioteca. Aparece tudo, assinado ou não.
 export default function FerramentasDisponiveis() {
   const { licencas } = useLicencas()
   const [baixando, setBaixando] = useState(false)
@@ -40,9 +49,6 @@ export default function FerramentasDisponiveis() {
   if (!licencas) {
     return <div className="flex items-center justify-center py-10"><Loader size={28}/></div>
   }
-
-  const hidrantes = temAcesso(licencas, 'hidrantes')
-  const saidas = temAcesso(licencas, 'saidas')
 
   async function baixarPlugin() {
     setBaixando(true)
@@ -57,54 +63,74 @@ export default function FerramentasDisponiveis() {
     window.location.assign(r.url)
   }
 
-  const botaoPlugin = (rotulo = 'Baixar plugin') => (
+  const botaoPlugin = (
     <button type="button" className="poster-btn" onClick={baixarPlugin} disabled={baixando}>
       {baixando
-        ? <><Icon name="spinner" size={13} className="animate-spin"/> Preparando…</>
-        : <><Icon name="download" size={13}/> {rotulo}</>}
+        ? <><Icon name="spinner" size={14} className="animate-spin"/> Preparando…</>
+        : <><Icon name="download" size={14}/> Baixar plugin</>}
     </button>
   )
+  const ir = (to, rotulo) => (
+    <Link to={to} className="poster-btn"><Icon name="right" size={14}/> {rotulo}</Link>
+  )
+
+  const hidrantes = temAcesso(licencas, 'hidrantes')
+  const saidas = temAcesso(licencas, 'saidas')
 
   return (
-    <>
-      <div className="poster-grid">
-        <Poster
-          id="memorial" tag="Plataforma web" titulo="Memorial Descritivo"
-          descricao="Cadastre a edificação, defina as medidas e gere o Memorial."
-          liberado={temAcesso(licencas, 'memorial')}
-          acao={<Link to="/projetos" className="poster-btn"><Icon name="right" size={13}/> Abrir projetos</Link>}
-        />
-        <Poster
-          id="hidrantes" tag="Revit" titulo="Hidrantes"
-          descricao="Rede, perdas de carga, pressão e vazão do hidrante crítico."
-          liberado={hidrantes}
-          acao={botaoPlugin('Instalar plugin')}
-        />
-        <Poster
-          id="saidas" tag="Revit" titulo="Saídas de emergência"
-          descricao="População, larguras e distâncias de percurso por pavimento."
-          liberado={saidas}
-          acao={botaoPlugin('Instalar plugin')}
-        />
-        <Poster
-          id="assinaturas" tag="Plataforma web" titulo="Assinaturas"
-          descricao="Assine pranchas e PDFs em lote, com o campo definido uma vez."
-          liberado={temAcesso(licencas, 'assinaturas')}
-          acao={<Link to="/assinaturas" className="poster-btn"><Icon name="right" size={13}/> Abrir assinaturas</Link>}
-        />
-        <Poster
-          id="plugin" tag="Instalador" titulo="Plugin para Revit"
-          descricao="FireUtils no seu modelo, sempre na versão mais recente."
-          liberado={hidrantes || saidas}
-          acao={botaoPlugin()}
-        />
-      </div>
+    <div className="hub-catalogo">
+      <Secao id="hub-ferramentas" titulo="Ferramentas">
+        <div className="poster-grid">
+          <Poster
+            id="memorial" titulo="Memorial Descritivo Automático"
+            descricao="Cadastre a edificação, e gere o Memorial automaticamente."
+            liberado={temAcesso(licencas, 'memorial')}
+            acao={ir('/projetos', 'Ir para Projetos')}
+          />
+          <Poster
+            id="assinaturas" titulo="Assinaturas em lote" claro
+            descricao="Assine várias pranchas e PDFs com um só clique."
+            liberado={temAcesso(licencas, 'assinaturas')}
+            acao={ir('/assinaturas', 'Ir para Assinaturas')}
+          />
+          <Poster
+            id="plugin" titulo="Plugin para Revit"
+            descricao="FireUtils conectando Modelo, Cálculo e Memorial no Revit."
+            liberado={hidrantes || saidas}
+            acao={botaoPlugin}
+          />
+        </div>
+      </Secao>
+
+      <Secao id="hub-modulos" titulo="Módulos">
+        <div className="poster-grid">
+          <Poster
+            id="hidrantes" titulo="Modelagem e cálculo de hidrantes no Revit"
+            descricao="Dimensione e modele sistemas de hidrantes e bombas com ferramentas automáticas."
+            liberado={hidrantes} rotuloBloqueado="Liberar Módulo"
+            acao={botaoPlugin}
+          />
+          <Poster
+            id="saidas" titulo="Cálculo de população no Revit"
+            descricao="Calcule a população por pavimento e dimensione larguras e rotas de saída."
+            liberado={saidas} rotuloBloqueado="Liberar Módulo"
+            acao={botaoPlugin}
+          />
+          {/* Ainda sem licença própria em MODULOS: fica bloqueado até existir. */}
+          <Poster
+            id="biblioteca" titulo="Biblioteca de famílias" claro
+            descricao="Carregue famílias Revit para dentro do seu template."
+            liberado={false} rotuloBloqueado="Liberar Módulo"
+          />
+        </div>
+      </Secao>
+
       {erroPlugin && (
-        <div className="ibox red mt-3" role="alert">
+        <div className="ibox red" role="alert">
           <Icon name="warn" size={13} color="var(--color-red)" className="shrink-0"/>
           <span className="text-xs">{erroPlugin}</span>
         </div>
       )}
-    </>
+    </div>
   )
 }
