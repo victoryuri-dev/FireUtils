@@ -29,6 +29,53 @@ function novoAmbienteId() {
   return `amb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }
 
+// Busca sem diferenciar maiúsculas/acentos ("deposito" acha "Depósito").
+const normalizar = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+function CampoBusca({ value, onChange, placeholder, className = '' }) {
+  return (
+    <div className={`flex items-center gap-2 rounded-md border border-solid border-border bg-transparent px-2.5 ${className}`}>
+      <Icon name="search" size={12} className="text-ink-faint shrink-0"/>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        className="nodrag nowheel flex-1 min-w-0 text-xs py-1.5 bg-transparent border-none outline-none text-ink"/>
+      {value && (
+        <button type="button" onClick={() => onChange('')} className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer p-0" title="Limpar busca">
+          <Icon name="x" size={11}/>
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Busca dentro de um box: procura entre os ambientes que NÃO estão nele
+// (soltos ou em outros boxes) e traz o escolhido pra dentro.
+function BuscaNoBox({ grupo }) {
+  const c = useContext(FluxoCtx)
+  const [busca, setBusca] = useState('')
+  const termo = normalizar(busca)
+  const nomeBox = new Map(c.grupos.map(g => [g.id, g.nome]))
+  const achados = termo
+    ? c.ambientes.filter(a => a.grupoId !== grupo.id && normalizar(a.nome).includes(termo))
+    : []
+  return (
+    <div className="flex flex-col gap-1.5">
+      <CampoBusca value={busca} onChange={setBusca} placeholder="Buscar ambiente para trazer ao box…"/>
+      {termo && (
+        <div className="nodrag nowheel flex flex-col gap-1 max-h-[140px] overflow-y-auto">
+          {achados.map(a => (
+            <button key={a.id} type="button" onClick={() => { c.moverParaBox([a.id], grupo.id); setBusca('') }}
+              className="flex items-center justify-between gap-2 text-left py-1.5 px-2.5 rounded-md border border-solid border-border-2 bg-surface hover:border-red cursor-pointer">
+              <span className="font-heading text-[12px] font-semibold text-ink truncate">{a.nome}</span>
+              <span className="text-[10px] text-ink-faint whitespace-nowrap shrink-0">{a.grupoId ? `em ${nomeBox.get(a.grupoId) || 'outro box'}` : 'sem box'}</span>
+            </button>
+          ))}
+          {achados.length === 0 && <div className="text-[11px] text-ink-faint italic px-1">Nenhum ambiente encontrado fora deste box.</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Quebra "ACESSO/DESCARGA" -> "ACESSO/" + quebra de linha + "DESCARGA"
 // (idem "ESCADA/RAMPA"). Sem "/", mostra o texto como veio (ex.: "Portas").
 function LabelQuebrado({ texto }) {
@@ -138,7 +185,8 @@ function GrupoNode({ data }) {
       </div>
       <div className="p-2.5 flex flex-col gap-2">
         {ambientes.map(a => <AmbienteLinha key={a.id} amb={a} noBox/>)}
-        {ambientes.length === 0 && <div className="text-[11px] text-ink-faint italic py-1 text-center">Arraste ambientes para cá.</div>}
+        {ambientes.length === 0 && <div className="text-[11px] text-ink-faint italic py-1 text-center">Arraste ou busque ambientes para trazê-los pra cá.</div>}
+        <BuscaNoBox grupo={grupo}/>
         <button className="nodrag btn-ghost justify-center" onClick={() => c.criarAmbiente(grupo.id)}><Icon name="plus" size={12}/> ADICIONAR AMBIENTE</button>
       </div>
       {!data.ligado && <div className="px-3 pb-2.5 text-[10px] text-ink-faint text-center">Sem ligação — acesso direto à área de relativa segurança</div>}
@@ -241,7 +289,9 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const wrapRef = useRef(null)
   const rf = useReactFlow()
 
+  const [filtroSoltos, setFiltroSoltos] = useState('')
   const soltos = ambientes.filter(a => !a.grupoId)
+  const soltosFiltrados = soltos.filter(a => normalizar(a.nome).includes(normalizar(filtroSoltos)))
   const nSaidas = Math.max(1, contarSaidasPavimento(acessos))
 
   // ── Seleção em massa / arrasto de ambientes ──
@@ -335,7 +385,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const ctx = {
     pavId: pav.id, dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
     toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
-    moverParaBox, removerGrupo, removerAcesso, dropProps,
+    moverParaBox, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
   }
 
   // ── Nós e setas a partir do estado do projeto ──
@@ -441,9 +491,13 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                 <div className="text-[13px] font-semibold text-ink">Ambientes sem box</div>
                 <div className="text-[11px] text-ink-faint mt-0.5">Arraste para um box. Fora de qualquer box, o ambiente tem acesso direto à área de relativa segurança — não gera pendência.</div>
               </div>
+              <div className="px-3 pt-3">
+                <CampoBusca value={filtroSoltos} onChange={setFiltroSoltos} placeholder="Filtrar ambientes sem box…"/>
+              </div>
               <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-                {soltos.map(a => <AmbienteLinha key={a.id} amb={a} noBox={false}/>)}
+                {soltosFiltrados.map(a => <AmbienteLinha key={a.id} amb={a} noBox={false}/>)}
                 {soltos.length === 0 && <div className="text-[11px] text-ink-faint italic">Todos os ambientes já estão em um box.</div>}
+                {soltos.length > 0 && soltosFiltrados.length === 0 && <div className="text-[11px] text-ink-faint italic">Nenhum ambiente sem box corresponde à busca.</div>}
               </div>
               <div className="p-3 border-t border-solid border-border flex flex-col gap-2">
                 <button className="btn-ghost justify-center" onClick={() => criarAmbiente(null)}><Icon name="plus" size={12}/> Adicionar Ambiente</button>
