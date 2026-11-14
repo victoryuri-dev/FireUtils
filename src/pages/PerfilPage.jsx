@@ -13,18 +13,20 @@ import CampoConselho from '../components/ui/CampoConselho'
 import './PerfilPage.css'
 
 
-// O perfil é o hub da conta: "Início" (ferramentas, licença, primeiros passos)
-// e "Meus dados" (formulário). A aba vive na URL (?aba=dados) para poder ser
-// linkada; qualquer outro valor — inclusive o antigo `ferramentas` — é o início.
+// O perfil é o hub da conta: "Início" (ferramentas e módulos, primeiros passos),
+// "Licenças" (o plano e o que ele libera) e "Meus dados" (formulário). A aba vive
+// na URL (?aba=dados) para poder ser linkada; qualquer outro valor — inclusive o
+// antigo `ferramentas` — é o início.
 const ABAS = [
   { id: 'inicio', rotulo: 'Início' },
+  { id: 'licencas', rotulo: 'Licenças' },
   { id: 'dados', rotulo: 'Meus dados' },
 ]
 
 export default function PerfilPage() {
   const { user } = useAuth()
   const [params, setParams] = useSearchParams()
-  const aba = params.get('aba') === 'dados' ? 'dados' : 'inicio'
+  const aba = ABAS.some(a => a.id === params.get('aba')) ? params.get('aba') : 'inicio'
   const irPara = id => setParams(id === 'inicio' ? {} : { aba: id }, { replace: true })
   const { perfil, erro, salvar } = usePerfil()
   // Copia local pro formulario: o usuario edita a vontade e so o botao grava.
@@ -87,15 +89,15 @@ export default function PerfilPage() {
               {perfil && !temDadosRT(perfil.responsavelTecnico) && (
                 <PrimeirosPassos onDados={() => irPara('dados')}/>
               )}
-              <section aria-labelledby="hub-tools-title">
-                <div className="profile-section-heading"><h2 id="hub-tools-title">Suas ferramentas</h2></div>
-                <FerramentasDisponiveis/>
-              </section>
-              <section aria-labelledby="hub-license-title">
-                <div className="profile-section-heading"><h2 id="hub-license-title">Sua licença</h2></div>
-                <LicencasAtivas/>
-              </section>
+              <FerramentasDisponiveis/>
             </div>
+          )}
+
+          {aba === 'licencas' && (
+            <section className="hub-home" aria-labelledby="hub-license-title">
+              <div className="profile-section-heading"><h2 id="hub-license-title">Sua licença</h2></div>
+              <LicencasAtivas/>
+            </section>
           )}
 
           {aba === 'dados' && (

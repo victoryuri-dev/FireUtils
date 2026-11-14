@@ -1,6 +1,6 @@
 .profile-overview-shell{display:flex;flex:1;min-width:0;overflow:hidden;background:var(--color-bg)}
 .profile-overview-scroll{flex:1;overflow-y:auto}
-.profile-overview{width:100%;padding:clamp(28px,3.5vw,58px) clamp(24px,4.5vw,76px) 72px}
+.profile-overview{width:100%;max-width:960px;margin-inline:auto;padding:clamp(28px,3.5vw,58px) clamp(24px,4.5vw,76px) 72px}
 .profile-overview-header{display:flex;align-items:flex-end;justify-content:space-between;gap:48px;padding-bottom:30px;border-bottom:1px solid var(--color-border)}
 .profile-overview-header h1{margin:0;color:var(--color-ink);font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,3vw,46px);font-weight:600;letter-spacing:-.045em;line-height:1}
 .profile-overview-header p{max-width:650px;margin:14px 0 0;color:var(--color-ink-faint);font-size:13px;line-height:1.65}
@@ -38,8 +38,6 @@
 
 /* Início: ferramentas à esquerda, licença à direita */
 .hub-home{display:flex;flex-direction:column;gap:44px;padding-top:32px}
-.hub-home-main{display:flex;flex-direction:column;gap:34px;min-width:0}
-.hub-home-aside{min-width:0}
 
 /* Cartões de ferramenta */
 
@@ -54,7 +52,7 @@
 .hub-step-n{display:grid;width:26px;height:26px;flex:0 0 26px;place-items:center;border:1px solid rgba(234,19,48,.5);border-radius:50%;color:#f0445b;font-size:12px;font-weight:600}
 
 /* Licença */
-.hub-licenses{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,1.4fr);align-items:start;gap:14px}.hub-licenses>.ibox,.hub-licenses>.profile-empty{grid-column:1/-1}
+.hub-licenses{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.3fr);align-items:start;gap:14px}.hub-licenses>.ibox,.hub-licenses>.profile-empty{grid-column:1/-1}
 .hub-license-pro{padding:20px;border:1px solid rgba(234,19,48,.46);border-radius:var(--radius-lg);background:linear-gradient(145deg,#2a1017 0%,#171218 44%,#111116 100%)}
 .hub-license-pro-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .hub-license-pro-head h3{flex:1;margin:0;color:#f7f5f6;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:600}
@@ -77,7 +75,7 @@
 
 /* Pôsteres: a arte traz badge e título; a UI é a descrição (hover) e o botão */
 .hub-catalogo{display:flex;flex-direction:column;gap:40px}
-.poster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,233px));gap:16px}
+.poster-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 .poster{--p-btn-bg:#fff;--p-btn-fg:#0E0F13;position:relative;display:flex;flex-direction:column;justify-content:flex-end;aspect-ratio:240/340;min-width:0;overflow:hidden;border-radius:var(--radius-lg);background:#0B0C10;isolation:isolate}
 .poster.is-claro{--p-btn-bg:#0E0F13;--p-btn-fg:#fff}
 .poster-art{position:absolute;inset:0;z-index:-2}
@@ -98,5 +96,5 @@
 .poster:hover .poster-ico-aberto,.poster:focus-within .poster-ico-aberto{display:inline-block}
 /* toque: sem hover, só a arte e o botão */
 @media(hover:none){.poster::before{display:none}.poster-foot p{display:none}.poster-btn{background:var(--p-btn-bg)!important;color:var(--p-btn-fg)!important}}
-@media(max-width:560px){.poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.poster-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
 @media(prefers-reduced-motion:reduce){.poster::before,.poster-foot p{transition:none}}

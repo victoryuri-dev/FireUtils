@@ -17,7 +17,7 @@ export default function SemLicenca({ titulo, texto }) {
         </div>
         <h1 className="text-xl font-bold text-ink mb-2">{titulo}</h1>
         <p className="text-[13px] text-ink-faint leading-[1.6] mb-5">{erro || texto}</p>
-        <button className="btn-primary" onClick={() => navigate('/perfil?aba=ferramentas')}>
+        <button className="btn-primary" onClick={() => navigate('/perfil?aba=licencas')}>
           <Icon name="settings" size={13}/> Ver minhas licenças
         </button>
       </div>
