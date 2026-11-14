@@ -9,7 +9,7 @@ import ArtePoster from './ArtePoster'
 
 // Pôster do hub: a arte (badge + título) vem pronta; aqui entram só a descrição,
 // que sobe no hover, e o botão. Sem licença, o botão vira "Liberar Módulo" e o
-// cadeado abre no hover. `claro`: arte clara, então o botão em repouso é escuro.
+// cadeado abre no hover. `claro`: botão em repouso escuro (artes claras e o Memorial).
 function Poster({ id, titulo, descricao, claro = false, liberado, acao, rotuloBloqueado = 'Ver planos' }) {
   return (
     <article className={`poster ${claro ? 'is-claro' : ''} ${liberado ? '' : 'is-locked'}`}>
@@ -82,7 +82,7 @@ export default function FerramentasDisponiveis() {
       <Secao id="hub-ferramentas" titulo="Ferramentas">
         <div className="poster-grid">
           <Poster
-            id="memorial" titulo="Memorial Descritivo Automático"
+            id="memorial" titulo="Memorial Descritivo Automático" claro
             descricao="Cadastre a edificação, e gere o Memorial automaticamente."
             liberado={temAcesso(licencas, 'memorial')}
             acao={ir('/projetos', 'Ir para Projetos')}
