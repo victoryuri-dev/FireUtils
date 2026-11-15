@@ -8,6 +8,7 @@ import '@xyflow/react/dist/style.css'
 import Icon from '../../components/ui/Icon'
 import Checkbox from '../../components/ui/Checkbox'
 import InlineEditableNome from '../../components/ui/InlineEditableNome'
+import ConfirmacaoModal from '../../components/ui/ConfirmacaoModal'
 import { AmbienteForm, fmtM } from './se_shared'
 import {
   calcPopAmb, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
@@ -625,16 +626,25 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     setEditAmb(prev => ({ ...prev, nome }))
   }
 
+  // Confirmação de remover grupo/nó: caixa do próprio site (ConfirmacaoModal).
+  const [confirmacao, setConfirmacao] = useState(null)
   const removerGrupo = grupo => {
     const n = ambientes.filter(a => a.grupoId === grupo.id).length
-    if (n > 0 && !window.confirm(`Remover o grupo "${grupo.nome}"? Os ${n} ambiente(s) dentro dele voltarão pra lista de ambientes, mas não serão apagados.`)) return
-    dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pavDe.get(grupo.id), grupoId: grupo.id })
+    const remover = () => dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pavDe.get(grupo.id), grupoId: grupo.id })
+    if (n === 0) { remover(); return }
+    setConfirmacao({
+      titulo: `Remover o grupo "${grupo.nome}"?`,
+      texto: `Os ${n} ambiente${n > 1 ? 's' : ''} dentro dele voltarão pra lista de ambientes, mas não serão apagados.`,
+      rotulo: 'Remover grupo', onConfirmar: remover,
+    })
   }
   const removerAcesso = acesso => {
     if (acesso.fixo) return
-    if (window.confirm(`Remover "${acesso.nome}"? O que alimentava este nó ficará sem ligação, mas não será apagado.`)) {
-      dispatch({ type: 'REMOVER_ACESSO', pavimentoId: pavDe.get(acesso.id), acessoId: acesso.id })
-    }
+    setConfirmacao({
+      titulo: `Remover "${acesso.nome}"?`,
+      texto: 'O que alimentava este nó ficará sem ligação, mas não será apagado.',
+      rotulo: 'Remover', onConfirmar: () => dispatch({ type: 'REMOVER_ACESSO', pavimentoId: pavDe.get(acesso.id), acessoId: acesso.id }),
+    })
   }
 
   // Props de uma zona que recebe ambientes arrastados (grupo ou lista de soltos).
@@ -939,6 +949,11 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
           </div>
         </FluxoCtx.Provider>
       </div>
+
+      {confirmacao && (
+        <ConfirmacaoModal titulo={confirmacao.titulo} texto={confirmacao.texto} rotuloConfirmar={confirmacao.rotulo} perigo
+          onConfirmar={() => { confirmacao.onConfirmar(); setConfirmacao(null) }} onCancelar={() => setConfirmacao(null)}/>
+      )}
 
       {editAmb && (
         // stopPropagation aqui: esse overlay fica DENTRO do overlay do popup
