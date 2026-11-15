@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Panel, Position, MarkerType,
-  applyNodeChanges, useConnection, useReactFlow,
+  applyNodeChanges, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import Icon from '../../components/ui/Icon'
@@ -157,20 +157,21 @@ function AmbienteLinha({ amb, noGrupo }) {
 }
 
 // ── Alças de ligação ───────────────────────────────────────────────────
-// Cada nó tem alças nos quatro lados (em cima, embaixo, esquerda, direita):
-// a vermelha (origem) é por onde a seta SAI, a cinza (destino) por onde ela
-// CHEGA. As duas ficam lado a lado em cada lado do nó. Ficam ocultas até o
-// usuário interagir com o nó (passar o mouse, selecionar) ou estar
-// arrastando uma ligação — ver `.fluxo-saidas` em index.css. Uma seta já
-// ligada não depende de qual alça o usuário usou: ela sai e chega sempre
-// pelos lados mais próximos entre os dois nós (ver ladosMaisProximos).
+// A alça vermelha (origem) é por onde o usuário puxa a seta — nos quatro
+// lados, só visível com o mouse sobre o nó ou o nó selecionado (ver
+// `.fluxo-saidas` em index.css). O destino não precisa de alça: o usuário
+// solta a seta em qualquer ponto do corpo do nó (ver `terminarLigacao`). As
+// alças de destino existem só pro React Flow ter onde encaixar a ponta da
+// seta (ficam invisíveis e não recebem clique). A seta sai e chega sempre
+// pelos lados mais próximos entre os dois nós (ver ladosMaisProximos), não
+// importa de qual alça o usuário puxou.
 const LADOS = [['top', Position.Top], ['right', Position.Right], ['bottom', Position.Bottom], ['left', Position.Left]]
 function Alcas({ origem, destino }) {
   return LADOS.flatMap(([lado, posicao]) => {
     const deslocar = pct => (lado === 'top' || lado === 'bottom' ? { left: pct } : { top: pct })
     return [
       origem && <Handle key={`s-${lado}`} id={`s-${lado}`} type="source" position={posicao} style={deslocar(destino ? '35%' : '50%')} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>,
-      destino && <Handle key={`t-${lado}`} id={`t-${lado}`} type="target" position={posicao} style={deslocar(origem ? '65%' : '50%')} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>,
+      destino && <Handle key={`t-${lado}`} id={`t-${lado}`} type="target" position={posicao} isConnectable={false} style={deslocar(origem ? '65%' : '50%')} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>,
     ]
   })
 }
@@ -229,10 +230,11 @@ const TOM_TIPO = {
 function AcessoNode({ data }) {
   const c = useContext(FluxoCtx)
   const { acesso, tipo, dims, pop, entradas, raiz } = data
+  const alvoValido = c.podeReceberLigacao(acesso.id)
   const dispatch = c.dispatch
   const toggleDim = d => dispatch({ type: 'SET_ACESSO_DIM', pavimentoId: c.pavId, acessoId: acesso.id, dim: d, valor: !dims[d] })
   return (
-    <div className={`w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
+    <div className={`${alvoValido ? 'alvo-valido' : ''} w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 bg-surface-2 rounded-t-lg cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
@@ -306,7 +308,11 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const [alvoSelecao, setAlvoSelecao] = useState('')
   const wrapRef = useRef(null)
   const rf = useReactFlow()
-  const conexao = useConnection()
+  // Id de quem está sendo puxado agora (null = nenhuma ligação em andamento);
+  // os nós que podem receber a seta se destacam. Vem de onConnectStart/End, não
+  // de useConnection(): esse hook re-renderiza a cada movimento do ponteiro e,
+  // junto com as props novas a cada render do <ReactFlow>, entra em loop.
+  const [origemLigacao, setOrigemLigacao] = useState(null)
 
   const [filtroSoltos, setFiltroSoltos] = useState('')
   const soltos = ambientes.filter(a => !a.grupoId)
@@ -405,6 +411,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     pavId: pav.id, dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
     toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
     moverParaGrupo, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
+    podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
 
   // ── Nós e setas a partir do estado do projeto ──
@@ -481,6 +488,14 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const origem = acessos.find(a => a.id === source)
     return !!origem && origem.tipo === 'acesso' && !criaCicloNoFluxo(acessos, origem.id, destino.id)
   }
+  // O destino é o nó sob o ponteiro quando o usuário solta a seta — corpo do
+  // nó inteiro, sem alça de recepção.
+  const terminarLigacao = (evento, estado) => {
+    setOrigemLigacao(null)
+    const ponto = evento.changedTouches?.[0] ?? evento
+    const alvo = document.elementFromPoint(ponto.clientX, ponto.clientY)?.closest('.react-flow__node')?.getAttribute('data-id')
+    if (alvo && estado.fromNode) ligar({ source: estado.fromNode.id, target: alvo })
+  }
   const ligar = ({ source, target }) => {
     if (!conexaoValida({ source, target })) return
     if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target })
@@ -549,7 +564,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
             </aside>
 
             {/* Área de trabalho */}
-            <div ref={wrapRef} className={`fluxo-saidas flex-1 min-w-0 relative ${conexao.inProgress ? 'conectando' : ''}`}>
+            <div ref={wrapRef} className={`fluxo-saidas flex-1 min-w-0 relative ${origemLigacao ? 'conectando' : ''}`}>
               <ReactFlow
                 nodes={nodes} edges={edges} nodeTypes={nodeTypes}
                 onNodesChange={changes => setNodes(ns => applyNodeChanges(changes, ns))}
@@ -557,7 +572,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                   type: 'SET_POSICOES_FLUXO', pavimentoId: pav.id,
                   posicoes: Object.fromEntries(arrastados.map(n => [n.id, arredondar(n.position)])),
                 })}
-                isValidConnection={conexaoValida} onConnect={ligar}
+                onConnectStart={(_, { nodeId }) => setOrigemLigacao(nodeId)} onConnectEnd={terminarLigacao}
                 onEdgesDelete={desligar}
                 // Delete só desliga a seta selecionada — nó some pelo botão de
                 // lixeira (com confirmação), nunca por um Delete solto, e
@@ -583,7 +598,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                   </Panel>
                 )}
                 <Panel position="bottom-center" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
-                  Passe o mouse num nó para ver as alças: arraste da vermelha (saída) até a cinza (entrada) de outro nó para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
+                  Passe o mouse num nó, arraste a alça vermelha e solte em cima de outro nó para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
                 </Panel>
               </ReactFlow>
             </div>

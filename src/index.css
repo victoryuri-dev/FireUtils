@@ -494,9 +494,15 @@
 }
 .fluxo-saidas .react-flow__edge-path { stroke-width: 2; }
 .fluxo-saidas .react-flow__marker path { fill: var(--color-ink-faint); stroke: var(--color-ink-faint); }
-/* Alças de ligação ocultas até haver interação com o nó (mouse em cima,
-   nó selecionado) ou uma ligação sendo arrastada. */
+/* Alça de saída (vermelha) só aparece com o mouse sobre o nó ou o nó
+   selecionado; as alças de destino ficam sempre invisíveis (a seta é solta
+   no corpo do nó). */
 .fluxo-saidas .react-flow__handle { opacity: 0; transition: opacity .15s; }
-.fluxo-saidas .react-flow__node:hover .react-flow__handle,
-.fluxo-saidas .react-flow__node.selected .react-flow__handle,
-.fluxo-saidas.conectando .react-flow__handle { opacity: 1; }
+.fluxo-saidas .react-flow__node:hover .react-flow__handle.source,
+.fluxo-saidas .react-flow__node.selected .react-flow__handle.source { opacity: 1; }
+.fluxo-saidas .react-flow__handle.target { pointer-events: none; }
+/* Nó que pode receber a seta que está sendo arrastada. */
+.fluxo-saidas.conectando .alvo-valido:hover { outline: 2px solid var(--color-red); outline-offset: 2px; }
+/* Durante o arrasto de uma seta, nenhuma alça aparece nos nós de destino —
+   só a que está sendo puxada. */
+.fluxo-saidas.conectando .react-flow__node .react-flow__handle.source:not(.connectingfrom) { opacity: 0; }
