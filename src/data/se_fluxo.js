@@ -4,8 +4,8 @@
 // antes do fluxograma existir. Funções puras, sem React — o cálculo em si
 // continua em se_calc.js.
 //
-//   pavimento.grupos   = [{ id, acessoId: string|null }]
-//     -- box de ambientes (sem nome — só agrupa; a tela o numera pela ordem): agrupa ambientes e liga o conjunto a UM nó
+//   pavimento.grupos   = [{ id, nome, acessoId: string|null }]
+//     -- box de ambientes: agrupa ambientes e liga o conjunto a UM nó
 //        (acesso/saída/escada). `acessoId` null = box ainda sem ligação.
 //   ambiente.grupoId   : string|null   -- box em que o ambiente está.
 //   ambiente.acessoId  : string|null   -- sempre igual ao `acessoId` do box
@@ -89,15 +89,15 @@ export function migrarFluxoPavimento(p) {
   const acessos = (p.acessos || []).map(ac => ac.tipo ? ac : { ...ac, tipo: tipoNo(ac, p.pisoDescarga) })
   const grupos = [...(p.grupos || [])]
   const idsGrupo = new Set(grupos.map(g => g.id))
-  const idsAcesso = new Set(acessos.map(ac => ac.id))
+  const nomePorAcesso = new Map(acessos.map(ac => [ac.id, ac.nome]))
 
   const ambientes = (p.ambientes || []).map(a => {
     if (a.grupoId && idsGrupo.has(a.grupoId)) return a
-    if (a.acessoId && idsAcesso.has(a.acessoId)) {
+    if (a.acessoId && nomePorAcesso.has(a.acessoId)) {
       const grupoId = `grp-mig-${a.acessoId}`
       if (!idsGrupo.has(grupoId)) {
         idsGrupo.add(grupoId)
-        grupos.push({ id: grupoId, acessoId: a.acessoId })
+        grupos.push({ id: grupoId, nome: `Ambientes — ${nomePorAcesso.get(a.acessoId)}`, acessoId: a.acessoId })
       }
       return { ...a, grupoId }
     }

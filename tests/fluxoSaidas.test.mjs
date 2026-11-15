@@ -80,7 +80,7 @@ test('ciclo: ligar um acesso ao próprio descendente é rejeitado', () => {
 })
 
 test('ligar um box a um acesso propaga acessoId pros ambientes dentro dele', () => {
-  let s = estado(pavBase({ grupos: [{ id: 'g1', acessoId: null }], ambientes: [amb('m1', 'g1'), amb('m2')] }))
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Box', acessoId: null }], ambientes: [amb('m1', 'g1'), amb('m2')] }))
   s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1' })
   assert.deepEqual(pavDe(s).ambientes.map(a => a.acessoId), ['a1', null])
   // Mover ambiente solto pra dentro do box herda a ligação; tirar do box solta.
@@ -94,14 +94,14 @@ test('ligar um box a um acesso propaga acessoId pros ambientes dentro dele', () 
 })
 
 test('ambiente novo dentro de um box já nasce ligado', () => {
-  let s = estado(pavBase({ grupos: [{ id: 'g1', acessoId: 'a1' }] }))
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Box', acessoId: 'a1' }] }))
   s = reducer(s, { type: 'ADD_AMBIENTE_SE', pavimentoId: 'p1', id: 'n1', ambiente: { nome: 'Novo', grupoId: 'g1' } })
   assert.equal(pavDe(s).ambientes[0].acessoId, 'a1')
 })
 
 test('remover acesso desliga boxes e deixa os ambientes sem ligação (nada é apagado)', () => {
   let s = estado(pavBase({
-    grupos: [{ id: 'g1', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')],
+    grupos: [{ id: 'g1', nome: 'Box', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')],
     acessos: [
       { id: 's1', nome: 'Saída', tipo: 'saida', alimentaEm: null },
       { id: 'a1', nome: 'Acesso', tipo: 'acesso', alimentaEm: 's1' },
@@ -119,7 +119,7 @@ test('remover acesso desliga boxes e deixa os ambientes sem ligação (nada é a
 })
 
 test('remover box solta os ambientes; trocar o tipo do nó reinicia dims e desliga a saída seguinte', () => {
-  let s = estado(pavBase({ grupos: [{ id: 'g1', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')] }))
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Box', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')] }))
   s = reducer(s, { type: 'REMOVER_GRUPO', pavimentoId: 'p1', grupoId: 'g1' })
   assert.deepEqual([pavDe(s).grupos.length, pavDe(s).ambientes[0].grupoId, pavDe(s).ambientes[0].acessoId], [0, null, null])
   s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'p1', acessoId: 'a1', tipo: 'escada' })
@@ -131,7 +131,7 @@ test('remover box solta os ambientes; trocar o tipo do nó reinicia dims e desli
 test('criar nós grava tipo, dimensionamento padrão e posição', () => {
   let s = estado(pavBase())
   s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'p1', id: 'n1', tipo: 'escada', nome: 'Escada 02', pos: { x: 5, y: 6 } })
-  s = reducer(s, { type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: 'p1', id: 'g9', pos: { x: 1, y: 2 }, ambienteIds: [] })
+  s = reducer(s, { type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: 'p1', id: 'g9', nome: 'Box 9', pos: { x: 1, y: 2 }, ambienteIds: [] })
   const p = pavDe(s)
   assert.deepEqual(p.acessos.find(a => a.id === 'n1'), { id: 'n1', nome: 'Escada 02', tipo: 'escada', alimentaEm: null, dims: { AD: false, ER: true, PT: true } })
   assert.deepEqual([p.fluxoPos.n1, p.fluxoPos.g9], [{ x: 5, y: 6 }, { x: 1, y: 2 }])
@@ -140,7 +140,7 @@ test('criar nós grava tipo, dimensionamento padrão e posição', () => {
 
 test('dimensionamento: população de um box ligado soma no acesso e na saída', () => {
   const taxa = { 'C-1': { A: 3 } }
-  let s = estado(pavBase({ grupos: [{ id: 'g1', acessoId: null }], ambientes: [{ ...amb('m1', 'g1'), popTipo: 'manual', popManual: 40 }] }))
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Box', acessoId: null }], ambientes: [{ ...amb('m1', 'g1'), popTipo: 'manual', popManual: 40 }] }))
   s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1' })
   const p = pavDe(s)
   assert.equal(calc.calcPopAcesso('a1', p.ambientes, p.acessos, taxa), 40)
