@@ -52,35 +52,6 @@ function CampoBusca({ value, onChange, placeholder, className = '' }) {
   )
 }
 
-// Busca dentro de um grupo: procura entre os ambientes que NÃO estão nele
-// (soltos ou em outros grupos) e traz o escolhido pra dentro.
-function BuscaNoGrupo({ grupo }) {
-  const c = useContext(FluxoCtx)
-  const [busca, setBusca] = useState('')
-  const termo = normalizar(busca)
-  const nomeGrupo = new Map(c.grupos.map(g => [g.id, g.nome]))
-  const achados = termo
-    ? c.ambientes.filter(a => a.grupoId !== grupo.id && normalizar(a.nome).includes(termo))
-    : []
-  return (
-    <div className="flex flex-col gap-1.5">
-      <CampoBusca value={busca} onChange={setBusca} placeholder="Buscar ambiente para trazer ao grupo…"/>
-      {termo && (
-        <div className="nodrag nowheel flex flex-col gap-1 max-h-[140px] overflow-y-auto">
-          {achados.map(a => (
-            <button key={a.id} type="button" onClick={() => { c.moverParaGrupo([a.id], grupo.id); setBusca('') }}
-              className="flex items-center justify-between gap-2 text-left py-1.5 px-2.5 rounded-md border border-solid border-border-2 bg-surface hover:border-red cursor-pointer">
-              <span className="font-heading text-[12px] font-semibold text-ink truncate">{a.nome}</span>
-              <span className="text-[10px] text-ink-faint whitespace-nowrap shrink-0">{a.grupoId ? `em ${nomeGrupo.get(a.grupoId) || 'outro grupo'}` : 'sem grupo'}</span>
-            </button>
-          ))}
-          {achados.length === 0 && <div className="text-[11px] text-ink-faint italic px-1">Nenhum ambiente encontrado fora deste grupo.</div>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Quebra "ACESSO/DESCARGA" -> "ACESSO/" + quebra de linha + "DESCARGA"
 // (idem "ESCADA/RAMPA"). Sem "/", mostra o texto como veio (ex.: "Portas").
 function LabelQuebrado({ texto }) {
@@ -246,8 +217,7 @@ function GrupoNode({ data }) {
       </div>
       <div className="p-2.5 flex flex-col gap-2">
         {ambientes.map(a => <AmbienteLinha key={a.id} amb={a} noGrupo/>)}
-        {ambientes.length === 0 && <div className="text-[11px] text-ink-faint italic py-1 text-center">Arraste ou busque ambientes para trazê-los pra cá.</div>}
-        <BuscaNoGrupo grupo={grupo}/>
+        {ambientes.length === 0 && <div className="text-[11px] text-ink-faint italic py-1 text-center">Arraste ambientes para trazê-los pra cá.</div>}
         <button className="nodrag btn-ghost justify-center" onClick={() => c.criarAmbiente(grupo.id)}><Icon name="plus" size={12}/> ADICIONAR AMBIENTE</button>
       </div>
       {!data.ligado && <div className="px-3 pb-2.5 text-[10px] text-ink-faint text-center">Sem ligação — acesso direto à área de relativa segurança</div>}
@@ -721,7 +691,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   const ctx = {
     pavAtivoId, pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
     toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
-    moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
+    moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps,
     noQuente: id => !!caminhoQuente?.nos.includes(id),
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
@@ -866,13 +836,13 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
         <FluxoCtx.Provider value={ctx}>
           <div className="flex flex-1 min-h-0">
 
-            {/* Ambientes fora da área */}
+            {/* Ambientes (lista lateral) */}
             <aside {...dropProps(null, setSobreSoltos)}
               className={`w-[320px] shrink-0 flex flex-col border-r border-solid transition-colors ${sobreSoltos ? 'border-red bg-[rgba(192,21,42,.05)]' : 'border-border'}`}
             >
               <div className="p-3.5 border-b border-solid border-border">
-                <div className="text-[13px] font-semibold text-ink">Ambientes fora da área</div>
-                <div className="text-[11px] text-ink-faint mt-0.5">Arraste para a faixa do mesmo pavimento (ambiente solto, sem grupo) ou para um grupo dele. Sem ligação a um acesso, o ambiente tem acesso direto à área de relativa segurança — não gera pendência.</div>
+                <div className="text-[13px] font-semibold text-ink">Ambientes</div>
+                <div className="text-[11px] text-ink-faint mt-0.5">Ambientes nesta lista serão considerados com comunicação direta para uma área segura.</div>
               </div>
               <div className="px-3 pt-3">
                 <CampoBusca value={filtroSoltos} onChange={setFiltroSoltos} placeholder="Filtrar ambientes da lista…"/>
@@ -953,9 +923,6 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                     <button className="btn-ghost" onClick={() => desligar(edges.filter(e => e.id === setaSelecionada))}><Icon name="x" size={12}/> Desligar seta selecionada</button>
                   </Panel>
                 )}
-                <Panel position="bottom-center" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
-                  Passe o mouse num nó, arraste a alça vermelha e solte em cima de outro nó para ligar · saídas e escadas também se ligam às de outros pavimentos (tracejado) · clique numa seta e tecle Delete (ou use o botão) para desligar
-                </Panel>
               </ReactFlow>
               {menu && (
                 <div style={{ left: menu.x, top: menu.y }} onContextMenu={e => e.preventDefault()}
