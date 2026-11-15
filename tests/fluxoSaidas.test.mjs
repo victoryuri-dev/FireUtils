@@ -150,3 +150,14 @@ test('dimensionamento: população de um grupo ligado soma no acesso e na saída
   assert.equal(calc.calcPopAcesso('a1', p.ambientes, p.acessos, taxa), 40)
   assert.equal(calc.calcPopAcesso('s1', p.ambientes, p.acessos, taxa), 40)
 })
+
+test('setas guardam o lado por onde saem e chegam; desligar ou remover apaga', () => {
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Grupo 1', acessoId: null }] }))
+  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1', lados: { de: 'bottom', para: 'top' } })
+  s = reducer(s, { type: 'MOVER_ACESSO', pavimentoId: 'p1', acessoId: 'a1', novoAlimentaEm: 's1', lados: { de: 'left', para: 'right' } })
+  assert.deepEqual(pavDe(s).fluxoLados, { g1: { de: 'bottom', para: 'top' }, a1: { de: 'left', para: 'right' } })
+  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: null })
+  assert.deepEqual(pavDe(s).fluxoLados, { a1: { de: 'left', para: 'right' } })
+  s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'p1', acessoId: 'a1' })
+  assert.deepEqual(pavDe(s).fluxoLados, {})
+})

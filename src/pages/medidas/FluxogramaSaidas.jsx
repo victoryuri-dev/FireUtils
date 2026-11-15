@@ -156,6 +156,23 @@ function AmbienteLinha({ amb, noGrupo }) {
   )
 }
 
+// ── Alças de ligação ───────────────────────────────────────────────────
+// Cada nó tem alças nos quatro lados (em cima, embaixo, esquerda, direita):
+// a vermelha (origem) é por onde a seta SAI, a cinza (destino) por onde ela
+// CHEGA. As duas ficam lado a lado em cada lado do nó. O id da alça
+// (`s-<lado>` / `t-<lado>`) diz qual lado a seta usa — e isso é salvo
+// (ver `fluxoLados` em se_fluxo.js).
+const LADOS = [['top', Position.Top], ['right', Position.Right], ['bottom', Position.Bottom], ['left', Position.Left]]
+function Alcas({ origem, destino }) {
+  return LADOS.flatMap(([lado, posicao]) => {
+    const deslocar = pct => (lado === 'top' || lado === 'bottom' ? { left: pct } : { top: pct })
+    return [
+      origem && <Handle key={`s-${lado}`} id={`s-${lado}`} type="source" position={posicao} style={deslocar(destino ? '35%' : '50%')} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>,
+      destino && <Handle key={`t-${lado}`} id={`t-${lado}`} type="target" position={posicao} style={deslocar(origem ? '65%' : '50%')} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>,
+    ]
+  })
+}
+
 // ── Grupo de ambientes ───────────────────────────────────────────────────
 // Agrupa ambientes e liga o conjunto a UM nó (seta pela alça da direita).
 // Grupo sem ligação = ambientes com acesso direto à área de relativa
@@ -190,7 +207,7 @@ function GrupoNode({ data }) {
         <button className="nodrag btn-ghost justify-center" onClick={() => c.criarAmbiente(grupo.id)}><Icon name="plus" size={12}/> ADICIONAR AMBIENTE</button>
       </div>
       {!data.ligado && <div className="px-3 pb-2.5 text-[10px] text-ink-faint text-center">Sem ligação — acesso direto à área de relativa segurança</div>}
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>
+      <Alcas origem/>
     </div>
   )
 }
@@ -247,8 +264,7 @@ function AcessoNode({ data }) {
       {!raiz && tipo === 'acesso' && !acesso.alimentaEm && (
         <div className="px-3 pb-2.5 text-[10px] text-amber text-center">Sem ligação a uma saída ou escada/rampa</div>
       )}
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>
-      {tipo === 'acesso' && <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>}
+      <Alcas origem={tipo === 'acesso'} destino/>
     </div>
   )
 }
@@ -433,14 +449,18 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
 
   // Seta selecionada (clique) — a única coisa que Delete/"Desligar" apaga.
   const [setaSelecionada, setSetaSelecionada] = useState(null)
+  const fluxoLados = pav.fluxoLados
   const edges = useMemo(() => {
     const existe = new Set(acessos.map(a => a.id))
     const liga = [
       ...grupos.filter(g => existe.has(g.acessoId)).map(g => ({ id: `e-${g.id}`, source: g.id, target: g.acessoId })),
       ...acessos.filter(a => existe.has(a.alimentaEm)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.alimentaEm })),
     ]
-    return liga.map(e => ({ ...e, type: 'smoothstep', selected: e.id === setaSelecionada, markerEnd: { type: MarkerType.ArrowClosed }, style: { strokeWidth: 2 } }))
-  }, [grupos, acessos, setaSelecionada])
+    return liga.map(e => ({
+      ...e, sourceHandle: `s-${fluxoLados?.[e.id.slice(2)]?.de || 'right'}`, targetHandle: `t-${fluxoLados?.[e.id.slice(2)]?.para || 'left'}`,
+      type: 'smoothstep', selected: e.id === setaSelecionada, markerEnd: { type: MarkerType.ArrowClosed }, style: { strokeWidth: 2 },
+    }))
+  }, [grupos, acessos, fluxoLados, setaSelecionada])
 
   // Cada nó alimenta no máximo UM seguinte; origem = grupo ou acesso (saída/
   // escada não têm alça de saída), destino = acesso/saída/escada, sem ciclo.
@@ -452,10 +472,11 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const origem = acessos.find(a => a.id === source)
     return !!origem && origem.tipo === 'acesso' && !criaCicloNoFluxo(acessos, origem.id, destino.id)
   }
-  const ligar = ({ source, target }) => {
+  const ligar = ({ source, target, sourceHandle, targetHandle }) => {
     if (!conexaoValida({ source, target })) return
-    if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target })
-    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: source, novoAlimentaEm: target })
+    const lados = { de: sourceHandle?.split('-')[1] || 'right', para: targetHandle?.split('-')[1] || 'left' }
+    if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target, lados })
+    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: source, novoAlimentaEm: target, lados })
   }
   const desligar = removidas => removidas.forEach(e => {
     setSetaSelecionada(null)
@@ -553,8 +574,8 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                     <button className="btn-ghost" onClick={() => desligar(edges.filter(e => e.id === setaSelecionada))}><Icon name="x" size={12}/> Desligar seta selecionada</button>
                   </Panel>
                 )}
-                <Panel position="top-right" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
-                  Arraste da alça vermelha de um nó até outro para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
+                <Panel position="bottom-center" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
+                  Arraste da alça vermelha (saída) até a alça cinza (entrada) de outro nó, em qualquer lado, para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
                 </Panel>
               </ReactFlow>
             </div>

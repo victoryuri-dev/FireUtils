@@ -11,6 +11,10 @@
 //   ambiente.acessoId  : string|null   -- sempre igual ao `acessoId` do grupo
 //        (o reducer mantém sincronizado, ver sincronizarAmbientes) — é o que
 //        o motor de cálculo e o memorial leem.
+//   pavimento.fluxoLados = { [idDaOrigem]: { de, para } }
+//     -- por qual lado (top|right|bottom|left) cada seta sai da origem e chega
+//        ao destino; sem entrada vale o padrão (sai pela direita, chega pela
+//        esquerda).
 //   pavimento.fluxoPos = { [idDoNo]: { x, y } }
 //     -- posição de cada grupo e de cada acesso/saída/escada na área de trabalho.
 
