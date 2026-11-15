@@ -209,3 +209,14 @@ test('migração não transforma em grupo o ambiente solto na área que está li
   assert.deepEqual([recarregado.ambientes[0].grupoId, recarregado.ambientes[0].acessoId], [null, 'a1'])
   assert.deepEqual(fluxo.migrarFluxoPavimento(recarregado), recarregado)
 })
+
+test('agrupar ambientes soltos: grupo novo no lugar do alvo, herdando a ligação, sem posições soltas', () => {
+  let s = estado(pavBase({ ambientes: [amb('m1'), amb('m2')] }))
+  s = reducer(s, { type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: 'p1', posicoes: { m1: { x: 10, y: 10 }, m2: { x: 300, y: 10 } } })
+  s = reducer(s, { type: 'LIGAR_AMBIENTE', pavimentoId: 'p1', ambienteId: 'm1', acessoId: 'a1' })
+  s = reducer(s, { type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: 'p1', id: 'g7', nome: 'Grupo 1', pos: { x: 10, y: 10 }, acessoId: 'a1', ambienteIds: ['m1', 'm2'] })
+  const p = pavDe(s)
+  assert.deepEqual(p.grupos, [{ id: 'g7', nome: 'Grupo 1', acessoId: 'a1' }])
+  assert.deepEqual(p.ambientes.map(a => [a.grupoId, a.acessoId]), [['g7', 'a1'], ['g7', 'a1']])
+  assert.deepEqual(p.fluxoPos, { g7: { x: 10, y: 10 } })
+})

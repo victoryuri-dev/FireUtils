@@ -1030,13 +1030,17 @@ export function reducer(state, action) {
         acessos: [...(p.acessos || []), { id: action.id, nome: action.nome, tipo: action.tipo, alimentaEm: null, dims: dimsPadrao(action.tipo) }],
         fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
       }))
-    // Grupo novo; com `ambienteIds`, já nasce com esses ambientes dentro.
+    // Grupo novo; com `ambienteIds`, já nasce com esses ambientes dentro (e
+    // eles deixam de ser nós soltos na área). `acessoId`: já nasce ligado.
     case 'CRIAR_GRUPO_AMBIENTES': {
       const idsMovidos = new Set(action.ambienteIds || [])
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
-        grupos: [...(p.grupos || []), { id: action.id, nome: action.nome, acessoId: null }],
-        fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
+        grupos: [...(p.grupos || []), { id: action.id, nome: action.nome, acessoId: action.acessoId || null }],
+        fluxoPos: {
+          ...Object.fromEntries(Object.entries(p.fluxoPos || {}).filter(([id]) => !idsMovidos.has(id))),
+          [action.id]: action.pos,
+        },
         ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.id } : a),
       }))
     }

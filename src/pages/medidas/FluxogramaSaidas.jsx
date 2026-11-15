@@ -171,8 +171,24 @@ function AmbienteLinha({ amb, noGrupo, naArea = false }) {
 // pra um acesso/saída/escada. Soltar o nó em cima de um grupo o coloca no grupo;
 // em cima da lista lateral, devolve à lista (ver onNodeDragStop).
 function AmbienteNode({ data }) {
+  const c = useContext(FluxoCtx)
+  const [sobre, setSobre] = useState(false)
+  // Ambiente arrastado da lista (ou de um grupo) e solto em cima deste: os dois
+  // viram um grupo novo.
+  const soltarAqui = e => {
+    setSobre(false)
+    let ids = []
+    try { ids = JSON.parse(e.dataTransfer.getData(MIME_AMBIENTES)) } catch { /* arrasto de outra origem */ }
+    if (!ids.length) return
+    e.preventDefault()
+    e.stopPropagation()
+    c.agruparAmbientes(data.amb.id, ids)
+  }
   return (
-    <div className="w-[300px] cursor-grab">
+    <div className={`w-[300px] cursor-grab rounded-md ${sobre ? 'outline outline-2 outline-red' : ''}`}
+      onDragOver={e => { if (e.dataTransfer.types.includes(MIME_AMBIENTES)) { e.preventDefault(); setSobre(true) } }}
+      onDragLeave={() => setSobre(false)} onDrop={soltarAqui}
+    >
       <AmbienteLinha amb={data.amb} noGrupo naArea/>
       <Alcas origem/>
     </div>
@@ -406,6 +422,18 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     e.preventDefault()
     soltarNaArea(ids, arredondar(rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })))
   }
+  // Junta o ambiente solto `alvoId` com os ambientes `ids` num grupo novo, no
+  // lugar do alvo e herdando a ligação direta dele (se tinha).
+  const agruparAmbientes = (alvoId, ids) => {
+    const alvo = ambientes.find(a => a.id === alvoId)
+    if (!alvo) return
+    dispatch({
+      type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pav.id, nome: proximoNomeGrupo(grupos),
+      pos: fluxoPos?.[alvoId] || posicaoNova(), acessoId: alvo.acessoId || null,
+      ambienteIds: [alvoId, ...ids.filter(id => id !== alvoId)],
+    })
+    limparSelecao()
+  }
   const moverSelecionados = () => {
     if (!selecionados.size || !alvoSelecao) return
     if (alvoSelecao === NOVO_GRUPO) criarGrupo([...selecionados])
@@ -453,7 +481,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const ctx = {
     pavId: pav.id, dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
     toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
-    moverParaGrupo, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
+    moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
 
@@ -542,8 +570,8 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const alvo = document.elementFromPoint(ponto.clientX, ponto.clientY)?.closest('.react-flow__node')?.getAttribute('data-id')
     if (alvo && estado.fromNode) ligar({ source: estado.fromNode.id, target: alvo })
   }
-  // Fim do arrasto de nós: ambiente solto largado em cima de um grupo entra
-  // nele; em cima da lista lateral, volta pra lista; do contrário só guarda a
+  // Fim do arrasto de nós: ambiente solto largado em cima de outro ambiente
+  // solto forma um grupo com ele; em cima de um grupo entra nele; em cima da lista lateral, volta pra lista; do contrário só guarda a
   // nova posição de tudo que foi arrastado.
   const soltarNo = (evento, _no, arrastados) => {
     const ponto = evento.changedTouches?.[0] ?? evento
@@ -552,7 +580,14 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const grupoAbaixo = abaixo.map(el => el.closest('.react-flow__node-grupo')).find(Boolean)?.getAttribute('data-id')
     const naLista = abaixo.some(el => el.closest('aside'))
     const ambientesArrastados = arrastados.filter(n => n.type === 'ambiente').map(n => n.id)
-    if (ambientesArrastados.length && (grupoAbaixo || naLista)) {
+    // Outro ambiente solto por baixo do ponteiro: os dois viram um grupo.
+    const ambienteAbaixo = abaixo.map(el => el.closest('.react-flow__node-ambiente')).find(n => n && !ambientesArrastados.includes(n.getAttribute('data-id')))?.getAttribute('data-id')
+    if (ambientesArrastados.length && !grupoAbaixo && !naLista && ambienteAbaixo) {
+      agruparAmbientes(ambienteAbaixo, ambientesArrastados)
+      const restantes = arrastados.filter(n => n.type !== 'ambiente')
+      if (!restantes.length) return
+      arrastados = restantes
+    } else if (ambientesArrastados.length && (grupoAbaixo || naLista)) {
       moverParaGrupo(ambientesArrastados, grupoAbaixo || null)
       const restantes = arrastados.filter(n => n.type !== 'ambiente')
       if (!restantes.length) return
