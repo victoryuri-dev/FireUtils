@@ -237,14 +237,33 @@ export function dimsDoAcesso(acesso, pisoDescarga) {
  * precisa comportar o maior fluxo que passa por ali) — mesmo N mínimo de 1
  * mesmo que nenhum dos dois esteja ligado, pra nunca calcular porta com
  * 0 UP. Retorna null em cada campo cujo dimensionamento está desligado. */
-export function calcDimsAcesso(acessoId, ambientes, acessos, taxaPopulacional, larguras, dims) {
+export function calcDimsAcesso(acessoId, ambientes, acessos, taxaPopulacional, larguras, dims, erDaEstrutura = null) {
   const pop = calcPopAcesso(acessoId, ambientes, acessos, taxaPopulacional)
   const cap = capAmbientes(ambientesDoAcesso(acessoId, ambientes, acessos), taxaPopulacional)
   const ad  = dims.AD ? calcAD(pop, cap.AD, larguras) : null
-  const er  = dims.ER ? calcER(pop, cap.ER, larguras) : null
+  // `erDaEstrutura` (ver calcErEstrutura): um único cálculo de escada/rampa vale
+  // pra todas as escadas da estrutura — sem ele, cada nó calcula pela própria população.
+  const er  = dims.ER ? (erDaEstrutura?.er ?? calcER(pop, cap.ER, larguras)) : null
   const nPorta = Math.max(ad?.n || 0, er?.n || 0, 1)
   const pt  = dims.PT ? calcPortaNoAcesso(nPorta, larguras) : null
   return { pop, cap, ad, er, pt, nPorta }
+}
+
+/** Dimensionamento ÚNICO de escada/rampa de uma estrutura: população do
+ * pavimento mais populoso EXCETO o piso de descarga (o térreo), com a
+ * capacidade por UP das divisões desse pavimento. O mesmo resultado vale pra
+ * toda escada/rampa da estrutura. Sem nenhum pavimento acima do piso de
+ * descarga (ou todos sem ambientes) devolve null — quem chama cai no
+ * cálculo local do nó. `pavimentos` = pavimentos da estrutura. */
+export function calcErEstrutura(pavimentos, taxaPopulacional, larguras) {
+  const candidatos = (pavimentos || []).filter(p => !p.pisoDescarga)
+  if (!candidatos.length) return null
+  const [pav, pop] = candidatos
+    .map(p => [p, calcPopPav({ ambientes: p.ambientes || [] }, taxaPopulacional)])
+    .reduce((mx, par) => (par[1] > mx[1] ? par : mx))
+  if (pop <= 0) return null
+  const cap = capAmbientes(pav.ambientes || [], taxaPopulacional)
+  return { pavimento: pav, pop, cap, er: calcER(pop, cap.ER, larguras) }
 }
 
 /** Largura mínima da porta de um nó de Acesso/Saída/Escada-Rampa —

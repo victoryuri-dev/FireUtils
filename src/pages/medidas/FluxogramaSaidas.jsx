@@ -10,17 +10,22 @@ import Checkbox from '../../components/ui/Checkbox'
 import InlineEditableNome from '../../components/ui/InlineEditableNome'
 import { AmbienteForm, fmtM } from './se_shared'
 import {
-  calcPopAmb, calcNoAmbientePT, calcDimsAcesso, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
+  calcPopAmb, calcPopPav, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
 } from '../../data/se_calc'
-import { caminhoAteSaida, criaCicloNoFluxo, ladosMaisProximos, proximoNomeGrupo } from '../../data/se_fluxo'
+import { ORIGEM_X, ORIGEM_Y, caminhoAteSaida, ladosMaisProximos, proximoNomeGrupo, tipoDeLigacao } from '../../data/se_fluxo'
 
-// Fluxograma de saídas de um pavimento (Grupo de ambientes -> Acesso ->
-// Saída/Escada). Área de trabalho livre: o usuário arrasta os nós, liga um
-// ao outro com setas e escolhe por nó se ele é acesso, saída ou escada/
-// rampa. O desenho grava direto no estado do projeto (state.pavimentos,
-// ver reducer em ProjetoContext.jsx) — `grupo.acessoId`/`acesso.alimentaEm`
-// são as setas, e o motor de cálculo (se_calc.js) e o memorial leem esses
-// mesmos campos.
+// Fluxograma de saídas de uma ESTRUTURA (Grupo de ambientes -> Acesso ->
+// Saída/Escada). Uma área de trabalho com uma faixa por pavimento (o de cima
+// no topo); cada pavimento já traz a sua saída (piso de descarga) ou
+// escada/rampa padrão, que não pode ser excluída. O usuário arrasta os nós,
+// liga um ao outro com setas e escolhe por nó se ele é acesso, saída ou
+// escada/rampa. Nós só se ligam dentro do mesmo pavimento — exceto saídas e
+// escadas/rampas, que também se ligam a saídas/escadas de outros pavimentos
+// (ver tipoDeLigacao). O desenho grava direto no estado do projeto
+// (state.pavimentos, ver reducer em ProjetoContext.jsx) — `grupo.acessoId`/
+// `acesso.alimentaEm` são as setas, e o motor de cálculo (se_calc.js) e o
+// memorial leem esses mesmos campos. A escada/rampa é dimensionada uma única
+// vez por estrutura (calcErEstrutura): vale pra todas.
 
 const MIME_AMBIENTES = 'application/x-fireutils-ambientes'
 const FluxoCtx = createContext(null)
@@ -229,7 +234,7 @@ function GrupoNode({ data }) {
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
           <span className="nodrag min-w-0">
-            <InlineEditableNome value={grupo.nome} onCommit={nome => c.dispatch({ type: 'RENOMEAR_GRUPO', pavimentoId: c.pavId, grupoId: grupo.id, nome })} textClassName="font-heading text-[14px] font-bold text-ink truncate"/>
+            <InlineEditableNome value={grupo.nome} onCommit={nome => c.dispatch({ type: 'RENOMEAR_GRUPO', pavimentoId: c.pavDe(grupo.id), grupoId: grupo.id, nome })} textClassName="font-heading text-[14px] font-bold text-ink truncate"/>
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -265,31 +270,37 @@ const TOM_TIPO = {
 
 function AcessoNode({ data }) {
   const c = useContext(FluxoCtx)
-  const { acesso, tipo, dims, pop, entradas, raiz } = data
+  const { acesso, tipo, dims, pop, entradas, raiz, erUnico } = data
   const alvoValido = c.podeReceberLigacao(acesso.id)
   const dispatch = c.dispatch
-  const toggleDim = d => dispatch({ type: 'SET_ACESSO_DIM', pavimentoId: c.pavId, acessoId: acesso.id, dim: d, valor: !dims[d] })
+  const pavimentoId = c.pavDe(acesso.id)
+  const toggleDim = d => dispatch({ type: 'SET_ACESSO_DIM', pavimentoId, acessoId: acesso.id, dim: d, valor: !dims[d] })
   return (
     <div className={`${alvoValido ? 'alvo-valido' : ''} ${c.noQuente(acesso.id) ? 'outline outline-2 outline-red' : ''} w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 bg-surface-2 rounded-t-lg cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
           <span className="nodrag min-w-0">
-            <InlineEditableNome value={acesso.nome} onCommit={nome => dispatch({ type: 'RENOMEAR_ACESSO', pavimentoId: c.pavId, acessoId: acesso.id, nome })} textClassName="font-heading text-[14px] font-bold text-ink truncate"/>
+            <InlineEditableNome value={acesso.nome} onCommit={nome => dispatch({ type: 'RENOMEAR_ACESSO', pavimentoId, acessoId: acesso.id, nome })} textClassName="font-heading text-[14px] font-bold text-ink truncate"/>
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-ink-faint whitespace-nowrap">{pop} pessoas</span>
-          <button onClick={() => c.removerAcesso(acesso)} className="nodrag bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5" title="Remover (o que alimentava este nó fica sem ligação)">
-            <Icon name="trash" size={12}/>
-          </button>
+          {acesso.fixo ? (
+            <span title="Padrão do pavimento: não pode ser excluída" className="text-ink-faint flex p-0.5"><Icon name="lock" size={12}/></span>
+          ) : (
+            <button onClick={() => c.removerAcesso(acesso)} className="nodrag bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5" title="Remover (o que alimentava este nó fica sem ligação)">
+              <Icon name="trash" size={12}/>
+            </button>
+          )}
         </div>
       </div>
       <div className="nodrag flex gap-1 px-3 pt-2.5">
         {TIPOS.map(t => (
-          <button key={t.tipo} type="button"
-            onClick={() => tipo !== t.tipo && dispatch({ type: 'SET_ACESSO_TIPO', pavimentoId: c.pavId, acessoId: acesso.id, tipo: t.tipo })}
-            className={`flex-1 text-[10px] font-semibold py-1 px-1.5 rounded border border-solid cursor-pointer transition-colors ${tipo === t.tipo ? TOM_TIPO[t.tipo].ativo : 'bg-transparent border-border text-ink-faint hover:text-ink'}`}
+          <button key={t.tipo} type="button" disabled={!!acesso.fixo}
+            title={acesso.fixo ? 'Acompanha o piso de descarga do pavimento (saída) ou os demais (escada/rampa)' : undefined}
+            onClick={() => tipo !== t.tipo && dispatch({ type: 'SET_ACESSO_TIPO', pavimentoId, acessoId: acesso.id, tipo: t.tipo })}
+            className={`flex-1 text-[10px] font-semibold py-1 px-1.5 rounded border border-solid transition-colors ${acesso.fixo ? 'cursor-default' : 'cursor-pointer'} ${tipo === t.tipo ? TOM_TIPO[t.tipo].ativo : `bg-transparent border-border text-ink-faint ${acesso.fixo ? 'opacity-40' : 'hover:text-ink'}`}`}
           >{t.label}</button>
         ))}
       </div>
@@ -301,20 +312,54 @@ function AcessoNode({ data }) {
       <div className="flex items-center justify-center gap-3 px-3 py-2.5 flex-wrap min-h-[38px]">
         {entradas.map(e => <DimEntry key={e.label} label={e.label} value={e.value}/>)}
       </div>
+      {erUnico && (
+        <div className="px-3 pb-2 text-[10px] text-ink-faint text-center" title="A escada/rampa é dimensionada uma única vez por estrutura, com a população do pavimento mais populoso (sem o piso de descarga) — vale pra todas.">
+          Escada/rampa: {erUnico.pop} pessoas · {erUnico.label}
+        </div>
+      )}
       {!raiz && tipo === 'acesso' && !acesso.alimentaEm && (
         <div className="px-3 pb-2.5 text-[10px] text-amber text-center">Sem ligação a uma saída ou escada/rampa</div>
       )}
-      <Alcas origem={tipo === 'acesso'} destino/>
+      <Alcas origem destino/>
     </div>
   )
 }
 
-const nodeTypes = { grupo: GrupoNode, acesso: AcessoNode, ambiente: AmbienteNode }
+// ── Faixa de um pavimento ───────────────────────────────────────────────
+// Fundo + cabeçalho do pavimento na área de trabalho. O corpo da faixa não
+// recebe mouse (pra arrastar/ligar nós e mover a área por cima dela); só o
+// cabeçalho — com o switch de piso de descarga e os botões de criar nós
+// desse pavimento.
+function FaixaNode({ data }) {
+  const c = useContext(FluxoCtx)
+  const { pav, nSaidas, pop } = data
+  return (
+    <div className="w-full h-full rounded-lg border border-dashed border-ink-hint bg-[rgba(255,255,255,.015)]">
+      <div style={{ pointerEvents: 'auto' }} className="nodrag nopan flex flex-wrap items-center gap-x-4 gap-y-2 py-3 px-4 border-b border-dashed border-border">
+        <div className="flex items-baseline gap-2.5 min-w-0">
+          <span className="font-heading text-[18px] font-bold text-ink truncate">{pav.label}</span>
+          {pav.pisoDescarga && <span className="text-[9px] py-0.5 px-1.5 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
+          <span className="text-[11px] text-ink-faint whitespace-nowrap">{pop} pessoas · {nSaidas} saída{nSaidas > 1 ? 's' : ''}/escada{nSaidas > 1 ? 's' : ''}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <PisoDescargaSwitch checked={!!pav.pisoDescarga} onChange={v => c.dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pav.id, estruturaId: pav.estruturaId, valor: v })}/>
+          <button className="btn-ghost" onClick={() => c.criarGrupo(pav.id)}><Icon name="plus" size={12}/> Grupo de ambientes</button>
+          <button className="btn-ghost" onClick={() => c.criarAmbiente(null, pav.id)}><Icon name="plus" size={12}/> Ambiente</button>
+          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'acesso')}><Icon name="plus" size={12}/> Acesso</button>
+          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'saida')}><Icon name="plus" size={12}/> Saída</button>
+          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'escada')}><Icon name="plus" size={12}/> Escada/Rampa</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const nodeTypes = { faixa: FaixaNode, grupo: GrupoNode, acesso: AcessoNode, ambiente: AmbienteNode }
 
 // ── Switch "piso de descarga" no cabeçalho ─────────────────────────────
 function PisoDescargaSwitch({ checked, onChange }) {
   return (
-    <div className="flex items-center gap-3 border border-solid border-border rounded-md py-2 px-3.5 shrink-0">
+    <div className="flex items-center gap-3 border border-solid border-border rounded-md py-1.5 px-3 shrink-0">
       <span className="text-xs text-ink-faint whitespace-nowrap">Este pavimento é o <strong className="text-ink font-semibold">piso de descarga</strong>?</span>
       <button onClick={() => onChange(!checked)} className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 shrink-0">
         <div className={`w-7 h-4 rounded-[8px] shrink-0 relative transition-colors duration-200 ${checked ? 'bg-red' : 'bg-border'}`}>
@@ -332,12 +377,44 @@ const NA_AREA = '__na_area__'
 
 const arredondar = pos => ({ x: Math.round(pos.x), y: Math.round(pos.y) })
 
-function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
+// Tamanho mínimo da faixa de um pavimento e folga além do último nó — a faixa
+// cresce junto com os nós (eles não saem da faixa onde nasceram).
+const FAIXA_W = 1500
+const FAIXA_H = 640
+const FAIXA_FOLGA_X = 520
+const FAIXA_FOLGA_Y = 420
+const FAIXA_GAP = 80
+
+// Agrupa uma lista de ids por pavimento: Map(pavimentoId -> ids).
+function porPavimento(ids, pavDe) {
+  const m = new Map()
+  ids.forEach(id => {
+    const p = pavDe.get(id)
+    if (p) m.set(p, [...(m.get(p) || []), id])
+  })
+  return m
+}
+
+function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, dispatch, onClose }) {
   const { TAXA_POPULACIONAL, LARGURAS_MINIMAS } = seNorma
-  const ambientes = useMemo(() => pav.ambientes || [], [pav.ambientes])
-  const acessos = useMemo(() => pav.acessos || [], [pav.acessos])
-  const grupos = useMemo(() => pav.grupos || [], [pav.grupos])
-  const fluxoPos = pav.fluxoPos
+  // Faixas de cima pra baixo: pavimento mais alto no topo, subsolos embaixo.
+  const pavs = useMemo(() => [...pavimentos].reverse(), [pavimentos])
+  const ambientes = useMemo(() => pavimentos.flatMap(p => p.ambientes || []), [pavimentos])
+  const acessos = useMemo(() => pavimentos.flatMap(p => p.acessos || []), [pavimentos])
+  const grupos = useMemo(() => pavimentos.flatMap(p => p.grupos || []), [pavimentos])
+  // Quem é de qual pavimento (os ids de nós são únicos no projeto).
+  const pavDe = useMemo(() => {
+    const m = new Map()
+    pavimentos.forEach(p => {
+      ;(p.ambientes || []).forEach(a => m.set(a.id, p.id))
+      ;(p.acessos || []).forEach(a => m.set(a.id, p.id))
+      ;(p.grupos || []).forEach(g => m.set(g.id, p.id))
+    })
+    return m
+  }, [pavimentos])
+  const pavPorId = useMemo(() => new Map(pavimentos.map(p => [p.id, p])), [pavimentos])
+  const posDe = id => pavPorId.get(pavDe.get(id))?.fluxoPos?.[id]
+
   const { search } = useLocation()
   const alvoAudit = new URLSearchParams(search).get('audit') || ''
   const [editAmb, setEditAmb] = useState(() => ambientes.find(a => alvoAudit.startsWith(`${a.id}.`)) || null)
@@ -361,9 +438,8 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
 
   const [filtroSoltos, setFiltroSoltos] = useState('')
   // Lista lateral: ambientes sem grupo e sem posição na área de trabalho.
-  const soltos = ambientes.filter(a => !a.grupoId && !fluxoPos?.[a.id])
+  const soltos = ambientes.filter(a => !a.grupoId && !posDe(a.id))
   const soltosFiltrados = soltos.filter(a => normalizar(a.nome).includes(normalizar(filtroSoltos)))
-  const nSaidas = Math.max(1, contarSaidasPavimento(acessos))
 
   // ── Seleção em massa / arrasto de ambientes ──
   const toggleSelecao = id => setSelecionados(prev => {
@@ -374,92 +450,128 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const limparSelecao = () => setSelecionados(new Set())
   const idsDoArrasto = id => (selecionados.size > 1 && selecionados.has(id) ? [...selecionados] : [id])
 
-  // ── Posição de nó novo: centro da área visível, com um leve desvio pra
-  // não empilhar vários nós criados em sequência.
-  const posicaoNova = () => {
+  // ── Faixas (uma por pavimento), do topo pra baixo ──
+  const faixas = useMemo(() => pavs.reduce((acc, p) => {
+    const posicoes = Object.values(p.fluxoPos || {})
+    const w = Math.max(FAIXA_W, ...posicoes.map(q => q.x + FAIXA_FOLGA_X))
+    const h = Math.max(FAIXA_H, ...posicoes.map(q => q.y + FAIXA_FOLGA_Y))
+    const anterior = acc[acc.length - 1]
+    return [...acc, { id: `faixa-${p.id}`, pav: p, x: 0, y: anterior ? anterior.y + anterior.h + FAIXA_GAP : 0, w, h }]
+  }, []), [pavs])
+  const faixaDe = pavId => faixas.find(f => f.pav.id === pavId)
+  // Faixa que contém um ponto da área de trabalho (coordenadas do fluxo).
+  const faixaEm = ponto => faixas.find(f => ponto.x >= f.x && ponto.x <= f.x + f.w && ponto.y >= f.y && ponto.y <= f.y + f.h)
+
+  // ── Posição de nó novo numa faixa: centro da área visível (limitado à
+  // faixa), com um leve desvio pra não empilhar vários nós criados em sequência.
+  const posicaoNova = pavId => {
+    const faixa = faixaDe(pavId)
     const r = wrapRef.current.getBoundingClientRect()
-    const p = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
-    return arredondar({ x: p.x - 150 + Math.random() * 60, y: p.y - 80 + Math.random() * 60 })
+    const c = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+    const x = Math.min(Math.max(c.x - faixa.x - 150 + Math.random() * 60, 60), faixa.w - 400)
+    const y = Math.min(Math.max(c.y - faixa.y - 80 + Math.random() * 60, 120), faixa.h - 260)
+    return arredondar({ x, y })
   }
 
-  const criarNo = tipo => {
-    const n = acessos.filter(a => a.tipo === tipo).length + 1
+  const criarNo = (pavId, tipo) => {
+    const n = acessos.filter(a => pavDe.get(a.id) === pavId && a.tipo === tipo).length + 1
     const nome = { acesso: `Acesso ${n}`, saida: `Saída ${String(n).padStart(2, '0')}`, escada: `Escada/Rampa ${String(n).padStart(2, '0')}` }[tipo]
-    dispatch({ type: 'CRIAR_NO_FLUXO', pavimentoId: pav.id, tipo, nome, pos: posicaoNova() })
+    dispatch({ type: 'CRIAR_NO_FLUXO', pavimentoId: pavId, tipo, nome, pos: posicaoNova(pavId) })
   }
-  const criarGrupo = ambienteIds => {
-    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pav.id, nome: proximoNomeGrupo(grupos), pos: posicaoNova(), ambienteIds })
+  const criarGrupo = (pavId, ambienteIds) => {
+    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pavId, nome: proximoNomeGrupo(pavPorId.get(pavId).grupos || []), pos: posicaoNova(pavId), ambienteIds })
   }
 
   // ── Ambientes ──
-  const criarAmbiente = (grupoId = null, pos = null) => {
+  // Com `grupoId`, nasce dentro do grupo (do pavimento dele); senão solto na
+  // área do pavimento `pavId`.
+  const criarAmbiente = (grupoId, pavId) => {
+    const pavimentoId = grupoId ? pavDe.get(grupoId) : pavId
     const id = novoAmbienteId()
     const nome = `Ambiente ${ambientes.length + 1}`
     dispatch({
-      type: 'ADD_AMBIENTE_SE', pavimentoId: pav.id, id, pos,
-      ambiente: { nome, divisao: '', popTipo: 'area', area: 0, assentos: 0, popManual: 0, grupoId, origem: 'manual' },
+      type: 'ADD_AMBIENTE_SE', pavimentoId, id, pos: grupoId ? null : posicaoNova(pavimentoId),
+      ambiente: { nome, divisao: '', popTipo: 'area', area: 0, assentos: 0, popManual: 0, grupoId: grupoId || null, origem: 'manual' },
     })
     setEditAmb({ id, nome, divisao: '', popTipo: 'area', area: 0, assentos: 0, popManual: 0 })
   }
   const removerAmbiente = id => {
-    dispatch({ type: 'REMOVE_AMBIENTE_SE', pavimentoId: pav.id, ambienteId: id })
+    dispatch({ type: 'REMOVE_AMBIENTE_SE', pavimentoId: pavDe.get(id), ambienteId: id })
     if (editAmb?.id === id) setEditAmb(null)
     setSelecionados(prev => { if (!prev.has(id)) return prev; const next = new Set(prev); next.delete(id); return next })
   }
+  // Move ambientes pra dentro de um grupo (só os do mesmo pavimento do grupo
+  // entram) ou de volta pra lista (`grupoId` null).
   const moverParaGrupo = (ids, grupoId) => {
-    dispatch({ type: 'MOVER_AMBIENTES_GRUPO', pavimentoId: pav.id, ambienteIds: ids, grupoId })
-    limparSelecao()
-  }
-  // Coloca ambientes soltos na área de trabalho a partir de `pos`, em coluna.
-  const soltarNaArea = (ids, pos) => {
-    dispatch({
-      type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: pav.id,
-      posicoes: Object.fromEntries(ids.map((id, i) => [id, { x: pos.x, y: pos.y + i * 80 }])),
+    const pavDoGrupo = grupoId ? pavDe.get(grupoId) : null
+    porPavimento(ids, pavDe).forEach((lista, pavimentoId) => {
+      if (pavDoGrupo && pavimentoId !== pavDoGrupo) return
+      dispatch({ type: 'MOVER_AMBIENTES_GRUPO', pavimentoId, ambienteIds: lista, grupoId })
     })
     limparSelecao()
   }
-  // Ambiente arrastado da lista (ou de um grupo) e solto no fundo da área.
+  // Coloca ambientes soltos na faixa `pavId`, a partir de `pos` (relativa à
+  // faixa), em coluna. Só os ambientes desse pavimento.
+  const soltarNaArea = (ids, pavId, pos) => {
+    const meus = ids.filter(id => pavDe.get(id) === pavId)
+    if (!meus.length) return
+    dispatch({
+      type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: pavId,
+      posicoes: Object.fromEntries(meus.map((id, i) => [id, { x: pos.x, y: pos.y + i * 80 }])),
+    })
+    limparSelecao()
+  }
+  // Ambiente arrastado da lista (ou de um grupo) e solto no fundo da área: vale
+  // na faixa do próprio pavimento do ambiente.
   const soltarNoFundo = e => {
     if (!e.dataTransfer.types.includes(MIME_AMBIENTES)) return
     let ids = []
     try { ids = JSON.parse(e.dataTransfer.getData(MIME_AMBIENTES)) } catch { /* arrasto de outra origem */ }
     if (!ids.length) return
     e.preventDefault()
-    soltarNaArea(ids, arredondar(rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })))
+    const ponto = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const faixa = faixaEm(ponto)
+    if (!faixa) return
+    const x = Math.min(Math.max(ponto.x - faixa.x, 20), faixa.w - 340)
+    const y = Math.min(Math.max(ponto.y - faixa.y, ORIGEM_Y), faixa.h - 120)
+    soltarNaArea(ids, faixa.pav.id, arredondar({ x, y }))
   }
-  // Junta o ambiente solto `alvoId` com os ambientes `ids` num grupo novo, no
-  // lugar do alvo e herdando a ligação direta dele (se tinha).
+  // Junta o ambiente solto `alvoId` com os ambientes `ids` (do mesmo pavimento)
+  // num grupo novo, no lugar do alvo e herdando a ligação direta dele (se tinha).
   const agruparAmbientes = (alvoId, ids) => {
     const alvo = ambientes.find(a => a.id === alvoId)
+    const pavimentoId = pavDe.get(alvoId)
     if (!alvo) return
     dispatch({
-      type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pav.id, nome: proximoNomeGrupo(grupos),
-      pos: fluxoPos?.[alvoId] || posicaoNova(), acessoId: alvo.acessoId || null,
-      ambienteIds: [alvoId, ...ids.filter(id => id !== alvoId)],
+      type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId, nome: proximoNomeGrupo(pavPorId.get(pavimentoId).grupos || []),
+      pos: posDe(alvoId) || posicaoNova(pavimentoId), acessoId: alvo.acessoId || null,
+      ambienteIds: [alvoId, ...ids.filter(id => id !== alvoId && pavDe.get(id) === pavimentoId)],
     })
     limparSelecao()
   }
   const moverSelecionados = () => {
     if (!selecionados.size || !alvoSelecao) return
-    if (alvoSelecao === NOVO_GRUPO) criarGrupo([...selecionados])
-    else if (alvoSelecao === NA_AREA) soltarNaArea([...selecionados], posicaoNova())
-    else moverParaGrupo([...selecionados], alvoSelecao === SEM_GRUPO ? null : alvoSelecao)
+    const ids = [...selecionados]
+    if (alvoSelecao === NOVO_GRUPO) porPavimento(ids, pavDe).forEach((lista, pavimentoId) => criarGrupo(pavimentoId, lista))
+    else if (alvoSelecao === NA_AREA) porPavimento(ids, pavDe).forEach((lista, pavimentoId) => soltarNaArea(lista, pavimentoId, posicaoNova(pavimentoId)))
+    else moverParaGrupo(ids, alvoSelecao === SEM_GRUPO ? null : alvoSelecao)
     limparSelecao()
     setAlvoSelecao('')
   }
   const renomearAmbiente = nome => {
-    dispatch({ type: 'UPDATE_AMBIENTE_SE', pavimentoId: pav.id, ambienteId: editAmb.id, changes: { nome } })
+    dispatch({ type: 'UPDATE_AMBIENTE_SE', pavimentoId: pavDe.get(editAmb.id), ambienteId: editAmb.id, changes: { nome } })
     setEditAmb(prev => ({ ...prev, nome }))
   }
 
   const removerGrupo = grupo => {
     const n = ambientes.filter(a => a.grupoId === grupo.id).length
     if (n > 0 && !window.confirm(`Remover o grupo "${grupo.nome}"? Os ${n} ambiente(s) dentro dele voltarão pra lista de ambientes, mas não serão apagados.`)) return
-    dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pav.id, grupoId: grupo.id })
+    dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pavDe.get(grupo.id), grupoId: grupo.id })
   }
   const removerAcesso = acesso => {
+    if (acesso.fixo) return
     if (window.confirm(`Remover "${acesso.nome}"? O que alimentava este nó ficará sem ligação, mas não será apagado.`)) {
-      dispatch({ type: 'REMOVER_ACESSO', pavimentoId: pav.id, acessoId: acesso.id })
+      dispatch({ type: 'REMOVER_ACESSO', pavimentoId: pavDe.get(acesso.id), acessoId: acesso.id })
     }
   }
 
@@ -484,42 +596,50 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   })
 
   const ctx = {
-    pavId: pav.id, dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
-    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
+    pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
+    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, criarGrupo, criarNo, removerAmbiente,
     moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
     noQuente: id => !!caminhoQuente?.nos.includes(id),
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
 
   // ── Nós e setas a partir do estado do projeto ──
+  // Dimensionamento único das escadas/rampas da estrutura.
+  const erEstrutura = useMemo(() => calcErEstrutura(pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS), [pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
   const nosBase = useMemo(() => {
-    const pos = id => fluxoPos?.[id] || { x: 0, y: 0 }
-    return [
-      ...grupos.map(g => {
-        const ambs = ambientes.filter(a => a.grupoId === g.id)
-        return {
-          id: g.id, type: 'grupo', position: pos(g.id),
-          data: { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) },
-        }
-      }),
-      ...ambientes.filter(a => !a.grupoId && fluxoPos?.[a.id]).map(a => ({ id: a.id, type: 'ambiente', position: pos(a.id), data: { amb: a } })),
-      ...acessos.map(ac => {
-        const dims = dimsDoAcesso(ac, !!pav.pisoDescarga)
-        const { pop, ad, er, pt } = calcDimsAcesso(ac.id, ambientes, acessos, TAXA_POPULACIONAL, LARGURAS_MINIMAS, dims)
-        return {
-          id: ac.id, type: 'acesso', position: pos(ac.id),
-          data: {
-            acesso: ac, tipo: ac.tipo, dims, pop, raiz: ehRaiz(ac),
-            entradas: [
-              ad && { label: 'ACESSO/DESCARGA', value: fmtM(ad.la) },
-              pt && { label: 'PORTAS', value: fmtM(pt.la) },
-              er && { label: 'ESCADA/RAMPA', value: fmtM(er.la) },
-            ].filter(Boolean),
-          },
-        }
-      }),
-    ]
-  }, [grupos, acessos, ambientes, fluxoPos, pav.pisoDescarga, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
+    const nos = []
+    faixas.forEach(f => {
+      const p = f.pav
+      const pambs = p.ambientes || []
+      const pacs = p.acessos || []
+      nos.push({
+        id: f.id, type: 'faixa', position: { x: f.x, y: f.y }, width: f.w, height: f.h,
+        draggable: false, selectable: false, focusable: false, connectable: false,
+        style: { width: f.w, height: f.h, pointerEvents: 'none' }, zIndex: 0,
+        data: { pav: p, nSaidas: Math.max(1, contarSaidasPavimento(pacs)), pop: calcPopPav({ ambientes: pambs }, TAXA_POPULACIONAL) },
+      })
+      const filho = (id, type, data) => ({ id, type, parentId: f.id, extent: 'parent', position: p.fluxoPos?.[id] || { x: ORIGEM_X, y: ORIGEM_Y }, data })
+      ;(p.grupos || []).forEach(g => {
+        const ambs = pambs.filter(a => a.grupoId === g.id)
+        nos.push(filho(g.id, 'grupo', { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) }))
+      })
+      pambs.filter(a => !a.grupoId && p.fluxoPos?.[a.id]).forEach(a => nos.push(filho(a.id, 'ambiente', { amb: a })))
+      pacs.forEach(ac => {
+        const dims = dimsDoAcesso(ac, !!p.pisoDescarga)
+        const { pop, ad, er, pt } = calcDimsAcesso(ac.id, pambs, pacs, TAXA_POPULACIONAL, LARGURAS_MINIMAS, dims, erEstrutura)
+        nos.push(filho(ac.id, 'acesso', {
+          acesso: ac, tipo: ac.tipo, dims, pop, raiz: ehRaiz(ac),
+          erUnico: dims.ER && erEstrutura ? { pop: erEstrutura.pop, label: erEstrutura.pavimento.label } : null,
+          entradas: [
+            ad && { label: 'ACESSO/DESCARGA', value: fmtM(ad.la) },
+            pt && { label: 'PORTAS', value: fmtM(pt.la) },
+            er && { label: 'ESCADA/RAMPA', value: fmtM(er.la) },
+          ].filter(Boolean),
+        }))
+      })
+    })
+    return nos
+  }, [faixas, erEstrutura, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
 
   // Estado local dos nós (React Flow precisa dele pra animar o arrasto);
   // reabastecido a cada mudança do projeto, preservando seleção/medidas e a
@@ -537,16 +657,21 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
 
   // Seta selecionada (clique) — a única coisa que Delete/"Desligar" apaga.
   const [setaSelecionada, setSetaSelecionada] = useState(null)
+  const ambientesNaArea = new Set(ambientes.filter(a => !a.grupoId && posDe(a.id)).map(a => a.id))
   const edges = useMemo(() => {
     const existe = new Set(acessos.map(a => a.id))
+    const na = ambientes.filter(a => !a.grupoId && posDe(a.id))
     const liga = [
       ...grupos.filter(g => existe.has(g.acessoId)).map(g => ({ id: `e-${g.id}`, source: g.id, target: g.acessoId })),
       ...acessos.filter(a => existe.has(a.alimentaEm)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.alimentaEm })),
-      ...ambientes.filter(a => !a.grupoId && fluxoPos?.[a.id] && existe.has(a.acessoId)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.acessoId })),
+      ...acessos.filter(a => existe.has(a.ligadoA)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.ligadoA, entre: true })),
+      ...na.filter(a => existe.has(a.acessoId)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.acessoId })),
     ]
+    // Retângulo absoluto do nó (a posição dele é relativa à faixa do pavimento).
     const retangulo = id => {
       const n = nodes.find(x => x.id === id)
-      return { x: n.position.x, y: n.position.y, w: n.measured?.width ?? (n.type === 'grupo' ? 340 : 300), h: n.measured?.height ?? (n.type === 'ambiente' ? 80 : 160) }
+      const f = faixas.find(x => x.id === n.parentId)
+      return { x: n.position.x + (f?.x || 0), y: n.position.y + (f?.y || 0), w: n.measured?.width ?? (n.type === 'grupo' ? 340 : 300), h: n.measured?.height ?? (n.type === 'ambiente' ? 80 : 160) }
     }
     return liga.filter(e => nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target)).map(e => {
       const { de, para } = ladosMaisProximos(retangulo(e.source), retangulo(e.target))
@@ -555,22 +680,16 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
       ...e,
       type: 'smoothstep', selected: e.id === setaSelecionada,
       ...(caminhoQuente?.setas.includes(e.id)
-        ? { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-red)' }, style: { strokeWidth: 3, stroke: 'var(--color-red)' }, zIndex: 10 }
-        : { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-ink-faint)' }, style: { strokeWidth: 2 } }),
+        ? { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-red)' }, style: { strokeWidth: 3, stroke: 'var(--color-red)', strokeDasharray: e.entre ? '8 5' : undefined }, zIndex: 10 }
+        : { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-ink-faint)' }, style: { strokeWidth: 2, strokeDasharray: e.entre ? '8 5' : undefined } }),
     }))
-  }, [grupos, acessos, ambientes, fluxoPos, nodes, setaSelecionada, caminhoQuente])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupos, acessos, ambientes, pavimentos, faixas, nodes, setaSelecionada, caminhoQuente])
 
-  // Cada nó alimenta no máximo UM seguinte; origem = grupo ou acesso (saída/
-  // escada não têm alça de saída), destino = acesso/saída/escada, sem ciclo.
-  const ambientesNaArea = new Set(ambientes.filter(a => !a.grupoId && fluxoPos?.[a.id]).map(a => a.id))
-  const conexaoValida = ({ source, target }) => {
-    if (source === target) return false
-    const destino = acessos.find(a => a.id === target)
-    if (!destino) return false
-    if (grupos.some(g => g.id === source) || ambientesNaArea.has(source)) return true
-    const origem = acessos.find(a => a.id === source)
-    return !!origem && origem.tipo === 'acesso' && !criaCicloNoFluxo(acessos, origem.id, destino.id)
-  }
+  // Cada nó alimenta no máximo UM seguinte; que ligação vale entre dois nós
+  // (mesmo pavimento, ou saída/escada entre pavimentos) está em tipoDeLigacao.
+  const tipoLigacao = (source, target) => tipoDeLigacao(source, target, { acessos, grupos, pavDe, ambientesNaArea })
+  const conexaoValida = ({ source, target }) => !!tipoLigacao(source, target)
   // O destino é o nó sob o ponteiro quando o usuário solta a seta — corpo do
   // nó inteiro, sem alça de recepção.
   const terminarLigacao = (evento, estado) => {
@@ -580,48 +699,57 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     if (alvo && estado.fromNode) ligar({ source: estado.fromNode.id, target: alvo })
   }
   // Fim do arrasto de nós: ambiente solto largado em cima de outro ambiente
-  // solto forma um grupo com ele; em cima de um grupo entra nele; em cima da lista lateral, volta pra lista; do contrário só guarda a
-  // nova posição de tudo que foi arrastado.
+  // solto (do mesmo pavimento) forma um grupo com ele; em cima de um grupo do
+  // mesmo pavimento entra nele; em cima da lista lateral, volta pra lista; do
+  // contrário só guarda a nova posição de tudo que foi arrastado.
   const soltarNo = (evento, _no, arrastados) => {
     const ponto = evento.changedTouches?.[0] ?? evento
     // O próprio nó arrastado fica sob o ponteiro — procura o que está por baixo.
     const abaixo = document.elementsFromPoint(ponto.clientX, ponto.clientY)
-    const grupoAbaixo = abaixo.map(el => el.closest('.react-flow__node-grupo')).find(Boolean)?.getAttribute('data-id')
-    const naLista = abaixo.some(el => el.closest('aside'))
     const ambientesArrastados = arrastados.filter(n => n.type === 'ambiente').map(n => n.id)
+    const mesmoPav = id => !!id && ambientesArrastados.every(a => pavDe.get(a) === pavDe.get(id))
+    const grupoAbaixo = abaixo.map(el => el.closest('.react-flow__node-grupo')).find(Boolean)?.getAttribute('data-id')
+    const grupoValido = mesmoPav(grupoAbaixo) ? grupoAbaixo : null
+    const naLista = abaixo.some(el => el.closest('aside'))
     // Outro ambiente solto por baixo do ponteiro: os dois viram um grupo.
     const ambienteAbaixo = abaixo.map(el => el.closest('.react-flow__node-ambiente')).find(n => n && !ambientesArrastados.includes(n.getAttribute('data-id')))?.getAttribute('data-id')
-    if (ambientesArrastados.length && !grupoAbaixo && !naLista && ambienteAbaixo) {
-      agruparAmbientes(ambienteAbaixo, ambientesArrastados)
-      const restantes = arrastados.filter(n => n.type !== 'ambiente')
-      if (!restantes.length) return
-      arrastados = restantes
-    } else if (ambientesArrastados.length && (grupoAbaixo || naLista)) {
-      moverParaGrupo(ambientesArrastados, grupoAbaixo || null)
-      const restantes = arrastados.filter(n => n.type !== 'ambiente')
-      if (!restantes.length) return
-      arrastados = restantes
+    const ambienteValido = mesmoPav(ambienteAbaixo) ? ambienteAbaixo : null
+    if (ambientesArrastados.length && !grupoValido && !naLista && ambienteValido) {
+      agruparAmbientes(ambienteValido, ambientesArrastados)
+      arrastados = arrastados.filter(n => n.type !== 'ambiente')
+    } else if (ambientesArrastados.length && (grupoValido || naLista)) {
+      moverParaGrupo(ambientesArrastados, grupoValido || null)
+      arrastados = arrastados.filter(n => n.type !== 'ambiente')
     }
-    dispatch({
-      type: 'SET_POSICOES_FLUXO', pavimentoId: pav.id,
-      posicoes: Object.fromEntries(arrastados.map(n => [n.id, arredondar(n.position)])),
+    // Posições (relativas à faixa), um despacho por pavimento.
+    porPavimento(arrastados.map(n => n.id), pavDe).forEach((lista, pavimentoId) => {
+      dispatch({
+        type: 'SET_POSICOES_FLUXO', pavimentoId,
+        posicoes: Object.fromEntries(lista.map(id => [id, arredondar(arrastados.find(n => n.id === id).position)])),
+      })
     })
   }
   const ligar = ({ source, target }) => {
-    if (!conexaoValida({ source, target })) return
-    if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target })
-    else if (ambientesNaArea.has(source)) dispatch({ type: 'LIGAR_AMBIENTE', pavimentoId: pav.id, ambienteId: source, acessoId: target })
-    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: source, novoAlimentaEm: target })
+    const tipo = tipoLigacao(source, target)
+    const pavimentoId = pavDe.get(source)
+    if (tipo === 'entre-pavimentos') dispatch({ type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId, acessoId: source, destinoId: target })
+    else if (tipo === 'local') {
+      if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId, grupoId: source, acessoId: target })
+      else if (ambientesNaArea.has(source)) dispatch({ type: 'LIGAR_AMBIENTE', pavimentoId, ambienteId: source, acessoId: target })
+      else dispatch({ type: 'MOVER_ACESSO', pavimentoId, acessoId: source, novoAlimentaEm: target })
+    }
   }
   const desligar = removidas => removidas.forEach(e => {
     setSetaSelecionada(null)
-    if (grupos.some(g => g.id === e.source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: e.source, acessoId: null })
-    else if (ambientesNaArea.has(e.source)) dispatch({ type: 'LIGAR_AMBIENTE', pavimentoId: pav.id, ambienteId: e.source, acessoId: null })
-    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: e.source, novoAlimentaEm: null })
+    const pavimentoId = pavDe.get(e.source)
+    if (grupos.some(g => g.id === e.source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId, grupoId: e.source, acessoId: null })
+    else if (ambientesNaArea.has(e.source)) dispatch({ type: 'LIGAR_AMBIENTE', pavimentoId, ambienteId: e.source, acessoId: null })
+    else if (acessos.find(a => a.id === e.source)?.ligadoA === e.target) dispatch({ type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId, acessoId: e.source, destinoId: null })
+    else dispatch({ type: 'MOVER_ACESSO', pavimentoId, acessoId: e.source, novoAlimentaEm: null })
   })
 
   const [sobreSoltos, setSobreSoltos] = useState(false)
-  const alvosGrupo = grupos.map(g => ({ id: g.id, label: g.nome }))
+  const alvosGrupo = pavs.flatMap(p => (p.grupos || []).map(g => ({ id: g.id, label: `${p.label} · ${g.nome}` })))
 
   return (
     <div className="fixed inset-0 z-[500] bg-black/65 backdrop-blur-sm flex items-center justify-center p-3" onClick={onClose}>
@@ -631,50 +759,60 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
         <div className="flex items-center justify-between gap-3 py-3 px-5 border-b border-solid border-border shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <button onClick={onClose} className="btn-ghost p-1.5 shrink-0"><Icon name="left" size={14}/></button>
-            <span className="text-base font-bold text-ink truncate">{pav.label}</span>
-            <span className="text-[11px] text-ink-faint whitespace-nowrap">Quantidade de saídas (automático): <strong className="text-ink">{nSaidas}</strong></span>
+            <span className="text-base font-bold text-ink truncate">{estrutura.nome}</span>
+            <span className="text-[11px] text-ink-faint whitespace-nowrap">{pavimentos.length} pavimento{pavimentos.length > 1 ? 's' : ''}</span>
           </div>
-          <PisoDescargaSwitch checked={!!pav.pisoDescarga} onChange={v => dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pav.id, estruturaId: pav.estruturaId, valor: v })}/>
+          {erEstrutura && (
+            <span className="text-[11px] text-ink-faint text-right" title="A escada/rampa é dimensionada uma única vez por estrutura, com a população do pavimento mais populoso (sem o piso de descarga) — vale pra todas.">
+              Escada/rampa (única): <strong className="text-ink">{erEstrutura.pop} pessoas</strong> · {erEstrutura.pavimento.label} · <strong className="text-red">{fmtM(erEstrutura.er.la)}</strong>
+            </span>
+          )}
         </div>
 
         <FluxoCtx.Provider value={ctx}>
           <div className="flex flex-1 min-h-0">
 
-            {/* Ambientes soltos */}
+            {/* Ambientes fora da área */}
             <aside {...dropProps(null, setSobreSoltos)}
               className={`w-[320px] shrink-0 flex flex-col border-r border-solid transition-colors ${sobreSoltos ? 'border-red bg-[rgba(192,21,42,.05)]' : 'border-border'}`}
             >
               <div className="p-3.5 border-b border-solid border-border">
                 <div className="text-[13px] font-semibold text-ink">Ambientes fora da área</div>
-                <div className="text-[11px] text-ink-faint mt-0.5">Arraste para a área de trabalho (ambiente solto, sem grupo) ou para um grupo. Sem ligação a um acesso, o ambiente tem acesso direto à área de relativa segurança — não gera pendência.</div>
+                <div className="text-[11px] text-ink-faint mt-0.5">Arraste para a faixa do mesmo pavimento (ambiente solto, sem grupo) ou para um grupo dele. Sem ligação a um acesso, o ambiente tem acesso direto à área de relativa segurança — não gera pendência.</div>
               </div>
               <div className="px-3 pt-3">
                 <CampoBusca value={filtroSoltos} onChange={setFiltroSoltos} placeholder="Filtrar ambientes da lista…"/>
               </div>
               <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-                {soltosFiltrados.map(a => <AmbienteLinha key={a.id} amb={a} noGrupo={false}/>)}
+                {pavs.map(p => {
+                  const lista = soltosFiltrados.filter(a => pavDe.get(a.id) === p.id)
+                  if (!lista.length) return null
+                  return (
+                    <div key={p.id} className="flex flex-col gap-2">
+                      <div className="text-[10px] text-ink-faint uppercase tracking-[.08em] font-semibold pt-1">{p.label}</div>
+                      {lista.map(a => <AmbienteLinha key={a.id} amb={a} noGrupo={false}/>)}
+                    </div>
+                  )
+                })}
                 {soltos.length === 0 && <div className="text-[11px] text-ink-faint italic">Todos os ambientes já estão na área de trabalho.</div>}
                 {soltos.length > 0 && soltosFiltrados.length === 0 && <div className="text-[11px] text-ink-faint italic">Nenhum ambiente da lista corresponde à busca.</div>}
               </div>
-              <div className="p-3 border-t border-solid border-border flex flex-col gap-2">
-                <button className="btn-ghost justify-center" onClick={() => criarAmbiente(null)}><Icon name="plus" size={12}/> Adicionar Ambiente</button>
-                {selecionados.size > 0 && (
-                  <div className="flex flex-col gap-2 pt-2 border-t border-solid border-border">
-                    <span className="text-xs font-semibold text-ink">{selecionados.size} ambiente{selecionados.size > 1 ? 's' : ''} selecionado{selecionados.size > 1 ? 's' : ''}</span>
-                    <select value={alvoSelecao} onChange={e => setAlvoSelecao(e.target.value)} className="text-xs py-1.5 bg-transparent">
-                      <option value="">Mover para...</option>
-                      <option value={NOVO_GRUPO}>+ Novo grupo</option>
-                      <option value={NA_AREA}>— Soltos na área —</option>
-                      <option value={SEM_GRUPO}>— Voltar pra lista —</option>
-                      {alvosGrupo.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-                    </select>
-                    <div className="flex items-center gap-2">
-                      <button className="btn-ghost disabled:opacity-40 disabled:cursor-not-allowed" disabled={!alvoSelecao} onClick={moverSelecionados}><Icon name="check" size={12}/> Mover</button>
-                      <button className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer text-xs underline ml-auto" onClick={limparSelecao}>Cancelar seleção</button>
-                    </div>
+              {selecionados.size > 0 && (
+                <div className="p-3 border-t border-solid border-border flex flex-col gap-2">
+                  <span className="text-xs font-semibold text-ink">{selecionados.size} ambiente{selecionados.size > 1 ? 's' : ''} selecionado{selecionados.size > 1 ? 's' : ''}</span>
+                  <select value={alvoSelecao} onChange={e => setAlvoSelecao(e.target.value)} className="text-xs py-1.5 bg-transparent">
+                    <option value="">Mover para...</option>
+                    <option value={NOVO_GRUPO}>+ Novo grupo (no pavimento de cada um)</option>
+                    <option value={NA_AREA}>— Soltos na área —</option>
+                    <option value={SEM_GRUPO}>— Voltar pra lista —</option>
+                    {alvosGrupo.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <button className="btn-ghost disabled:opacity-40 disabled:cursor-not-allowed" disabled={!alvoSelecao} onClick={moverSelecionados}><Icon name="check" size={12}/> Mover</button>
+                    <button className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer text-xs underline ml-auto" onClick={limparSelecao}>Cancelar seleção</button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </aside>
 
             {/* Área de trabalho */}
@@ -693,25 +831,20 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                 onEdgeClick={(_, edge) => setSetaSelecionada(edge.id)}
                 onNodeClick={() => setSetaSelecionada(null)} onPaneClick={() => setSetaSelecionada(null)}
                 edgesReconnectable={false} deleteKeyCode={['Delete', 'Backspace']}
-                fitView fitViewOptions={{ padding: 0.2, maxZoom: 1 }} minZoom={0.2}
+                // Abre focado na faixa do pavimento clicado (ou mostrando tudo).
+                fitView={!focoPavId} fitViewOptions={{ padding: 0.2, maxZoom: 1 }} minZoom={0.1}
+                onInit={focoPavId ? inst => inst.fitView({ nodes: [{ id: `faixa-${focoPavId}` }], padding: 0.03, maxZoom: 1, duration: 0 }) : undefined}
               >
                 <Background gap={20}/>
                 <Controls showInteractive={false}/>
-                <MiniMap pannable zoomable nodeColor={n => (n.type === 'grupo' ? 'var(--color-ink-hint)' : n.data.tipo === 'saida' ? 'var(--color-green)' : n.data.tipo === 'escada' ? 'var(--color-amber)' : 'var(--color-ink-faint)')}/>
-                <Panel position="top-left" className="flex flex-wrap gap-2">
-                  <button className="btn-ghost" onClick={() => criarGrupo()}><Icon name="plus" size={12}/> Grupo de ambientes</button>
-                  <button className="btn-ghost" onClick={() => criarAmbiente(null, posicaoNova())}><Icon name="plus" size={12}/> Ambiente</button>
-                  <button className="btn-ghost" onClick={() => criarNo('acesso')}><Icon name="plus" size={12}/> Acesso</button>
-                  <button className="btn-ghost" onClick={() => criarNo('saida')}><Icon name="plus" size={12}/> Saída</button>
-                  <button className="btn-ghost" onClick={() => criarNo('escada')}><Icon name="plus" size={12}/> Escada/Rampa</button>
-                </Panel>
+                <MiniMap pannable zoomable nodeColor={n => (n.type === 'faixa' ? 'transparent' : n.type === 'grupo' ? 'var(--color-ink-hint)' : n.data.tipo === 'saida' ? 'var(--color-green)' : n.data.tipo === 'escada' ? 'var(--color-amber)' : 'var(--color-ink-faint)')}/>
                 {setaSelecionada && (
                   <Panel position="top-center">
                     <button className="btn-ghost" onClick={() => desligar(edges.filter(e => e.id === setaSelecionada))}><Icon name="x" size={12}/> Desligar seta selecionada</button>
                   </Panel>
                 )}
                 <Panel position="bottom-center" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
-                  Passe o mouse num nó, arraste a alça vermelha e solte em cima de outro nó para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
+                  Passe o mouse num nó, arraste a alça vermelha e solte em cima de outro nó para ligar · saídas e escadas também se ligam às de outros pavimentos (tracejado) · clique numa seta e tecle Delete (ou use o botão) para desligar
                 </Panel>
               </ReactFlow>
             </div>
@@ -731,7 +864,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
               <button onClick={() => setEditAmb(null)} className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer p-1"><Icon name="x" size={14}/></button>
             </div>
             <AmbienteForm initial={editAmb} seNorma={seNorma} ocupacoes={ocupacoes} larguras={LARGURAS_MINIMAS}
-              onSave={changes => { dispatch({ type: 'UPDATE_AMBIENTE_SE', pavimentoId: pav.id, ambienteId: editAmb.id, changes }); setEditAmb(null) }}
+              onSave={changes => { dispatch({ type: 'UPDATE_AMBIENTE_SE', pavimentoId: pavDe.get(editAmb.id), ambienteId: editAmb.id, changes }); setEditAmb(null) }}
               onCancel={() => setEditAmb(null)}/>
           </div>
         </div>
@@ -740,11 +873,12 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   )
 }
 
-// `pav` é o pavimento CRU (state.pavimentos[i], não o remodelado de
-// derivarPavimentos) — o fluxo lê/grava `grupos`, `acessos`, `fluxoPos` e
-// `pisoDescarga` tal como vivem no reducer. Detecção de incêndio e
-// chuveiros automáticos não aparecem aqui: vêm das Medidas de Segurança da
-// estrutura (ver SaidaEmergenciaPage.jsx).
+// `pavimentos` = pavimentos CRUS da estrutura (state.pavimentos filtrados, não o
+// remodelado de derivarPavimentos), na ordem do estado (subsolos, térreo,
+// demais) — o fluxo lê/grava `grupos`, `acessos`, `fluxoPos` e `pisoDescarga`
+// tal como vivem no reducer. `focoPavId`: pavimento em que a tela abre.
+// Detecção de incêndio e chuveiros automáticos não aparecem aqui: vêm das
+// Medidas de Segurança da estrutura (ver SaidaEmergenciaPage.jsx).
 export default function FluxogramaSaidas(props) {
   return (
     <ReactFlowProvider>

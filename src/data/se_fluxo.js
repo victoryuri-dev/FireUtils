@@ -18,10 +18,15 @@
 //        solto (sem grupo) na área de trabalho. Ambiente sem grupo e sem
 //        posição fica só na lista lateral.
 
-import { ehRaiz, tipoNo } from './se_calc'
+import { dimsPadrao, ehRaiz, tipoNo } from './se_calc'
 
 export const COL_W = 400
 export const ROW_H = 220
+// Canto onde começam os nós dentro da faixa do pavimento (a faixa tem um
+// cabeçalho no topo) e versão do formato de `fluxoPos` (2 = relativo à faixa).
+export const ORIGEM_X = 60
+export const ORIGEM_Y = 120
+export const FLUXO_VER = 2
 
 /** Caminho de um nó até a saída: o próprio nó e cada nó seguinte (grupo ->
  * acesso -> … -> saída/escada), com os ids das setas entre eles (`e-<origem>`).
@@ -30,6 +35,7 @@ export function caminhoAteSaida(id, { acessos, grupos, ambientes }) {
   const proximo = no => {
     const alvo = grupos.find(g => g.id === no)?.acessoId
       ?? acessos.find(a => a.id === no)?.alimentaEm
+      ?? acessos.find(a => a.id === no)?.ligadoA
       ?? ambientes.find(a => a.id === no && !a.grupoId)?.acessoId
     return alvo && acessos.some(a => a.id === alvo) ? alvo : null
   }
@@ -42,6 +48,37 @@ export function caminhoAteSaida(id, { acessos, grupos, ambientes }) {
     vistos.add(prox)
   }
   return { nos, setas }
+}
+
+/** A ligação `origemId` -> `destinoId` é permitida? Devolve 'local' (mesmo
+ * pavimento: grupo/ambiente solto/acesso -> acesso, saída ou escada, sem
+ * ciclo), 'entre-pavimentos' (pavimentos diferentes: só saída/escada ->
+ * saída/escada, sem ciclo) ou null. `pavDe`: Map id do nó -> id do pavimento;
+ * `ambientesNaArea`: ids dos ambientes soltos na área (podem ser origem). */
+export function tipoDeLigacao(origemId, destinoId, { acessos, grupos, pavDe, ambientesNaArea }) {
+  if (origemId === destinoId) return null
+  const destino = acessos.find(a => a.id === destinoId)
+  if (!destino) return null
+  const origemAcesso = acessos.find(a => a.id === origemId)
+  if (pavDe.get(origemId) === pavDe.get(destinoId)) {
+    if (grupos.some(g => g.id === origemId) || ambientesNaArea?.has(origemId)) return 'local'
+    return origemAcesso?.tipo === 'acesso' && !criaCicloNoFluxo(acessos, origemId, destinoId) ? 'local' : null
+  }
+  const ehExtremo = a => !!a && a.tipo !== 'acesso'
+  if (ehExtremo(origemAcesso) && ehExtremo(destino) && !criaCicloEntrePavimentos(acessos, origemId, destinoId)) return 'entre-pavimentos'
+  return null
+}
+
+/** Ligar a saída/escada `origemId` a `destinoId` (outro pavimento) fecharia um
+ * ciclo na cadeia de ligações entre pavimentos (`acesso.ligadoA`)? */
+export function criaCicloEntrePavimentos(acessos, origemId, destinoId) {
+  const porId = new Map(acessos.map(a => [a.id, a]))
+  const visitados = new Set()
+  for (let id = destinoId; id && !visitados.has(id); id = porId.get(id)?.ligadoA) {
+    if (id === origemId) return true
+    visitados.add(id)
+  }
+  return false
 }
 
 /** Por quais lados uma seta deve sair da origem e chegar ao destino: o par
@@ -117,26 +154,30 @@ export function layoutFluxo(acessos, grupos, existentes = {}) {
     ...acessos.map(ac => ({ id: ac.id, nivel: nivelAcesso(ac) })),
     ...grupos.map(g => ({ id: g.id, nivel: porId.has(g.acessoId) ? nivelAcesso(porId.get(g.acessoId)) + 1 : 2 })),
   ]
-  const maxNivel = Math.max(0, ...nos.map(n => n.nivel))
+  // Pelo menos 2 colunas: a saída/escada de um pavimento recém-criado fica à
+  // direita, deixando espaço à esquerda pra acessos e grupos.
+  const maxNivel = Math.max(2, ...nos.map(n => n.nivel))
   const linhaPorNivel = {}
   const posicoes = {}
   nos.forEach(({ id, nivel }) => {
     const linha = linhaPorNivel[nivel] = (linhaPorNivel[nivel] ?? -1) + 1
-    if (!existentes[id]) posicoes[id] = { x: (maxNivel - nivel) * COL_W, y: linha * ROW_H }
+    if (!existentes[id]) posicoes[id] = { x: ORIGEM_X + (maxNivel - nivel) * COL_W, y: ORIGEM_Y + linha * ROW_H }
   })
   return posicoes
 }
 
-/** Fluxo de um pavimento recém-criado: uma saída (piso de descarga) ou
- * escada/rampa, já com um acesso ligado a ela — evita a área de trabalho
- * vazia no primeiro uso. `novoId` gera o id de cada nó. */
+/** A saída (piso de descarga) ou escada/rampa PADRÃO de um pavimento: `fixo`,
+ * nasce com o pavimento e não pode ser excluída. `id` único por pavimento. */
+export function raizPadrao(pisoDescarga, id) {
+  const tipo = pisoDescarga ? 'saida' : 'escada'
+  return { id, nome: pisoDescarga ? 'Saída 01' : 'Escada/Rampa 01', tipo, alimentaEm: null, fixo: true, dims: dimsPadrao(tipo) }
+}
+
+/** Fluxo de um pavimento recém-criado: só a saída (piso de descarga) ou a
+ * escada/rampa padrão, que não pode ser excluída. `novoId` gera o id do nó. */
 export function fluxoPadrao(pisoDescarga, novoId) {
-  const raizId = novoId()
-  const acessos = [
-    { id: raizId, nome: pisoDescarga ? 'Saída 01' : 'Escada/Rampa 01', tipo: pisoDescarga ? 'saida' : 'escada', alimentaEm: null },
-    { id: novoId(), nome: 'Acesso 1', tipo: 'acesso', alimentaEm: raizId },
-  ]
-  return { acessos, grupos: [], fluxoPos: layoutFluxo(acessos, []) }
+  const acessos = [raizPadrao(pisoDescarga, novoId())]
+  return { acessos, grupos: [], fluxoPos: layoutFluxo(acessos, []), fluxoVer: FLUXO_VER }
 }
 
 /** Migra um pavimento salvo antes do fluxograma (ou ainda parcial): dá
@@ -144,7 +185,15 @@ export function fluxoPadrao(pisoDescarga, novoId) {
  * `pisoDescarga`), cria um grupo por acesso que já tinha ambientes ligados
  * direto, sincroniza `acessoId` e completa as posições. Idempotente. */
 export function migrarFluxoPavimento(p) {
-  const acessos = (p.acessos || []).map(ac => ac.tipo ? ac : { ...ac, tipo: tipoNo(ac, p.pisoDescarga) })
+  let acessos = (p.acessos || []).map(ac => ac.tipo ? ac : { ...ac, tipo: tipoNo(ac, p.pisoDescarga) })
+  // Todo pavimento tem a saída/escada padrão (`fixo`): promove a primeira raiz
+  // que já existia ou, se não há nenhuma, cria uma.
+  if (!acessos.some(ac => ac.fixo)) {
+    const i = acessos.findIndex(ac => ehRaiz(ac))
+    acessos = i >= 0
+      ? acessos.map((ac, j) => (j === i ? { ...ac, fixo: true } : ac))
+      : [...acessos, raizPadrao(!!p.pisoDescarga, `acs-fixo-${p.id}`)]
+  }
   const grupos = [...(p.grupos || [])]
   // Grupo sem nome (criado quando o grupo ainda não tinha nome) recebe o padrão.
   grupos.forEach((g, i) => { if (!g.nome) grupos[i] = { ...g, nome: proximoNomeGrupo(grupos) } })
@@ -167,6 +216,15 @@ export function migrarFluxoPavimento(p) {
     return { ...a, grupoId: null }
   })
 
-  const fluxoPos = { ...(p.fluxoPos || {}), ...layoutFluxo(acessos, grupos, p.fluxoPos || {}) }
-  return { ...p, acessos, grupos, ambientes: sincronizarAmbientes(ambientes, grupos, acessos), fluxoPos }
+  // Posições salvas antes da faixa por pavimento (versão < 2) eram livres na
+  // área de trabalho: deslocadas pra caber na faixa, a partir do canto de origem.
+  let posSalvas = p.fluxoPos || {}
+  const salvas = Object.values(posSalvas)
+  if (p.fluxoVer !== FLUXO_VER && salvas.length) {
+    const dx = ORIGEM_X - Math.min(...salvas.map(q => q.x))
+    const dy = ORIGEM_Y - Math.min(...salvas.map(q => q.y))
+    posSalvas = Object.fromEntries(Object.entries(posSalvas).map(([id, q]) => [id, { x: q.x + dx, y: q.y + dy }]))
+  }
+  const fluxoPos = { ...posSalvas, ...layoutFluxo(acessos, grupos, posSalvas) }
+  return { ...p, acessos, grupos, ambientes: sincronizarAmbientes(ambientes, grupos, acessos), fluxoPos, fluxoVer: FLUXO_VER }
 }

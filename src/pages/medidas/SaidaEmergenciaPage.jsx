@@ -26,7 +26,7 @@ const uid  = () => `se-${Date.now()}-${++_seq}`
 // Ambientes ficam no reducer compartilhado (state.pavimentos[].ambientes) —
 // aqui só remodela pro formato que esta página usa. `pisoDescarga`/
 // `acessos` são repassados como estão no reducer — o fluxograma de saídas
-// (FluxogramaSaidas) lê o pavimento cru direto de state.pavimentos, não
+// (FluxogramaSaidas) lê os pavimentos crus direto de state.pavimentos, não
 // esta versão remodelada. `divisao` é a
 // classificação de ocupação da Etapa 4 (Step4.jsx) — usada pela distância
 // máxima a percorrer, não pelas divisões dos ambientes daqui.
@@ -401,7 +401,10 @@ export default function SaidaEmergenciaPage({ extra = null }) {
     notificarImportacao(timestamp, erros.length ? erros.join(' ') : null)
   }
 
+  // Fluxograma aberto: a estrutura inteira (uma faixa por pavimento), focado no
+  // pavimento clicado.
   const viewPav = viewPavId ? state.pavimentos.find(p => p.id === viewPavId) : null
+  const viewEstrutura = viewPav ? state.estruturas.find(e => e.id === viewPav.estruturaId) : null
 
   const dadosPav = pavimentos.map(p => {
     const temChuveiros    = getTemChuveiros(p.estruturaId)
@@ -516,7 +519,11 @@ export default function SaidaEmergenciaPage({ extra = null }) {
         {extra}
       </div>
 
-      {viewPav && <FluxogramaSaidas pav={viewPav} seNorma={seNorma} ocupacoes={ocupacoes} dispatch={dispatch} onClose={() => setViewPavId(null)}/>}
+      {viewPav && viewEstrutura && (
+        <FluxogramaSaidas
+          key={viewEstrutura.id} estrutura={viewEstrutura} pavimentos={state.pavimentos.filter(p => p.estruturaId === viewEstrutura.id)}
+          focoPavId={viewPav.id} seNorma={seNorma} ocupacoes={ocupacoes} dispatch={dispatch} onClose={() => setViewPavId(null)}/>
+      )}
     </div>
   )
 }

@@ -692,6 +692,21 @@ function omitirChave(obj, chave) {
   return copia
 }
 
+// A saída/escada padrão (`fixo`) de um pavimento acompanha o piso de descarga:
+// piso de descarga -> Saída; qualquer outro -> Escada/Rampa. Ao mudar, volta
+// pro dimensionamento padrão do novo tipo e troca o prefixo do nome, se ainda
+// for o nome padrão ("Saída 01" <-> "Escada/Rampa 01").
+function acompanharPisoDescarga(p, eraPisoDescarga) {
+  if (!!p.pisoDescarga === !!eraPisoDescarga) return p
+  const tipo = p.pisoDescarga ? 'saida' : 'escada'
+  return {
+    ...p,
+    acessos: (p.acessos || []).map(ac => (ac.fixo
+      ? { ...ac, tipo, dims: dimsPadrao(tipo), nome: ac.nome.replace(/^(Saída|Escada\/Rampa)( \d+)$/, `${tipo === 'saida' ? 'Saída' : 'Escada/Rampa'}$2`) }
+      : ac)),
+  }
+}
+
 // Aplica `fn` ao pavimento e re-sincroniza `ambiente.acessoId` com o grupo de
 // cada ambiente (ver sincronizarAmbientes) — toda mudança no fluxo de saídas
 // (nós, ligações, ambientes) passa por aqui, então motor de cálculo e
@@ -804,8 +819,8 @@ export function reducer(state, action) {
       return {
         ...state,
         pavimentos: state.pavimentos.map(p => {
-          if (p.id === pavimentoId) return { ...p, pisoDescarga: valor }
-          if (valor && p.estruturaId === estruturaId) return { ...p, pisoDescarga: false }
+          if (p.id === pavimentoId) return acompanharPisoDescarga({ ...p, pisoDescarga: valor }, p.pisoDescarga)
+          if (valor && p.estruturaId === estruturaId) return acompanharPisoDescarga({ ...p, pisoDescarga: false }, p.pisoDescarga)
           return p
         }),
       }
@@ -1050,9 +1065,11 @@ export function reducer(state, action) {
     case 'SET_ACESSO_TIPO':
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
-        acessos: (p.acessos || []).map(ac => ac.id === action.acessoId
-          ? { ...ac, tipo: action.tipo, dims: dimsPadrao(action.tipo), alimentaEm: action.tipo === 'acesso' ? ac.alimentaEm : null }
-          : ac),
+        // Saída/escada padrão (`fixo`) acompanha o piso de descarga — não troca à mão.
+        acessos: (p.acessos || []).map(ac => {
+          if (ac.id !== action.acessoId || ac.fixo) return ac
+          return { ...(action.tipo === 'acesso' ? omitirChave(ac, 'ligadoA') : ac), tipo: action.tipo, dims: dimsPadrao(action.tipo), alimentaEm: action.tipo === 'acesso' ? ac.alimentaEm : null }
+        }),
       }))
     // Liga/desliga um dimensionamento (AD/ER/PT) de um nó específico — um
     // nó pode precisar de mais de um ao mesmo tempo (ex.: o ponto de
@@ -1091,6 +1108,17 @@ export function reducer(state, action) {
         ...state,
         pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac) }
+          : p),
+      }
+    // Liga uma saída/escada a outra saída/escada de OUTRO pavimento (ou null pra
+    // desligar). Não altera o cálculo — o dimensionamento da escada é único por
+    // estrutura (ver calcErEstrutura); a ligação registra o desenho do fluxo.
+    // Validar (extremos, ciclo) é de quem despacha — ver tipoDeLigacao.
+    case 'LIGAR_ENTRE_PAVIMENTOS':
+      return {
+        ...state,
+        pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
+          ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, ligadoA: action.destinoId } : ac) }
           : p),
       }
     // Liga um grupo de ambientes a um nó (ou null pra desligar) — os
@@ -1134,7 +1162,9 @@ export function reducer(state, action) {
     // usuário religa depois, mas não perde nenhum ambiente cadastrado.
     case 'REMOVER_ACESSO': {
       const { pavimentoId, acessoId } = action
-      return atualizarPavSE(state, pavimentoId, p => {
+      // A saída/escada padrão (`fixo`) de cada pavimento não pode ser excluída.
+      if (state.pavimentos.find(p => p.id === pavimentoId)?.acessos?.find(ac => ac.id === acessoId)?.fixo) return state
+      const aposRemover = atualizarPavSE(state, pavimentoId, p => {
         return {
           ...p,
           fluxoPos: omitirChave(p.fluxoPos, acessoId),
@@ -1144,6 +1174,13 @@ export function reducer(state, action) {
           grupos: (p.grupos || []).map(g => g.acessoId === acessoId ? { ...g, acessoId: null } : g),
         }
       })
+      // Saídas/escadas de outros pavimentos que estavam ligadas a este nó também desligam.
+      return {
+        ...aposRemover,
+        pavimentos: aposRemover.pavimentos.map(p => ((p.acessos || []).some(ac => ac.ligadoA === acessoId)
+          ? { ...p, acessos: p.acessos.map(ac => (ac.ligadoA === acessoId ? { ...ac, ligadoA: null } : ac)) }
+          : p)),
+      }
     }
     // Remove um grupo; os ambientes dentro dele ficam soltos (sem grupo), nunca
     // são apagados junto.

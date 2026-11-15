@@ -237,3 +237,116 @@ test('caminho até a saída: nós e setas da cadeia, de grupo, ambiente solto ou
   // Ciclo (dado corrompido) não trava.
   assert.deepEqual(fluxo.caminhoAteSaida('x', { acessos: [{ id: 'x', alimentaEm: 'y' }, { id: 'y', alimentaEm: 'x' }], grupos: [], ambientes: [] }).nos, ['x', 'y'])
 })
+
+// ── Área de trabalho da estrutura: saída/escada padrão, ligações entre pavimentos, escada única ──
+const pavLegado = (extra = {}) => ({ id: 'e1-P2', estruturaId: 'e1', label: '1º Pavimento', pisoDescarga: false, ambientes: [], acessos: [], ...extra })
+
+test('todo pavimento tem a saída/escada padrão (fixa): criada se faltava, promovida se já existia', () => {
+  const terreo = fluxo.migrarFluxoPavimento(pavLegado({ id: 'e1-P1', label: 'Térreo', pisoDescarga: true }))
+  assert.deepEqual(terreo.acessos.map(a => [a.id, a.tipo, a.fixo, a.nome]), [['acs-fixo-e1-P1', 'saida', true, 'Saída 01']])
+  const upper = fluxo.migrarFluxoPavimento(pavLegado())
+  assert.deepEqual(upper.acessos.map(a => [a.tipo, a.fixo, a.nome]), [['escada', true, 'Escada/Rampa 01']])
+  assert.deepEqual(upper.acessos[0].dims, { AD: false, ER: true, PT: true })
+  // Já tinha raízes: a primeira vira a padrão, sem criar outra; acesso solto não conta.
+  const antigo = fluxo.migrarFluxoPavimento(pavLegado({ acessos: [{ id: 'x', nome: 'Acesso', alimentaEm: 'r1' }, { id: 'r1', nome: 'Escada A', alimentaEm: null }, { id: 'r2', nome: 'Escada B', alimentaEm: null }] }))
+  assert.deepEqual(antigo.acessos.map(a => [a.id, !!a.fixo]), [['x', false], ['r1', true], ['r2', false]])
+  assert.deepEqual(fluxo.migrarFluxoPavimento(antigo), antigo)
+})
+
+test('fluxo de um pavimento novo traz só a saída/escada padrão, à direita da faixa', () => {
+  let n = 0
+  const f = fluxo.fluxoPadrao(false, () => `n${++n}`)
+  assert.equal(f.acessos.length, 1)
+  assert.deepEqual([f.acessos[0].tipo, f.acessos[0].fixo], ['escada', true])
+  assert.ok(f.fluxoPos.n1.x > fluxo.ORIGEM_X && f.fluxoPos.n1.y >= fluxo.ORIGEM_Y)
+})
+
+test('migração: posições antigas (área livre) são deslocadas pra dentro da faixa, uma vez só', () => {
+  const p = fluxo.migrarFluxoPavimento(pavLegado({
+    acessos: [{ id: 'r1', nome: 'Escada', alimentaEm: null }],
+    grupos: [{ id: 'g1', nome: 'Grupo 1', acessoId: 'r1' }],
+    fluxoPos: { r1: { x: 900, y: -50 }, g1: { x: 100, y: 200 } },
+  }))
+  assert.deepEqual(p.fluxoPos, { r1: { x: 900 - 100 + fluxo.ORIGEM_X, y: fluxo.ORIGEM_Y }, g1: { x: fluxo.ORIGEM_X, y: 200 + 50 + fluxo.ORIGEM_Y } })
+  assert.equal(p.fluxoVer, fluxo.FLUXO_VER)
+  assert.deepEqual(fluxo.migrarFluxoPavimento(p).fluxoPos, p.fluxoPos)
+})
+
+test('a saída/escada padrão não pode ser excluída nem trocar de tipo; acompanha o piso de descarga', () => {
+  const t = fluxo.migrarFluxoPavimento(pavLegado({ id: 'e1-P1', label: 'Térreo', pisoDescarga: true }))
+  const u = fluxo.migrarFluxoPavimento(pavLegado())
+  let s = { pavimentos: [t, u], estruturas: [] }
+  s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'e1-P1', acessoId: 'acs-fixo-e1-P1' })
+  s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'e1-P2', acessoId: 'acs-fixo-e1-P2', tipo: 'acesso' })
+  assert.deepEqual(s.pavimentos.map(p => [p.acessos.length, p.acessos[0].tipo]), [[1, 'saida'], [1, 'escada']])
+  // O piso de descarga muda do térreo pro 1º pavimento: os tipos e nomes seguem.
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'e1-P2', estruturaId: 'e1', valor: true })
+  assert.deepEqual(s.pavimentos.map(p => [p.pisoDescarga, p.acessos[0].tipo, p.acessos[0].nome]), [[false, 'escada', 'Escada/Rampa 01'], [true, 'saida', 'Saída 01']])
+  assert.deepEqual(s.pavimentos[0].acessos[0].dims, { AD: false, ER: true, PT: true })
+})
+
+test('ligação: mesmo pavimento como antes; entre pavimentos só saída/escada <-> saída/escada, sem ciclo', () => {
+  const acessos = [
+    { id: 's1', tipo: 'saida', alimentaEm: null }, { id: 'e2', tipo: 'escada', alimentaEm: null, ligadoA: 's1' }, { id: 'e3', tipo: 'escada', alimentaEm: null },
+    { id: 'a3', tipo: 'acesso', alimentaEm: 'e3' }, { id: 'a2', tipo: 'acesso', alimentaEm: 'e2' },
+  ]
+  const grupos = [{ id: 'g3', acessoId: null }]
+  const pavDe = new Map([['s1', 'P1'], ['e2', 'P2'], ['a2', 'P2'], ['e3', 'P3'], ['a3', 'P3'], ['g3', 'P3']])
+  const dados = { acessos, grupos, pavDe, ambientesNaArea: new Set() }
+  const t = (o, d) => fluxo.tipoDeLigacao(o, d, dados)
+  assert.equal(t('g3', 'a3'), 'local')            // grupo -> acesso do mesmo pavimento
+  assert.equal(t('a3', 'e3'), 'local')            // acesso -> escada do mesmo pavimento
+  assert.equal(t('e3', 'e2'), 'entre-pavimentos') // escada do 3º -> escada do 2º
+  assert.equal(t('e2', 's1'), 'entre-pavimentos') // escada -> saída
+  assert.equal(t('g3', 'e2'), null)               // grupo -> escada de outro pavimento
+  assert.equal(t('a3', 'e2'), null)               // acesso -> escada de outro pavimento
+  assert.equal(t('e3', 'a2'), null)               // escada -> acesso de outro pavimento
+  assert.equal(t('s1', 'e3'), 'entre-pavimentos') // saída também pode ser origem...
+  assert.equal(t('s1', 'e2'), null)               // ...mas não fecha ciclo (e2 já liga em s1)
+  assert.equal(t('e3', 'e3'), null)
+  assert.equal(t('e3', 'g3'), null)
+})
+
+test('ligação entre pavimentos: guarda em ligadoA, some com o nó de destino e ao virar acesso', () => {
+  const mk = (id, piso) => fluxo.migrarFluxoPavimento(pavLegado({ id, pisoDescarga: piso }))
+  let s = { pavimentos: [mk('e1-P1', true), mk('e1-P2', false), mk('e1-P3', false)], estruturas: [] }
+  // Escada extra no 2º pavimento (removível) ligada à saída do térreo e à escada do 3º ligada a ela.
+  s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'e1-P2', id: 'ex', tipo: 'escada', nome: 'Escada/Rampa 02', pos: { x: 1, y: 1 } })
+  s = reducer(s, { type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId: 'e1-P2', acessoId: 'ex', destinoId: 'acs-fixo-e1-P1' })
+  s = reducer(s, { type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId: 'e1-P3', acessoId: 'acs-fixo-e1-P3', destinoId: 'ex' })
+  const todos = () => s.pavimentos.flatMap(p => p.acessos)
+  assert.equal(todos().find(a => a.id === 'ex').ligadoA, 'acs-fixo-e1-P1')
+  const dados = { acessos: todos(), grupos: [], ambientes: [] }
+  assert.deepEqual(fluxo.caminhoAteSaida('acs-fixo-e1-P3', dados).nos, ['acs-fixo-e1-P3', 'ex', 'acs-fixo-e1-P1'])
+  // Remover a escada extra desliga quem apontava pra ela, em outro pavimento.
+  s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'e1-P2', acessoId: 'ex' })
+  assert.equal(todos().find(a => a.id === 'acs-fixo-e1-P3').ligadoA, null)
+  // Virar acesso solta a ligação entre pavimentos.
+  s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'e1-P3', id: 'ey', tipo: 'escada', nome: 'Escada/Rampa 02', pos: { x: 1, y: 1 } })
+  s = reducer(s, { type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId: 'e1-P3', acessoId: 'ey', destinoId: 'acs-fixo-e1-P1' })
+  s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'e1-P3', acessoId: 'ey', tipo: 'acesso' })
+  assert.equal(todos().find(a => a.id === 'ey').ligadoA, undefined)
+})
+
+test('escada/rampa: um cálculo único por estrutura (pavimento mais populoso, sem o piso de descarga)', () => {
+  const taxa = { 'C-1': { A: 3, AD: 100, ER: 75, PT: 100 } }
+  const larg = { AD: 1.1, ER: 1.2, LARG_UP: 0.55, PT: [{ n_up: 1, largura: 0.8, tipo: '1 folha' }] }
+  const pavs = [
+    { id: 'P1', pisoDescarga: true, ambientes: [{ id: 'a', divisao: 'C-1', area: 3000 }] },   // térreo: 1000 pessoas, ignorado
+    { id: 'P2', pisoDescarga: false, ambientes: [{ id: 'b', divisao: 'C-1', area: 300 }] },  // 100
+    { id: 'P3', pisoDescarga: false, ambientes: [{ id: 'c', divisao: 'C-1', area: 600 }] },  // 200  <- mais populoso
+  ]
+  const er = calc.calcErEstrutura(pavs, taxa, larg)
+  assert.deepEqual([er.pavimento.id, er.pop, er.er.n], ['P3', 200, 3])
+  assert.equal(calc.calcErEstrutura([pavs[0]], taxa, larg), null)
+  // Aplicado ao nó: o ER do nó usa o da estrutura (e a porta acompanha o N dele); sem ele, o cálculo local de sempre.
+  const ambientes = [{ id: 'c', divisao: 'C-1', area: 30, acessoId: 'r' }]
+  const acessos = [{ id: 'r', alimentaEm: null }]
+  const dims = { AD: false, ER: true, PT: true }
+  const local = calc.calcDimsAcesso('r', ambientes, acessos, taxa, larg, dims)
+  const unico = calc.calcDimsAcesso('r', ambientes, acessos, taxa, larg, dims, er)
+  assert.equal(local.er.n, 1)
+  assert.equal(unico.er.n, 3)
+  assert.equal(unico.nPorta, 3)
+  assert.equal(unico.pop, 10) // população do nó continua a local
+})
