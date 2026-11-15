@@ -329,14 +329,14 @@ function AcessoNode({ data }) {
 // Retângulo que envolve os nós do pavimento (calcFaixa), com o nome em letra
 // grande (dá pra ler com zoom afastado). Só o cabeçalho pega o mouse: arrastar
 // por ele move a faixa com tudo que há dentro; o resto da faixa deixa nós e
-// ligações trabalharem por cima. A faixa do pavimento em edição fica com a
+// ligações trabalharem por cima. Só a faixa do pavimento em edição tem fundo e
 // borda vermelha — as opções do topo (criar nós, piso de descarga) valem pra ela.
 function FaixaNode({ data }) {
   const c = useContext(FluxoCtx)
   const { pav } = data
   const ativa = c.pavAtivoId === pav.id
   return (
-    <div className={`w-full h-full rounded-lg border border-dashed transition-colors bg-[rgba(255,255,255,.015)] ${ativa ? 'border-red' : 'border-ink-hint'}`}>
+    <div className={`w-full h-full rounded-lg border border-dashed transition-colors ${ativa ? 'border-red bg-[rgba(255,255,255,.03)]' : 'border-ink-hint'}`}>
       <div style={{ pointerEvents: 'auto' }} title="Arraste para mover o pavimento inteiro" className="faixa-cab inline-flex items-baseline gap-4 py-3 px-6 cursor-grab">
         <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
         {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
@@ -434,8 +434,9 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   // junto com as props novas a cada render do <ReactFlow>, entra em loop.
   const [origemLigacao, setOrigemLigacao] = useState(null)
   // Pavimento em edição: as opções do topo (criar nós, piso de descarga) valem
-  // pra ele. Muda ao escolher no seletor, ao mexer num nó ou ao navegar até
-  // outra faixa (a que fica no centro da tela).
+  // pra ele. Muda ao escolher no seletor ou ao clicar/arrastar algo dentro da
+  // faixa do pavimento (nó, cabeçalho ou o fundo da faixa) — navegar pela área
+  // não troca o pavimento em edição.
   const [pavAtivoId, setPavAtivoId] = useState(focoPavId || pavimentos[pavimentos.length - 1]?.id)
 
   // Nó sob o mouse: ele e tudo até a saída (nós e setas) ficam vermelhos.
@@ -542,8 +543,6 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     const f = faixaDe(pavId)
     if (f) inst.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.03, duration })
   }
-  // Faixa mais próxima de um ponto da área de trabalho (a que o contém, se houver).
-  const faixaMaisPerto = ponto => faixas.reduce((melhor, f) => (!melhor || distanciaAteRetangulo(ponto, f) < distanciaAteRetangulo(ponto, melhor) ? f : melhor), null)
   const arrastoFaixa = useRef(null)
 
   // ── Posição de nó novo (relativa à origem da faixa): centro da área visível
@@ -889,11 +888,12 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 // selecionar um nó não leva as setas dele junto.
                 onBeforeDelete={async ({ edges: es }) => ({ nodes: [], edges: es.filter(e => e.id === setaSelecionada) })}
                 onEdgeClick={(_, edge) => setSetaSelecionada(edge.id)}
-                onNodeClick={(_, no) => { setSetaSelecionada(null); if (pavDe.get(no.id)) setPavAtivoId(pavDe.get(no.id)) }}
-                onPaneClick={() => setSetaSelecionada(null)}
-                onMoveEnd={(_, vp) => {
-                  const r = wrapRef.current.getBoundingClientRect()
-                  const f = faixaMaisPerto({ x: (r.width / 2 - vp.x) / vp.zoom, y: (r.height / 2 - vp.y) / vp.zoom })
+                onNodeClick={(_, no) => { setSetaSelecionada(null); const pavId = no.type === 'faixa' ? no.data.pav.id : pavDe.get(no.id); if (pavId) setPavAtivoId(pavId) }}
+                // Clique no fundo: se caiu dentro da faixa de um pavimento, ele passa a ser o em edição.
+                onPaneClick={e => {
+                  setSetaSelecionada(null)
+                  const ponto = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+                  const f = faixas.find(x => distanciaAteRetangulo(ponto, x) === 0)
                   if (f) setPavAtivoId(f.pav.id)
                 }}
                 edgesReconnectable={false} deleteKeyCode={['Delete', 'Backspace']}
