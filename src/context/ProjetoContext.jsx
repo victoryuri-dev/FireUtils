@@ -4,7 +4,7 @@ import { carregarNormasRemotas, carregarCatalogoNormas } from '../lib/normasRemo
 import { useAuth } from './AuthContext'
 import { PROCEDIMENTOS_PADRAO } from '../utils/planoEmergencia'
 import { dimsPadrao } from '../data/se_calc'
-import { fluxoPadrao, ligarEscadasPadrao, migrarFluxoPavimento, sincronizarAmbientes } from '../data/se_fluxo'
+import { fluxoPadrao, ligarEscadasPadrao, migrarFluxoPavimento, posicionarFaixas, sincronizarAmbientes } from '../data/se_fluxo'
 import { alturaEdificacaoBase, limparAlturasOcultas } from '../data/trrf_calc'
 
 // Gera um ID interno único
@@ -335,7 +335,7 @@ export function hydrateState(saved) {
     // ela, ver fluxoNovo. Pavimentos anteriores ao fluxograma de saídas
     // (sem `grupos`/`fluxoPos`/`tipo` nos nós) são migrados por
     // migrarFluxoPavimento.
-    pavimentos: ligarEscadasPadrao((saved.pavimentos || INITIAL_STATE.pavimentos).map(p => migrarFluxoPavimento({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) }))),
+    pavimentos: posicionarFaixas(ligarEscadasPadrao((saved.pavimentos || INITIAL_STATE.pavimentos).map(p => migrarFluxoPavimento({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) })))),
     ...migrarParaPorEstrutura(saved),
   }
 }
@@ -802,7 +802,7 @@ export function reducer(state, action) {
       const idsValidos = new Set(list.map(p => p.id))
       return {
         ...state,
-        pavimentos: ligarEscadasPadrao([...others, ...list]),
+        pavimentos: posicionarFaixas(ligarEscadasPadrao([...others, ...list])),
         extintores: state.extintores.filter(e => e.estruturaId !== estruturaId || idsValidos.has(e.pavimentoId)),
         iluminacao: state.iluminacao.filter(i => i.estruturaId !== estruturaId || idsValidos.has(i.pavimentoId)),
       }
@@ -1189,6 +1189,10 @@ export function reducer(state, action) {
         }
       })
     }
+    // Origem da faixa do pavimento na área de trabalho (arrastar a faixa) — os
+    // nós dentro dela (`fluxoPos`) são relativos a esse ponto.
+    case 'SET_FAIXA_POS':
+      return { ...state, pavimentos: state.pavimentos.map(p => (p.id === action.pavimentoId ? { ...p, faixaPos: action.pos } : p)) }
     // Posição dos nós na área de trabalho — despachada só ao soltar o
     // arrasto (não a cada movimento), pra não inundar o broadcast.
     case 'SET_POSICOES_FLUXO':

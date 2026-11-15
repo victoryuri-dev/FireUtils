@@ -10,9 +10,9 @@ import Checkbox from '../../components/ui/Checkbox'
 import InlineEditableNome from '../../components/ui/InlineEditableNome'
 import { AmbienteForm, fmtM } from './se_shared'
 import {
-  calcPopAmb, calcPopPav, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
+  calcPopAmb, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
 } from '../../data/se_calc'
-import { ORIGEM_X, ORIGEM_Y, caminhoAteSaida, ladosMaisProximos, proximoNomeGrupo, tipoDeLigacao } from '../../data/se_fluxo'
+import { FAIXA_CAB, FAIXA_PAD, ORIGEM_X, ORIGEM_Y, caminhoAteSaida, ladosMaisProximos, proximoNomeGrupo, tipoDeLigacao } from '../../data/se_fluxo'
 
 // Fluxograma de saídas de uma ESTRUTURA (Grupo de ambientes -> Acesso ->
 // Saída/Escada). Uma área de trabalho com uma faixa por pavimento (o de cima
@@ -326,17 +326,18 @@ function AcessoNode({ data }) {
 }
 
 // ── Faixa de um pavimento ───────────────────────────────────────────────
-// Fundo + nome grande do pavimento na área de trabalho (dá pra ler mesmo com
-// zoom afastado). Não recebe mouse: nós e ligações trabalham por cima. A faixa
-// do pavimento em edição fica com a borda vermelha — as opções do topo (criar
-// nós, piso de descarga) valem pra ela.
+// Retângulo que envolve os nós do pavimento (calcFaixa), com o nome em letra
+// grande (dá pra ler com zoom afastado). Só o cabeçalho pega o mouse: arrastar
+// por ele move a faixa com tudo que há dentro; o resto da faixa deixa nós e
+// ligações trabalharem por cima. A faixa do pavimento em edição fica com a
+// borda vermelha — as opções do topo (criar nós, piso de descarga) valem pra ela.
 function FaixaNode({ data }) {
   const c = useContext(FluxoCtx)
   const { pav } = data
   const ativa = c.pavAtivoId === pav.id
   return (
     <div className={`w-full h-full rounded-lg border border-dashed transition-colors bg-[rgba(255,255,255,.015)] ${ativa ? 'border-red' : 'border-ink-hint'}`}>
-      <div className="flex items-baseline gap-4 py-4 px-6">
+      <div style={{ pointerEvents: 'auto' }} title="Arraste para mover o pavimento inteiro" className="faixa-cab inline-flex items-baseline gap-4 py-3 px-6 cursor-grab">
         <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
         {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
       </div>
@@ -367,13 +368,28 @@ const NA_AREA = '__na_area__'
 
 const arredondar = pos => ({ x: Math.round(pos.x), y: Math.round(pos.y) })
 
-// Tamanho mínimo da faixa de um pavimento e folga além do último nó — a faixa
-// cresce junto com os nós (eles não saem da faixa onde nasceram).
-const FAIXA_W = 1500
-const FAIXA_H = 640
-const FAIXA_FOLGA_X = 520
-const FAIXA_FOLGA_Y = 420
-const FAIXA_GAP = 80
+// Tamanho de um nó ainda não medido pelo React Flow (só vale até a 1ª medição).
+const TAM_PADRAO = { grupo: [340, 260], acesso: [300, 200], ambiente: [300, 80] }
+// Quanto além da faixa ainda vale soltar um ambiente arrastado da lista.
+const MARGEM_SOLTAR = 400
+
+// Faixa do pavimento = retângulo que envolve os nós dele (posições absolutas e
+// tamanhos medidos) mais uma folga, com espaço em cima pro nome. Acompanha os
+// nós em tempo real, inclusive durante o arrasto.
+function calcFaixa(pav, nosDoPavimento) {
+  const caixas = nosDoPavimento.map(n => {
+    const [w0, h0] = TAM_PADRAO[n.type] || [300, 200]
+    return { x: n.position.x, y: n.position.y, w: n.measured?.width ?? w0, h: n.measured?.height ?? h0 }
+  })
+  const o = pav.faixaPos || { x: 0, y: 0 }
+  const minX = caixas.length ? Math.min(...caixas.map(c => c.x)) : o.x
+  const minY = caixas.length ? Math.min(...caixas.map(c => c.y)) : o.y
+  const maxX = caixas.length ? Math.max(...caixas.map(c => c.x + c.w)) : o.x + 300
+  const maxY = caixas.length ? Math.max(...caixas.map(c => c.y + c.h)) : o.y + 200
+  return { id: `faixa-${pav.id}`, pav, x: minX - FAIXA_PAD, y: minY - FAIXA_PAD - FAIXA_CAB, w: maxX - minX + 2 * FAIXA_PAD, h: maxY - minY + 2 * FAIXA_PAD + FAIXA_CAB }
+}
+// Distância de um ponto até um retângulo (0 se estiver dentro).
+const distanciaAteRetangulo = (p, r) => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.w)), Math.max(r.y - p.y, 0, p.y - (r.y + r.h)))
 
 // Agrupa uma lista de ids por pavimento: Map(pavimentoId -> ids).
 function porPavimento(ids, pavDe) {
@@ -444,34 +460,105 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   const limparSelecao = () => setSelecionados(new Set())
   const idsDoArrasto = id => (selecionados.size > 1 && selecionados.has(id) ? [...selecionados] : [id])
 
-  // ── Faixas (uma por pavimento), do topo pra baixo ──
-  const faixas = useMemo(() => pavs.reduce((acc, p) => {
-    const posicoes = Object.values(p.fluxoPos || {})
-    const w = Math.max(FAIXA_W, ...posicoes.map(q => q.x + FAIXA_FOLGA_X))
-    const h = Math.max(FAIXA_H, ...posicoes.map(q => q.y + FAIXA_FOLGA_Y))
-    const anterior = acc[acc.length - 1]
-    return [...acc, { id: `faixa-${p.id}`, pav: p, x: 0, y: anterior ? anterior.y + anterior.h + FAIXA_GAP : 0, w, h }]
-  }, []), [pavs])
-  const pavAtivo = pavPorId.get(pavAtivoId) || pavs[0]
+  // ── Nós (a partir do estado do projeto) ──
+  // Posição de um nó na área = origem da faixa do pavimento + `fluxoPos` (relativo).
+  // Dimensionamento único das escadas/rampas da estrutura.
+  const erEstrutura = useMemo(() => calcErEstrutura(pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS), [pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
+  const nosBase = useMemo(() => {
+    const nos = []
+    pavs.forEach(p => {
+      const pambs = p.ambientes || []
+      const pacs = p.acessos || []
+      const o = p.faixaPos || { x: 0, y: 0 }
+      const filho = (id, type, data) => ({ id, type, zIndex: 1, position: { x: o.x + (p.fluxoPos?.[id]?.x ?? ORIGEM_X), y: o.y + (p.fluxoPos?.[id]?.y ?? ORIGEM_Y) }, data })
+      ;(p.grupos || []).forEach(g => {
+        const ambs = pambs.filter(a => a.grupoId === g.id)
+        nos.push(filho(g.id, 'grupo', { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) }))
+      })
+      pambs.filter(a => !a.grupoId && p.fluxoPos?.[a.id]).forEach(a => nos.push(filho(a.id, 'ambiente', { amb: a })))
+      pacs.forEach(ac => {
+        const dims = dimsDoAcesso(ac, !!p.pisoDescarga)
+        const { pop, ad, er, pt } = calcDimsAcesso(ac.id, pambs, pacs, TAXA_POPULACIONAL, LARGURAS_MINIMAS, dims, erEstrutura)
+        nos.push(filho(ac.id, 'acesso', {
+          acesso: ac, tipo: ac.tipo, dims, pop, raiz: ehRaiz(ac),
+          erUnico: dims.ER && erEstrutura ? { pop: erEstrutura.pop, label: erEstrutura.pavimento.label } : null,
+          entradas: [
+            ad && { label: 'ACESSO/DESCARGA', value: fmtM(ad.la) },
+            pt && { label: 'PORTAS', value: fmtM(pt.la) },
+            er && { label: 'ESCADA/RAMPA', value: fmtM(er.la) },
+          ].filter(Boolean),
+        }))
+      })
+    })
+    return nos
+  }, [pavs, erEstrutura, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
+
+  // Estado local dos nós (React Flow precisa dele pra animar o arrasto);
+  // reabastecido a cada mudança do projeto, preservando seleção/medidas e a
+  // posição de quem está sendo arrastado agora.
+  const [nodes, setNodes] = useState(nosBase)
+  const [nosBaseVisto, setNosBaseVisto] = useState(nosBase)
+  if (nosBaseVisto !== nosBase) {
+    setNosBaseVisto(nosBase)
+    const antigos = new Map(nodes.map(n => [n.id, n]))
+    setNodes(nosBase.map(n => {
+      const o = antigos.get(n.id)
+      return o ? { ...o, ...n, position: o.dragging ? o.position : n.position } : n
+    }))
+  }
+
+  // ── Faixas (uma por pavimento), ajustadas aos nós em tempo real ──
+  const faixas = useMemo(() => pavs.map(p => calcFaixa(p, nodes.filter(n => pavDe.get(n.id) === p.id))), [pavs, nodes, pavDe])
+  const nodesComFaixas = useMemo(() => [
+    ...faixas.map(f => ({
+      id: f.id, type: 'faixa', position: { x: f.x, y: f.y }, width: f.w, height: f.h, data: { pav: f.pav },
+      // Só o cabeçalho pega o mouse (e arrasta a faixa com tudo que há nela).
+      dragHandle: '.faixa-cab', selectable: false, focusable: false, connectable: false,
+      style: { width: f.w, height: f.h, pointerEvents: 'none' }, zIndex: 0,
+    })),
+    ...nodes,
+  ], [faixas, nodes])
+  // Mover uma faixa = mover junto todos os nós dela (a faixa em si é derivada deles).
+  const aoMudarNos = changes => {
+    const deFaixa = changes.filter(c => c.type === 'position' && c.position && String(c.id).startsWith('faixa-'))
+    const resto = changes.filter(c => !String(c.id).startsWith('faixa-'))
+    setNodes(ns => {
+      let prox = applyNodeChanges(resto, ns)
+      deFaixa.forEach(ch => {
+        const pav = pavs.find(p => `faixa-${p.id}` === ch.id)
+        if (!pav) return
+        const atual = calcFaixa(pav, prox.filter(n => pavDe.get(n.id) === pav.id))
+        const dx = ch.position.x - atual.x
+        const dy = ch.position.y - atual.y
+        if (dx || dy) prox = prox.map(n => (pavDe.get(n.id) === pav.id ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n))
+      })
+      return prox
+    })
+  }
   const faixaDe = pavId => faixas.find(f => f.pav.id === pavId)
+  const origemFaixa = pavId => pavPorId.get(pavId)?.faixaPos || { x: 0, y: 0 }
   // Enquadra a faixa de um pavimento na tela (com o retângulo calculado aqui, não pelo fitView com `nodes`, que caía no "mostrar tudo").
   const enquadrarFaixa = (inst, pavId, duration) => {
     const f = faixaDe(pavId)
     if (f) inst.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.03, duration })
   }
-  // Faixa que contém um ponto da área de trabalho (coordenadas do fluxo).
-  const faixaEm = ponto => faixas.find(f => ponto.x >= f.x && ponto.x <= f.x + f.w && ponto.y >= f.y && ponto.y <= f.y + f.h)
+  // Faixa mais próxima de um ponto da área de trabalho (a que o contém, se houver).
+  const faixaMaisPerto = ponto => faixas.reduce((melhor, f) => (!melhor || distanciaAteRetangulo(ponto, f) < distanciaAteRetangulo(ponto, melhor) ? f : melhor), null)
+  const arrastoFaixa = useRef(null)
 
-  // ── Posição de nó novo numa faixa: centro da área visível (limitado à
-  // faixa), com um leve desvio pra não empilhar vários nós criados em sequência.
+  // ── Posição de nó novo (relativa à origem da faixa): centro da área visível
+  // se estiver na faixa, senão o centro da faixa; com um leve desvio pra não
+  // empilhar vários nós criados em sequência.
   const posicaoNova = pavId => {
     const faixa = faixaDe(pavId)
+    const o = origemFaixa(pavId)
     const r = wrapRef.current.getBoundingClientRect()
-    const c = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
-    const x = Math.min(Math.max(c.x - faixa.x - 150 + Math.random() * 60, 60), faixa.w - 400)
-    const y = Math.min(Math.max(c.y - faixa.y - 80 + Math.random() * 60, 120), faixa.h - 260)
-    return arredondar({ x, y })
+    const vista = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+    const c = distanciaAteRetangulo(vista, faixa) === 0 ? vista : { x: faixa.x + faixa.w / 2, y: faixa.y + faixa.h / 2 }
+    return arredondar({ x: c.x - o.x - 150 + Math.random() * 60, y: c.y - o.y - 80 + Math.random() * 60 })
   }
+
+  const pavAtivo = pavPorId.get(pavAtivoId) || pavs[0]
 
   const criarNo = (pavId, tipo) => {
     const n = acessos.filter(a => pavDe.get(a.id) === pavId && a.tipo === tipo).length + 1
@@ -522,7 +609,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     limparSelecao()
   }
   // Ambiente arrastado da lista (ou de um grupo) e solto no fundo da área: vale
-  // na faixa do próprio pavimento do ambiente.
+  // perto da faixa do próprio pavimento do ambiente.
   const soltarNoFundo = e => {
     if (!e.dataTransfer.types.includes(MIME_AMBIENTES)) return
     let ids = []
@@ -530,11 +617,12 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     if (!ids.length) return
     e.preventDefault()
     const ponto = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
-    const faixa = faixaEm(ponto)
-    if (!faixa) return
-    const x = Math.min(Math.max(ponto.x - faixa.x, 20), faixa.w - 340)
-    const y = Math.min(Math.max(ponto.y - faixa.y, ORIGEM_Y), faixa.h - 120)
-    soltarNaArea(ids, faixa.pav.id, arredondar({ x, y }))
+    porPavimento(ids, pavDe).forEach((lista, pavId) => {
+      const f = faixaDe(pavId)
+      if (!f || distanciaAteRetangulo(ponto, f) > MARGEM_SOLTAR) return
+      const o = origemFaixa(pavId)
+      soltarNaArea(lista, pavId, arredondar({ x: ponto.x - o.x, y: ponto.y - o.y }))
+    })
   }
   // Junta o ambiente solto `alvoId` com os ambientes `ids` (do mesmo pavimento)
   // num grupo novo, no lugar do alvo e herdando a ligação direta dele (se tinha).
@@ -603,58 +691,6 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
 
-  // ── Nós e setas a partir do estado do projeto ──
-  // Dimensionamento único das escadas/rampas da estrutura.
-  const erEstrutura = useMemo(() => calcErEstrutura(pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS), [pavimentos, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
-  const nosBase = useMemo(() => {
-    const nos = []
-    faixas.forEach(f => {
-      const p = f.pav
-      const pambs = p.ambientes || []
-      const pacs = p.acessos || []
-      nos.push({
-        id: f.id, type: 'faixa', position: { x: f.x, y: f.y }, width: f.w, height: f.h,
-        draggable: false, selectable: false, focusable: false, connectable: false,
-        style: { width: f.w, height: f.h, pointerEvents: 'none' }, zIndex: 0,
-        data: { pav: p, nSaidas: Math.max(1, contarSaidasPavimento(pacs)), pop: calcPopPav({ ambientes: pambs }, TAXA_POPULACIONAL) },
-      })
-      const filho = (id, type, data) => ({ id, type, parentId: f.id, extent: 'parent', position: p.fluxoPos?.[id] || { x: ORIGEM_X, y: ORIGEM_Y }, data })
-      ;(p.grupos || []).forEach(g => {
-        const ambs = pambs.filter(a => a.grupoId === g.id)
-        nos.push(filho(g.id, 'grupo', { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) }))
-      })
-      pambs.filter(a => !a.grupoId && p.fluxoPos?.[a.id]).forEach(a => nos.push(filho(a.id, 'ambiente', { amb: a })))
-      pacs.forEach(ac => {
-        const dims = dimsDoAcesso(ac, !!p.pisoDescarga)
-        const { pop, ad, er, pt } = calcDimsAcesso(ac.id, pambs, pacs, TAXA_POPULACIONAL, LARGURAS_MINIMAS, dims, erEstrutura)
-        nos.push(filho(ac.id, 'acesso', {
-          acesso: ac, tipo: ac.tipo, dims, pop, raiz: ehRaiz(ac),
-          erUnico: dims.ER && erEstrutura ? { pop: erEstrutura.pop, label: erEstrutura.pavimento.label } : null,
-          entradas: [
-            ad && { label: 'ACESSO/DESCARGA', value: fmtM(ad.la) },
-            pt && { label: 'PORTAS', value: fmtM(pt.la) },
-            er && { label: 'ESCADA/RAMPA', value: fmtM(er.la) },
-          ].filter(Boolean),
-        }))
-      })
-    })
-    return nos
-  }, [faixas, erEstrutura, TAXA_POPULACIONAL, LARGURAS_MINIMAS])
-
-  // Estado local dos nós (React Flow precisa dele pra animar o arrasto);
-  // reabastecido a cada mudança do projeto, preservando seleção/medidas e a
-  // posição de quem está sendo arrastado agora.
-  const [nodes, setNodes] = useState(nosBase)
-  const [nosBaseVisto, setNosBaseVisto] = useState(nosBase)
-  if (nosBaseVisto !== nosBase) {
-    setNosBaseVisto(nosBase)
-    const antigos = new Map(nodes.map(n => [n.id, n]))
-    setNodes(nosBase.map(n => {
-      const o = antigos.get(n.id)
-      return o ? { ...o, ...n, position: o.dragging ? o.position : n.position } : n
-    }))
-  }
-
   // Seta selecionada (clique) — a única coisa que Delete/"Desligar" apaga.
   const [setaSelecionada, setSetaSelecionada] = useState(null)
   const ambientesNaArea = new Set(ambientes.filter(a => !a.grupoId && posDe(a.id)).map(a => a.id))
@@ -667,11 +703,10 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
       ...acessos.filter(a => existe.has(a.ligadoA)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.ligadoA, entre: true })),
       ...na.filter(a => existe.has(a.acessoId)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.acessoId })),
     ]
-    // Retângulo absoluto do nó (a posição dele é relativa à faixa do pavimento).
     const retangulo = id => {
       const n = nodes.find(x => x.id === id)
-      const f = faixas.find(x => x.id === n.parentId)
-      return { x: n.position.x + (f?.x || 0), y: n.position.y + (f?.y || 0), w: n.measured?.width ?? (n.type === 'grupo' ? 340 : 300), h: n.measured?.height ?? (n.type === 'ambiente' ? 80 : 160) }
+      const [w0, h0] = TAM_PADRAO[n.type] || [300, 200]
+      return { x: n.position.x, y: n.position.y, w: n.measured?.width ?? w0, h: n.measured?.height ?? h0 }
     }
     return liga.filter(e => nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target)).map(e => {
       const { de, para } = ladosMaisProximos(retangulo(e.source), retangulo(e.target))
@@ -684,7 +719,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
         : { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-ink-faint)' }, style: { strokeWidth: 2, strokeDasharray: e.entre ? '8 5' : undefined } }),
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grupos, acessos, ambientes, pavimentos, faixas, nodes, setaSelecionada, caminhoQuente])
+  }, [grupos, acessos, ambientes, pavimentos, nodes, setaSelecionada, caminhoQuente])
 
   // Cada nó alimenta no máximo UM seguinte; que ligação vale entre dois nós
   // (mesmo pavimento, ou saída/escada entre pavimentos) está em tipoDeLigacao.
@@ -703,6 +738,17 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   // mesmo pavimento entra nele; em cima da lista lateral, volta pra lista; do
   // contrário só guarda a nova posição de tudo que foi arrastado.
   const soltarNo = (evento, _no, arrastados) => {
+    // Faixa arrastada: a origem do pavimento anda o mesmo tanto que a faixa andou.
+    if (_no.type === 'faixa') {
+      const ini = arrastoFaixa.current
+      const pavId = _no.id.slice('faixa-'.length)
+      arrastoFaixa.current = null
+      if (!ini || ini.id !== _no.id) return
+      const o = origemFaixa(pavId)
+      setPavAtivoId(pavId)
+      dispatch({ type: 'SET_FAIXA_POS', pavimentoId: pavId, pos: arredondar({ x: o.x + _no.position.x - ini.pos.x, y: o.y + _no.position.y - ini.pos.y }) })
+      return
+    }
     if (pavDe.get(_no.id)) setPavAtivoId(pavDe.get(_no.id))
     const ponto = evento.changedTouches?.[0] ?? evento
     // O próprio nó arrastado fica sob o ponteiro — procura o que está por baixo.
@@ -722,11 +768,15 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
       moverParaGrupo(ambientesArrastados, grupoValido || null)
       arrastados = arrastados.filter(n => n.type !== 'ambiente')
     }
-    // Posições (relativas à faixa), um despacho por pavimento.
+    // Posições (relativas à origem da faixa), um despacho por pavimento.
     porPavimento(arrastados.map(n => n.id), pavDe).forEach((lista, pavimentoId) => {
+      const o = origemFaixa(pavimentoId)
       dispatch({
         type: 'SET_POSICOES_FLUXO', pavimentoId,
-        posicoes: Object.fromEntries(lista.map(id => [id, arredondar(arrastados.find(n => n.id === id).position)])),
+        posicoes: Object.fromEntries(lista.map(id => {
+          const { x, y } = arrastados.find(n => n.id === id).position
+          return [id, arredondar({ x: x - o.x, y: y - o.y })]
+        })),
       })
     })
   }
@@ -827,8 +877,9 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
             {/* Área de trabalho */}
             <div ref={wrapRef} onDragOver={e => { if (e.dataTransfer.types.includes(MIME_AMBIENTES)) e.preventDefault() }} onDrop={soltarNoFundo} className={`fluxo-saidas flex-1 min-w-0 relative ${origemLigacao ? 'conectando' : ''}`}>
               <ReactFlow
-                nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-                onNodesChange={changes => setNodes(ns => applyNodeChanges(changes, ns))}
+                nodes={nodesComFaixas} edges={edges} nodeTypes={nodeTypes}
+                onNodesChange={aoMudarNos}
+                onNodeDragStart={(_, no) => { if (no.type === 'faixa') arrastoFaixa.current = { id: no.id, pos: { ...no.position } } }}
                 onNodeDragStop={soltarNo} nodeDragThreshold={4}
                 onNodeMouseEnter={(_, no) => setNoHover(no.id)} onNodeMouseLeave={() => setNoHover(null)}
                 onConnectStart={(_, { nodeId }) => setOrigemLigacao(nodeId)} onConnectEnd={terminarLigacao}
@@ -842,7 +893,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 onPaneClick={() => setSetaSelecionada(null)}
                 onMoveEnd={(_, vp) => {
                   const r = wrapRef.current.getBoundingClientRect()
-                  const f = faixaEm({ x: (r.width / 2 - vp.x) / vp.zoom, y: (r.height / 2 - vp.y) / vp.zoom })
+                  const f = faixaMaisPerto({ x: (r.width / 2 - vp.x) / vp.zoom, y: (r.height / 2 - vp.y) / vp.zoom })
                   if (f) setPavAtivoId(f.pav.id)
                 }}
                 edgesReconnectable={false} deleteKeyCode={['Delete', 'Backspace']}

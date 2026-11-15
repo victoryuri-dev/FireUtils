@@ -402,3 +402,31 @@ test('ligação feita ou desfeita à mão não é refeita; mudar o piso de desca
   s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'P2', valor: false })
   assert.equal(raizDe(s.pavimentos, 'P2').ligadoA, 'acs-fixo-P1')
 })
+
+// ── Faixas de pavimento: origem própria, empilhadas sem sobrepor, movíveis ──
+test('faixas ganham origem empilhada (mais alto no topo) sem sobrepor, e a faixa movida não é tocada', () => {
+  const mk = (id, piso, extra = {}) => fluxo.migrarFluxoPavimento({ id, estruturaId: 'e1', label: id, pisoDescarga: piso, ambientes: [], acessos: [], ...extra })
+  const grande = mk('P2', false, {
+    ambientes: Array.from({ length: 8 }, (_, i) => ({ id: `m${i}`, nome: `A${i}`, divisao: 'C-1', area: 10, grupoId: 'g' })),
+    grupos: [{ id: 'g', nome: 'Grupo 1', acessoId: null }], fluxoPos: { g: { x: 60, y: 120 } },
+  })
+  const pavs = fluxo.posicionarFaixas([mk('P1', true), grande, mk('P3', false)])
+  const o = Object.fromEntries(pavs.map(p => [p.id, p.faixaPos]))
+  // De cima pra baixo: P3, P2, P1 — cada origem abaixo da anterior (o grupo de 8 ambientes é alto).
+  assert.ok(o.P3.y < o.P2.y && o.P2.y < o.P1.y)
+  assert.ok(o.P1.y - o.P2.y > 170 + 70 * 8, 'espaço pro grupo alto do P2')
+  assert.equal(fluxo.posicionarFaixas(pavs), pavs)
+  // Faixa que o usuário moveu fica onde está; a nova entra abaixo dela.
+  const movida = pavs.map(p => (p.id === 'P3' ? { ...p, faixaPos: { x: 500, y: 900 } } : { ...p, faixaPos: undefined }))
+  const refeita = fluxo.posicionarFaixas(movida)
+  assert.deepEqual(refeita.find(p => p.id === 'P3').faixaPos, { x: 500, y: 900 })
+  assert.ok(refeita.find(p => p.id === 'P2').faixaPos.y > 900)
+})
+
+test('SET_FAIXA_POS guarda a origem da faixa sem mexer nas posições dos nós', () => {
+  let s = { pavimentos: [fluxo.migrarFluxoPavimento({ id: 'P1', estruturaId: 'e1', label: 'P1', pisoDescarga: true, ambientes: [], acessos: [] })], estruturas: [] }
+  const antes = s.pavimentos[0].fluxoPos
+  s = reducer(s, { type: 'SET_FAIXA_POS', pavimentoId: 'P1', pos: { x: 12, y: 34 } })
+  assert.deepEqual(s.pavimentos[0].faixaPos, { x: 12, y: 34 })
+  assert.equal(s.pavimentos[0].fluxoPos, antes)
+})

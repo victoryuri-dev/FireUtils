@@ -13,7 +13,9 @@
 //        `fluxoPos`) tem a própria ligação direta. O reducer mantém tudo
 //        sincronizado (ver sincronizarAmbientes) — é o que o motor de
 //        cálculo e o memorial leem.
-//   pavimento.fluxoPos = { [idDoNo]: { x, y } }
+//   pavimento.faixaPos = { x, y }
+//     -- origem da faixa do pavimento na área de trabalho (ver posicionarFaixas).
+//   pavimento.fluxoPos = { [idDoNo]: { x, y } }   (relativo a `faixaPos`)
 //     -- posição de cada grupo, de cada acesso/saída/escada e de cada ambiente
 //        solto (sem grupo) na área de trabalho. Ambiente sem grupo e sem
 //        posição fica só na lista lateral.
@@ -27,6 +29,12 @@ export const ROW_H = 220
 export const ORIGEM_X = 60
 export const ORIGEM_Y = 120
 export const FLUXO_VER = 2
+// Faixa de pavimento (retângulo atrás dos nós): folga em volta dos nós, altura
+// do cabeçalho e espaço entre faixas. A faixa se ajusta ao que tem dentro; o
+// tamanho estimado só serve pra empilhar as faixas na primeira vez.
+export const FAIXA_PAD = 60
+export const FAIXA_CAB = 70
+export const FAIXA_GAP = 80
 
 /** Caminho de um nó até a saída: o próprio nó e cada nó seguinte (grupo ->
  * acesso -> … -> saída/escada), com os ids das setas entre eles (`e-<origem>`).
@@ -211,6 +219,38 @@ export function ligarEscadasPadrao(pavimentos) {
     })
   })
   return novosAcessos.size ? pavimentos.map(p => (novosAcessos.has(p.id) ? { ...p, acessos: novosAcessos.get(p.id) } : p)) : pavimentos
+}
+
+/** Dá a cada pavimento sem `faixaPos` a origem da sua faixa na área de trabalho
+ * (`fluxoPos` dos nós é relativo a essa origem), empilhando as faixas de cima
+ * pra baixo — pavimento mais alto no topo — sem sobrepor, com base no tamanho
+ * estimado do que há dentro. Faixa já posicionada (movida pelo usuário) não é
+ * tocada. Devolve a mesma lista se nada mudar. */
+export function posicionarFaixas(pavimentos) {
+  const porEstrutura = new Map()
+  pavimentos.forEach(p => porEstrutura.set(p.estruturaId, [...(porEstrutura.get(p.estruturaId) || []), p]))
+  const novas = new Map()
+  porEstrutura.forEach(lista => {
+    let cursor = 0
+    ;[...lista].reverse().forEach(p => {
+      const pos = Object.values(p.fluxoPos || {})
+      const minX = pos.length ? Math.min(...pos.map(q => q.x)) : ORIGEM_X
+      const minY = pos.length ? Math.min(...pos.map(q => q.y)) : ORIGEM_Y
+      // Fundo do nó mais baixo (altura estimada: grupo cresce com os ambientes).
+      const baixo = Object.entries(p.fluxoPos || {}).reduce((mx, [id, q]) => {
+        const grupo = (p.grupos || []).find(g => g.id === id)
+        const h = grupo ? 170 + 70 * (p.ambientes || []).filter(a => a.grupoId === id).length : (p.ambientes || []).some(a => a.id === id) ? 90 : 230
+        return Math.max(mx, q.y + h)
+      }, ORIGEM_Y + 230)
+      let origem = p.faixaPos
+      if (!origem) {
+        origem = { x: Math.round(FAIXA_PAD - minX), y: Math.round(cursor + FAIXA_PAD + FAIXA_CAB - minY) }
+        novas.set(p.id, origem)
+      }
+      cursor = Math.max(cursor, origem.y + baixo + FAIXA_PAD + FAIXA_GAP)
+    })
+  })
+  return novas.size ? pavimentos.map(p => (novas.has(p.id) ? { ...p, faixaPos: novas.get(p.id) } : p)) : pavimentos
 }
 
 /** Migra um pavimento salvo antes do fluxograma (ou ainda parcial): dá
