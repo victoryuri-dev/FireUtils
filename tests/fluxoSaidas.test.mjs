@@ -163,3 +163,36 @@ test('lados da seta: sai e chega pelos lados mais próximos entre os dois nós',
   assert.deepEqual(fluxo.ladosMaisProximos(a, { x: 0, y: 300, w: 100, h: 100 }), { de: 'bottom', para: 'top' })
   assert.deepEqual(fluxo.ladosMaisProximos(a, { x: 0, y: -300, w: 100, h: 100 }), { de: 'top', para: 'bottom' })
 })
+
+test('ambiente solto na área: posição própria, ligação direta e volta pra lista', () => {
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Grupo 1', acessoId: 'a1' }], ambientes: [amb('m1', 'g1'), amb('m2')] }))
+  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1' })
+  // m1 sai do grupo e vai pra área: perde a ligação do grupo.
+  s = reducer(s, { type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: 'p1', posicoes: { m1: { x: 10, y: 20 }, m2: { x: 10, y: 100 } } })
+  let p = pavDe(s)
+  assert.deepEqual(p.ambientes.map(a => [a.grupoId, a.acessoId]), [[null, null], [null, null]])
+  assert.deepEqual([p.fluxoPos.m1, p.fluxoPos.m2], [{ x: 10, y: 20 }, { x: 10, y: 100 }])
+  // Ligação direta a um acesso: conta na população do nó.
+  s = reducer(s, { type: 'LIGAR_AMBIENTE', pavimentoId: 'p1', ambienteId: 'm1', acessoId: 'a1' })
+  p = pavDe(s)
+  assert.equal(p.ambientes[0].acessoId, 'a1')
+  assert.equal(calc.calcPopAcesso('s1', p.ambientes, p.acessos, { 'C-1': { A: 3 } }), 34)
+  // Reposicionar não mexe na ligação.
+  s = reducer(s, { type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: 'p1', posicoes: { m1: { x: 0, y: 0 } } })
+  assert.equal(pavDe(s).ambientes[0].acessoId, 'a1')
+  // Remover o acesso desliga; voltar pra lista apaga posição e ligação.
+  s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'p1', acessoId: 'a1' })
+  assert.equal(pavDe(s).ambientes[0].acessoId, null)
+  s = reducer(s, { type: 'MOVER_AMBIENTES_GRUPO', pavimentoId: 'p1', ambienteIds: ['m1'], grupoId: null })
+  assert.equal(pavDe(s).fluxoPos.m1, undefined)
+  // Excluir ambiente apaga a posição também.
+  s = reducer(s, { type: 'REMOVE_AMBIENTE_SE', pavimentoId: 'p1', ambienteId: 'm2' })
+  assert.equal(pavDe(s).fluxoPos.m2, undefined)
+})
+
+test('remover o grupo manda os ambientes de volta pra lista, sem ligação', () => {
+  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Grupo 1', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')] }))
+  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1' })
+  s = reducer(s, { type: 'REMOVER_GRUPO', pavimentoId: 'p1', grupoId: 'g1' })
+  assert.deepEqual([pavDe(s).ambientes[0].grupoId, pavDe(s).ambientes[0].acessoId], [null, null])
+})

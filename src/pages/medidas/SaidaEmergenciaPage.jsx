@@ -147,6 +147,7 @@ function resolverImportacaoSaidas(payloadSE, estruturaIdForcado, projetoPaviment
         return {
           id:        existente?.id        ?? uid(),
           grupoId:   existente?.grupoId   ?? null,
+          acessoId:  existente?.acessoId  ?? null,
           nome,
           divisao:   a.divisao   || '',
           area:      a.area      ?? 0,

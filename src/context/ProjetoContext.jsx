@@ -991,11 +991,20 @@ export function reducer(state, action) {
     // `ambiente.grupoId` (grupo) opcional; `acessoId` nasce do grupo, nunca é
     // informado direto — ver sincronizarAmbientes.
     case 'ADD_AMBIENTE_SE':
-      return atualizarPavSE(state, action.pavimentoId, p => ({ ...p, ambientes: [...(p.ambientes || []), { id: action.id, ...action.ambiente }] }))
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        ambientes: [...(p.ambientes || []), { id: action.id, ...action.ambiente }],
+        // `pos`: ambiente já nasce solto na área de trabalho.
+        fluxoPos: action.pos ? { ...(p.fluxoPos || {}), [action.id]: action.pos } : p.fluxoPos,
+      }))
     case 'UPDATE_AMBIENTE_SE':
       return { ...state, pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId ? { ...p, ambientes: (p.ambientes || []).map(a => a.id === action.ambienteId ? { ...a, ...action.changes } : a) } : p) }
     case 'REMOVE_AMBIENTE_SE':
-      return { ...state, pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId ? { ...p, ambientes: (p.ambientes || []).filter(a => a.id !== action.ambienteId) } : p) }
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        ambientes: (p.ambientes || []).filter(a => a.id !== action.ambienteId),
+        fluxoPos: omitirChave(p.fluxoPos, action.ambienteId),
+      }))
     // Importação do Revit/firedata.json (ver resolverImportacaoSaidas em
     // SaidaEmergenciaPage.jsx) — substitui os ambientes só dos pavimentos
     // resolvidos no lote, preservando os demais.
@@ -1088,14 +1097,34 @@ export function reducer(state, action) {
         grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, acessoId: action.acessoId } : g),
       }))
     // Move ambientes pra dentro de um grupo — inclusive entre grupos
-    // diferentes — ou pra fora de qualquer grupo (`grupoId` null).
+    // diferentes — ou de volta pra lista lateral (`grupoId` null: sem grupo,
+    // sem posição na área e sem ligação). Em qualquer caso o ambiente deixa
+    // de ser um nó solto na área.
     case 'MOVER_AMBIENTES_GRUPO': {
       const idsMovidos = new Set(action.ambienteIds)
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
-        ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.grupoId } : a),
+        ambientes: (p.ambientes || []).map(a => idsMovidos.has(a.id) ? { ...a, grupoId: action.grupoId, acessoId: null } : a),
+        fluxoPos: Object.fromEntries(Object.entries(p.fluxoPos || {}).filter(([id]) => !idsMovidos.has(id))),
       }))
     }
+    // Coloca ambientes soltos na área de trabalho (sem grupo), cada um na sua
+    // posição. Quem vinha de um grupo perde a ligação dele; quem já estava
+    // solto só muda de lugar e mantém a ligação direta.
+    case 'SOLTAR_AMBIENTES_NA_AREA':
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        ambientes: (p.ambientes || []).map(a => action.posicoes[a.id]
+          ? { ...a, grupoId: null, acessoId: a.grupoId ? null : a.acessoId }
+          : a),
+        fluxoPos: { ...(p.fluxoPos || {}), ...action.posicoes },
+      }))
+    // Liga um ambiente solto na área direto a um nó (ou null pra desligar).
+    case 'LIGAR_AMBIENTE':
+      return atualizarPavSE(state, action.pavimentoId, p => ({
+        ...p,
+        ambientes: (p.ambientes || []).map(a => a.id === action.ambienteId && !a.grupoId ? { ...a, acessoId: action.acessoId } : a),
+      }))
     // Remove um acesso/saída/escada sem apagar em cascata: o que alimentava
     // ele (grupos e/ou outros acessos) fica sem ligação em vez de sumir — o
     // usuário religa depois, mas não perde nenhum ambiente cadastrado.
@@ -1121,7 +1150,7 @@ export function reducer(state, action) {
           ...p,
           fluxoPos: omitirChave(p.fluxoPos, grupoId),
           grupos: (p.grupos || []).filter(g => g.id !== grupoId),
-          ambientes: (p.ambientes || []).map(a => a.grupoId === grupoId ? { ...a, grupoId: null } : a),
+          ambientes: (p.ambientes || []).map(a => a.grupoId === grupoId ? { ...a, grupoId: null, acessoId: null } : a),
         }
       })
     }

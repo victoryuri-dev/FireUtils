@@ -8,11 +8,15 @@
 //     -- grupo de ambientes: agrupa ambientes e liga o conjunto a UM nó
 //        (acesso/saída/escada). `acessoId` null = grupo ainda sem ligação.
 //   ambiente.grupoId   : string|null   -- grupo em que o ambiente está.
-//   ambiente.acessoId  : string|null   -- sempre igual ao `acessoId` do grupo
-//        (o reducer mantém sincronizado, ver sincronizarAmbientes) — é o que
-//        o motor de cálculo e o memorial leem.
+//   ambiente.acessoId  : string|null   -- em grupo, sempre igual ao `acessoId`
+//        do grupo; ambiente solto na área (sem grupo, com posição em
+//        `fluxoPos`) tem a própria ligação direta. O reducer mantém tudo
+//        sincronizado (ver sincronizarAmbientes) — é o que o motor de
+//        cálculo e o memorial leem.
 //   pavimento.fluxoPos = { [idDoNo]: { x, y } }
-//     -- posição de cada grupo e de cada acesso/saída/escada na área de trabalho.
+//     -- posição de cada grupo, de cada acesso/saída/escada e de cada ambiente
+//        solto (sem grupo) na área de trabalho. Ambiente sem grupo e sem
+//        posição fica só na lista lateral.
 
 import { ehRaiz, tipoNo } from './se_calc'
 
@@ -55,7 +59,12 @@ export function sincronizarAmbientes(ambientes, grupos, acessos) {
   const acessoDoGrupo = new Map((grupos || []).map(g => [g.id, idsAcesso.has(g.acessoId) ? g.acessoId : null]))
   return (ambientes || []).map(a => {
     const grupoId = acessoDoGrupo.has(a.grupoId) ? a.grupoId : null
-    const acessoId = grupoId ? acessoDoGrupo.get(grupoId) : null
+    // Em grupo: herda a ligação do grupo. Solto na área (sem grupo): mantém a
+    // própria ligação direta, se o nó ainda existir — mas um ambiente que
+    // acabou de perder o grupo (grupo removido) não leva a ligação dele.
+    const acessoId = grupoId
+      ? acessoDoGrupo.get(grupoId)
+      : (!a.grupoId && idsAcesso.has(a.acessoId) ? a.acessoId : null)
     return a.grupoId === grupoId && a.acessoId === acessoId ? a : { ...a, grupoId, acessoId }
   })
 }
