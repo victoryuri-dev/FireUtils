@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Panel, Position, MarkerType,
@@ -544,39 +544,44 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     if (f) inst.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.03, duration })
   }
   const arrastoFaixa = useRef(null)
+  const desvioNovo = useRef(0)
 
   // ── Posição de nó novo (relativa à origem da faixa): centro da área visível
   // se estiver na faixa, senão o centro da faixa; com um leve desvio pra não
   // empilhar vários nós criados em sequência.
-  const posicaoNova = pavId => {
+  // `ponto` (coordenadas da área): nó nasce ali (clique direito), sem desvio.
+  const posicaoNova = (pavId, ponto) => {
     const faixa = faixaDe(pavId)
     const o = origemFaixa(pavId)
+    if (ponto) return arredondar({ x: ponto.x - o.x - 20, y: ponto.y - o.y - 10 })
     const r = wrapRef.current.getBoundingClientRect()
     const vista = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
     const c = distanciaAteRetangulo(vista, faixa) === 0 ? vista : { x: faixa.x + faixa.w / 2, y: faixa.y + faixa.h / 2 }
-    return arredondar({ x: c.x - o.x - 150 + Math.random() * 60, y: c.y - o.y - 80 + Math.random() * 60 })
+    // Desvio em escada (0, 20, 40, 60) pra não empilhar nós criados em sequência.
+    desvioNovo.current = (desvioNovo.current + 20) % 80
+    return arredondar({ x: c.x - o.x - 150 + desvioNovo.current, y: c.y - o.y - 80 + desvioNovo.current })
   }
 
   const pavAtivo = pavPorId.get(pavAtivoId) || pavs[0]
 
-  const criarNo = (pavId, tipo) => {
+  const criarNo = (pavId, tipo, ponto) => {
     const n = acessos.filter(a => pavDe.get(a.id) === pavId && a.tipo === tipo).length + 1
     const nome = { acesso: `Acesso ${n}`, saida: `Saída ${String(n).padStart(2, '0')}`, escada: `Escada/Rampa ${String(n).padStart(2, '0')}` }[tipo]
-    dispatch({ type: 'CRIAR_NO_FLUXO', pavimentoId: pavId, tipo, nome, pos: posicaoNova(pavId) })
+    dispatch({ type: 'CRIAR_NO_FLUXO', pavimentoId: pavId, tipo, nome, pos: posicaoNova(pavId, ponto) })
   }
-  const criarGrupo = (pavId, ambienteIds) => {
-    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pavId, nome: proximoNomeGrupo(pavPorId.get(pavId).grupos || []), pos: posicaoNova(pavId), ambienteIds })
+  const criarGrupo = (pavId, ambienteIds, ponto) => {
+    dispatch({ type: 'CRIAR_GRUPO_AMBIENTES', pavimentoId: pavId, nome: proximoNomeGrupo(pavPorId.get(pavId).grupos || []), pos: posicaoNova(pavId, ponto), ambienteIds })
   }
 
   // ── Ambientes ──
   // Com `grupoId`, nasce dentro do grupo (do pavimento dele); senão solto na
   // área do pavimento `pavId`.
-  const criarAmbiente = (grupoId, pavId) => {
+  const criarAmbiente = (grupoId, pavId, ponto) => {
     const pavimentoId = grupoId ? pavDe.get(grupoId) : pavId
     const id = novoAmbienteId()
     const nome = `Ambiente ${ambientes.length + 1}`
     dispatch({
-      type: 'ADD_AMBIENTE_SE', pavimentoId, id, pos: grupoId ? null : posicaoNova(pavimentoId),
+      type: 'ADD_AMBIENTE_SE', pavimentoId, id, pos: grupoId ? null : posicaoNova(pavimentoId, ponto),
       ambiente: { nome, divisao: '', popTipo: 'area', area: 0, assentos: 0, popManual: 0, grupoId: grupoId || null, origem: 'manual' },
     })
     setEditAmb({ id, nome, divisao: '', popTipo: 'area', area: 0, assentos: 0, popManual: 0 })
@@ -681,6 +686,37 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
       moverParaGrupo(ids, grupoId)
     },
   })
+
+  // ── Opções de criar nós: a barra do topo (pavimento em edição) e a barra
+  // flutuante do clique direito (pavimento sob o clique, nó nasce no ponto).
+  const OPCOES_CRIAR = [
+    ['grupo', 'Grupo de ambientes'], ['ambiente', 'Ambiente'], ['acesso', 'Acesso'], ['saida', 'Saída'], ['escada', 'Escada/Rampa'],
+  ]
+  const criarDaOpcao = (op, pavId, ponto) => {
+    if (op === 'grupo') criarGrupo(pavId, undefined, ponto)
+    else if (op === 'ambiente') criarAmbiente(null, pavId, ponto)
+    else criarNo(pavId, op, ponto)
+  }
+  const [menu, setMenu] = useState(null) // { x, y (px no quadro), ponto (área), pavId }
+  const abrirMenu = e => {
+    e.preventDefault()
+    const ponto = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const f = faixas.find(x => distanciaAteRetangulo(ponto, x) === 0)
+    const pavId = f ? f.pav.id : pavAtivo.id
+    setPavAtivoId(pavId)
+    const r = wrapRef.current.getBoundingClientRect()
+    setMenu({
+      x: Math.max(8, Math.min(e.clientX - r.left, r.width - 650)),
+      y: Math.max(8, Math.min(e.clientY - r.top, r.height - 110)),
+      ponto, pavId,
+    })
+  }
+  useEffect(() => {
+    if (!menu) return undefined
+    const fechar = e => { if (e.key === 'Escape') setMenu(null) }
+    window.addEventListener('keydown', fechar)
+    return () => window.removeEventListener('keydown', fechar)
+  }, [menu])
 
   const ctx = {
     pavAtivoId, pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
@@ -888,10 +924,12 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 // selecionar um nó não leva as setas dele junto.
                 onBeforeDelete={async ({ edges: es }) => ({ nodes: [], edges: es.filter(e => e.id === setaSelecionada) })}
                 onEdgeClick={(_, edge) => setSetaSelecionada(edge.id)}
-                onNodeClick={(_, no) => { setSetaSelecionada(null); const pavId = no.type === 'faixa' ? no.data.pav.id : pavDe.get(no.id); if (pavId) setPavAtivoId(pavId) }}
+                onNodeClick={(_, no) => { setSetaSelecionada(null); setMenu(null); const pavId = no.type === 'faixa' ? no.data.pav.id : pavDe.get(no.id); if (pavId) setPavAtivoId(pavId) }}
                 // Clique no fundo: se caiu dentro da faixa de um pavimento, ele passa a ser o em edição.
+                onPaneContextMenu={abrirMenu} onNodeContextMenu={(e, no) => { if (no.type === 'faixa') abrirMenu(e) }} onMoveStart={() => setMenu(null)}
                 onPaneClick={e => {
                   setSetaSelecionada(null)
+                  setMenu(null)
                   const ponto = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
                   const f = faixas.find(x => distanciaAteRetangulo(ponto, x) === 0)
                   if (f) setPavAtivoId(f.pav.id)
@@ -905,11 +943,9 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 <Controls showInteractive={false}/>
                 <MiniMap pannable zoomable nodeColor={n => (n.type === 'faixa' ? 'transparent' : n.type === 'grupo' ? 'var(--color-ink-hint)' : n.data.tipo === 'saida' ? 'var(--color-green)' : n.data.tipo === 'escada' ? 'var(--color-amber)' : 'var(--color-ink-faint)')}/>
                 <Panel position="top-left" className="flex flex-wrap items-center gap-2">
-                  <button className="btn-ghost" onClick={() => criarGrupo(pavAtivo.id)}><Icon name="plus" size={12}/> Grupo de ambientes</button>
-                  <button className="btn-ghost" onClick={() => criarAmbiente(null, pavAtivo.id)}><Icon name="plus" size={12}/> Ambiente</button>
-                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'acesso')}><Icon name="plus" size={12}/> Acesso</button>
-                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'saida')}><Icon name="plus" size={12}/> Saída</button>
-                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'escada')}><Icon name="plus" size={12}/> Escada/Rampa</button>
+                  {OPCOES_CRIAR.map(([op, rotulo]) => (
+                    <button key={op} className="btn-ghost" onClick={() => criarDaOpcao(op, pavAtivo.id)}><Icon name="plus" size={12}/> {rotulo}</button>
+                  ))}
                   <span className="text-[11px] text-ink-faint">em <strong className="text-ink">{pavAtivo.label}</strong></span>
                 </Panel>
                 {setaSelecionada && (
@@ -921,6 +957,17 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                   Passe o mouse num nó, arraste a alça vermelha e solte em cima de outro nó para ligar · saídas e escadas também se ligam às de outros pavimentos (tracejado) · clique numa seta e tecle Delete (ou use o botão) para desligar
                 </Panel>
               </ReactFlow>
+              {menu && (
+                <div style={{ left: menu.x, top: menu.y }} onContextMenu={e => e.preventDefault()}
+                  className="absolute z-50 flex flex-col gap-2 p-2.5 max-w-[640px] rounded-lg border border-solid border-border bg-surface shadow-[0_12px_32px_rgba(0,0,0,.45)]">
+                  <span className="text-[11px] text-ink-faint">Criar em <strong className="text-ink">{pavPorId.get(menu.pavId)?.label}</strong></span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {OPCOES_CRIAR.map(([op, rotulo]) => (
+                      <button key={op} className="btn-ghost whitespace-nowrap" onClick={() => { criarDaOpcao(op, menu.pavId, menu.ponto); setMenu(null) }}><Icon name="plus" size={12}/> {rotulo}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </FluxoCtx.Provider>
