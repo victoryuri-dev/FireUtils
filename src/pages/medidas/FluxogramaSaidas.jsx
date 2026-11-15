@@ -326,29 +326,19 @@ function AcessoNode({ data }) {
 }
 
 // ── Faixa de um pavimento ───────────────────────────────────────────────
-// Fundo + cabeçalho do pavimento na área de trabalho. O corpo da faixa não
-// recebe mouse (pra arrastar/ligar nós e mover a área por cima dela); só o
-// cabeçalho — com o switch de piso de descarga e os botões de criar nós
-// desse pavimento.
+// Fundo + nome grande do pavimento na área de trabalho (dá pra ler mesmo com
+// zoom afastado). Não recebe mouse: nós e ligações trabalham por cima. A faixa
+// do pavimento em edição fica com a borda vermelha — as opções do topo (criar
+// nós, piso de descarga) valem pra ela.
 function FaixaNode({ data }) {
   const c = useContext(FluxoCtx)
-  const { pav, nSaidas, pop } = data
+  const { pav } = data
+  const ativa = c.pavAtivoId === pav.id
   return (
-    <div className="w-full h-full rounded-lg border border-dashed border-ink-hint bg-[rgba(255,255,255,.015)]">
-      <div style={{ pointerEvents: 'auto' }} className="nodrag nopan flex flex-wrap items-center gap-x-4 gap-y-2 py-3 px-4 border-b border-dashed border-border">
-        <div className="flex items-baseline gap-2.5 min-w-0">
-          <span className="font-heading text-[18px] font-bold text-ink truncate">{pav.label}</span>
-          {pav.pisoDescarga && <span className="text-[9px] py-0.5 px-1.5 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
-          <span className="text-[11px] text-ink-faint whitespace-nowrap">{pop} pessoas · {nSaidas} saída{nSaidas > 1 ? 's' : ''}/escada{nSaidas > 1 ? 's' : ''}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 ml-auto">
-          <PisoDescargaSwitch checked={!!pav.pisoDescarga} onChange={v => c.dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pav.id, estruturaId: pav.estruturaId, valor: v })}/>
-          <button className="btn-ghost" onClick={() => c.criarGrupo(pav.id)}><Icon name="plus" size={12}/> Grupo de ambientes</button>
-          <button className="btn-ghost" onClick={() => c.criarAmbiente(null, pav.id)}><Icon name="plus" size={12}/> Ambiente</button>
-          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'acesso')}><Icon name="plus" size={12}/> Acesso</button>
-          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'saida')}><Icon name="plus" size={12}/> Saída</button>
-          <button className="btn-ghost" onClick={() => c.criarNo(pav.id, 'escada')}><Icon name="plus" size={12}/> Escada/Rampa</button>
-        </div>
+    <div className={`w-full h-full rounded-lg border border-dashed transition-colors bg-[rgba(255,255,255,.015)] ${ativa ? 'border-red' : 'border-ink-hint'}`}>
+      <div className="flex items-baseline gap-4 py-4 px-6">
+        <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
+        {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
       </div>
     </div>
   )
@@ -427,6 +417,10 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   // de useConnection(): esse hook re-renderiza a cada movimento do ponteiro e,
   // junto com as props novas a cada render do <ReactFlow>, entra em loop.
   const [origemLigacao, setOrigemLigacao] = useState(null)
+  // Pavimento em edição: as opções do topo (criar nós, piso de descarga) valem
+  // pra ele. Muda ao escolher no seletor, ao mexer num nó ou ao navegar até
+  // outra faixa (a que fica no centro da tela).
+  const [pavAtivoId, setPavAtivoId] = useState(focoPavId || pavimentos[pavimentos.length - 1]?.id)
 
   // Nó sob o mouse: ele e tudo até a saída (nós e setas) ficam vermelhos.
   // Não vale durante o arrasto de uma seta nova.
@@ -458,7 +452,13 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     const anterior = acc[acc.length - 1]
     return [...acc, { id: `faixa-${p.id}`, pav: p, x: 0, y: anterior ? anterior.y + anterior.h + FAIXA_GAP : 0, w, h }]
   }, []), [pavs])
+  const pavAtivo = pavPorId.get(pavAtivoId) || pavs[0]
   const faixaDe = pavId => faixas.find(f => f.pav.id === pavId)
+  // Enquadra a faixa de um pavimento na tela (com o retângulo calculado aqui, não pelo fitView com `nodes`, que caía no "mostrar tudo").
+  const enquadrarFaixa = (inst, pavId, duration) => {
+    const f = faixaDe(pavId)
+    if (f) inst.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.03, duration })
+  }
   // Faixa que contém um ponto da área de trabalho (coordenadas do fluxo).
   const faixaEm = ponto => faixas.find(f => ponto.x >= f.x && ponto.x <= f.x + f.w && ponto.y >= f.y && ponto.y <= f.y + f.h)
 
@@ -596,8 +596,8 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   })
 
   const ctx = {
-    pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
-    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, criarGrupo, criarNo, removerAmbiente,
+    pavAtivoId, pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
+    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
     moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
     noQuente: id => !!caminhoQuente?.nos.includes(id),
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
@@ -703,6 +703,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
   // mesmo pavimento entra nele; em cima da lista lateral, volta pra lista; do
   // contrário só guarda a nova posição de tudo que foi arrastado.
   const soltarNo = (evento, _no, arrastados) => {
+    if (pavDe.get(_no.id)) setPavAtivoId(pavDe.get(_no.id))
     const ponto = evento.changedTouches?.[0] ?? evento
     // O próprio nó arrastado fica sob o ponteiro — procura o que está por baixo.
     const abaixo = document.elementsFromPoint(ponto.clientX, ponto.clientY)
@@ -756,17 +757,25 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
       <div onClick={e => e.stopPropagation()} className="relative bg-surface border border-solid border-border rounded-lg w-[98vw] h-[96vh] flex flex-col overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,.55)]">
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 py-3 px-5 border-b border-solid border-border shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 px-5 border-b border-solid border-border shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <button onClick={onClose} className="btn-ghost p-1.5 shrink-0"><Icon name="left" size={14}/></button>
             <span className="text-base font-bold text-ink truncate">{estrutura.nome}</span>
-            <span className="text-[11px] text-ink-faint whitespace-nowrap">{pavimentos.length} pavimento{pavimentos.length > 1 ? 's' : ''}</span>
+            <select value={pavAtivo.id} title="Pavimento em edição"
+              onChange={e => { setPavAtivoId(e.target.value); enquadrarFaixa(rf, e.target.value, 300) }}
+              className="w-auto text-sm font-semibold py-1 bg-transparent">
+              {pavs.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+            <span className="text-[11px] text-ink-faint whitespace-nowrap">Quantidade de saídas (automático): <strong className="text-ink">{Math.max(1, contarSaidasPavimento(pavAtivo.acessos))}</strong></span>
           </div>
-          {erEstrutura && (
-            <span className="text-[11px] text-ink-faint text-right" title="A escada/rampa é dimensionada uma única vez por estrutura, com a população do pavimento mais populoso (sem o piso de descarga) — vale pra todas.">
-              Escada/rampa (única): <strong className="text-ink">{erEstrutura.pop} pessoas</strong> · {erEstrutura.pavimento.label} · <strong className="text-red">{fmtM(erEstrutura.er.la)}</strong>
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {erEstrutura && (
+              <span className="text-[11px] text-ink-faint text-right" title="A escada/rampa é dimensionada uma única vez por estrutura, com a população do pavimento mais populoso (sem o piso de descarga) — vale pra todas.">
+                Escada/rampa (única): <strong className="text-ink">{erEstrutura.pop} pessoas</strong> · {erEstrutura.pavimento.label} · <strong className="text-red">{fmtM(erEstrutura.er.la)}</strong>
+              </span>
+            )}
+            <PisoDescargaSwitch checked={!!pavAtivo.pisoDescarga} onChange={v => dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pavAtivo.id, estruturaId: estrutura.id, valor: v })}/>
+          </div>
         </div>
 
         <FluxoCtx.Provider value={ctx}>
@@ -829,15 +838,29 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 // selecionar um nó não leva as setas dele junto.
                 onBeforeDelete={async ({ edges: es }) => ({ nodes: [], edges: es.filter(e => e.id === setaSelecionada) })}
                 onEdgeClick={(_, edge) => setSetaSelecionada(edge.id)}
-                onNodeClick={() => setSetaSelecionada(null)} onPaneClick={() => setSetaSelecionada(null)}
+                onNodeClick={(_, no) => { setSetaSelecionada(null); if (pavDe.get(no.id)) setPavAtivoId(pavDe.get(no.id)) }}
+                onPaneClick={() => setSetaSelecionada(null)}
+                onMoveEnd={(_, vp) => {
+                  const r = wrapRef.current.getBoundingClientRect()
+                  const f = faixaEm({ x: (r.width / 2 - vp.x) / vp.zoom, y: (r.height / 2 - vp.y) / vp.zoom })
+                  if (f) setPavAtivoId(f.pav.id)
+                }}
                 edgesReconnectable={false} deleteKeyCode={['Delete', 'Backspace']}
                 // Abre focado na faixa do pavimento clicado (ou mostrando tudo).
                 fitView={!focoPavId} fitViewOptions={{ padding: 0.2, maxZoom: 1 }} minZoom={0.1}
-                onInit={focoPavId ? inst => inst.fitView({ nodes: [{ id: `faixa-${focoPavId}` }], padding: 0.03, maxZoom: 1, duration: 0 }) : undefined}
+                onInit={focoPavId ? inst => enquadrarFaixa(inst, focoPavId, 0) : undefined}
               >
                 <Background gap={20}/>
                 <Controls showInteractive={false}/>
                 <MiniMap pannable zoomable nodeColor={n => (n.type === 'faixa' ? 'transparent' : n.type === 'grupo' ? 'var(--color-ink-hint)' : n.data.tipo === 'saida' ? 'var(--color-green)' : n.data.tipo === 'escada' ? 'var(--color-amber)' : 'var(--color-ink-faint)')}/>
+                <Panel position="top-left" className="flex flex-wrap items-center gap-2">
+                  <button className="btn-ghost" onClick={() => criarGrupo(pavAtivo.id)}><Icon name="plus" size={12}/> Grupo de ambientes</button>
+                  <button className="btn-ghost" onClick={() => criarAmbiente(null, pavAtivo.id)}><Icon name="plus" size={12}/> Ambiente</button>
+                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'acesso')}><Icon name="plus" size={12}/> Acesso</button>
+                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'saida')}><Icon name="plus" size={12}/> Saída</button>
+                  <button className="btn-ghost" onClick={() => criarNo(pavAtivo.id, 'escada')}><Icon name="plus" size={12}/> Escada/Rampa</button>
+                  <span className="text-[11px] text-ink-faint">em <strong className="text-ink">{pavAtivo.label}</strong></span>
+                </Panel>
                 {setaSelecionada && (
                   <Panel position="top-center">
                     <button className="btn-ghost" onClick={() => desligar(edges.filter(e => e.id === setaSelecionada))}><Icon name="x" size={12}/> Desligar seta selecionada</button>
