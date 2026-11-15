@@ -115,23 +115,23 @@ function DimEntry({ label, value }) {
 // o formulário. Nome em cima (com toda a largura); população e porta embaixo.
 // `noGrupo`: já está posicionado (em grupo ou solto na área) — o botão do
 // canto devolve pra lista; na lista, o botão exclui o ambiente.
-function AmbienteLinha({ amb, noGrupo }) {
+function AmbienteLinha({ amb, noGrupo, naArea = false }) {
   const c = useContext(FluxoCtx)
   const pop = calcPopAmb(amb, c.taxa)
   const { pt } = calcNoAmbientePT(amb, c.taxa, c.larguras)
   const selecionado = c.selecionados.has(amb.id)
   return (
-    <div draggable
-      onDragStart={e => {
+    <div draggable={!naArea}
+      onDragStart={naArea ? undefined : e => {
         e.dataTransfer.setData(MIME_AMBIENTES, JSON.stringify(c.idsDoArrasto(amb.id)))
         e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={() => c.selecionados.size > 0 ? c.toggleSelecao(amb.id) : c.editarAmbiente(amb)}
-      className={`nodrag group flex flex-col gap-1 py-2 px-2.5 rounded-md border border-solid bg-surface cursor-pointer transition-colors ${selecionado ? 'border-red' : 'border-border-2 hover:border-ink-hint'}`}
+      className={`${naArea ? '' : 'nodrag'} group flex flex-col gap-1 py-2 px-2.5 rounded-md border border-solid bg-surface cursor-pointer transition-colors ${selecionado ? 'border-red' : 'border-border-2 hover:border-ink-hint'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Checkbox checked={selecionado} onChange={() => c.toggleSelecao(amb.id)} title="Selecionar pra mover em massa"/>
+          <span className="nodrag flex"><Checkbox checked={selecionado} onChange={() => c.toggleSelecao(amb.id)} title="Selecionar pra mover em massa"/></span>
           <span className="font-heading text-[12px] font-semibold text-ink truncate min-w-0">{amb.nome}</span>
           {amb.origem === 'manual' && (
             <span title="Ambiente criado manualmente (não veio do Revit)" className="inline-flex items-center justify-center w-[18px] h-[18px] rounded border border-solid border-border-2 text-ink-faint shrink-0">
@@ -140,7 +140,7 @@ function AmbienteLinha({ amb, noGrupo }) {
           )}
         </div>
         {noGrupo ? (
-          <button onClick={e => { e.stopPropagation(); c.moverParaGrupo([amb.id], null) }} className="bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0" title="Voltar pra lista de ambientes (fora da área)">
+          <button onClick={e => { e.stopPropagation(); c.moverParaGrupo([amb.id], null) }} className="nodrag bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0" title="Voltar pra lista de ambientes (fora da área)">
             <Icon name="exitBox" size={12}/>
           </button>
         ) : (
@@ -162,14 +162,14 @@ function AmbienteLinha({ amb, noGrupo }) {
 }
 
 // ── Ambiente solto na área de trabalho (sem grupo) ──────────────────────
-// Nó próprio: a alça cinza no topo arrasta o nó (o cartão em si é `nodrag`
-// pra poder ser arrastado como ambiente), e a seta sai direto dele pra um
-// acesso/saída/escada.
+// Nó próprio: o cartão inteiro arrasta o nó (clique sem mover abre o formulário
+// de edição; checkbox e botão do canto não arrastam), e a seta sai direto dele
+// pra um acesso/saída/escada. Soltar o nó em cima de um grupo o coloca no grupo;
+// em cima da lista lateral, devolve à lista (ver onNodeDragStop).
 function AmbienteNode({ data }) {
   return (
-    <div className="w-[300px]">
-      <div className="flex items-center justify-center h-4 cursor-grab text-ink-faint"><Icon name="grip" size={12}/></div>
-      <AmbienteLinha amb={data.amb} noGrupo/>
+    <div className="w-[300px] cursor-grab">
+      <AmbienteLinha amb={data.amb} noGrupo naArea/>
       <Alcas origem/>
     </div>
   )
@@ -538,6 +538,27 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const alvo = document.elementFromPoint(ponto.clientX, ponto.clientY)?.closest('.react-flow__node')?.getAttribute('data-id')
     if (alvo && estado.fromNode) ligar({ source: estado.fromNode.id, target: alvo })
   }
+  // Fim do arrasto de nós: ambiente solto largado em cima de um grupo entra
+  // nele; em cima da lista lateral, volta pra lista; do contrário só guarda a
+  // nova posição de tudo que foi arrastado.
+  const soltarNo = (evento, _no, arrastados) => {
+    const ponto = evento.changedTouches?.[0] ?? evento
+    // O próprio nó arrastado fica sob o ponteiro — procura o que está por baixo.
+    const abaixo = document.elementsFromPoint(ponto.clientX, ponto.clientY)
+    const grupoAbaixo = abaixo.map(el => el.closest('.react-flow__node-grupo')).find(Boolean)?.getAttribute('data-id')
+    const naLista = abaixo.some(el => el.closest('aside'))
+    const ambientesArrastados = arrastados.filter(n => n.type === 'ambiente').map(n => n.id)
+    if (ambientesArrastados.length && (grupoAbaixo || naLista)) {
+      moverParaGrupo(ambientesArrastados, grupoAbaixo || null)
+      const restantes = arrastados.filter(n => n.type !== 'ambiente')
+      if (!restantes.length) return
+      arrastados = restantes
+    }
+    dispatch({
+      type: 'SET_POSICOES_FLUXO', pavimentoId: pav.id,
+      posicoes: Object.fromEntries(arrastados.map(n => [n.id, arredondar(n.position)])),
+    })
+  }
   const ligar = ({ source, target }) => {
     if (!conexaoValida({ source, target })) return
     if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target })
@@ -613,10 +634,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
               <ReactFlow
                 nodes={nodes} edges={edges} nodeTypes={nodeTypes}
                 onNodesChange={changes => setNodes(ns => applyNodeChanges(changes, ns))}
-                onNodeDragStop={(_, __, arrastados) => dispatch({
-                  type: 'SET_POSICOES_FLUXO', pavimentoId: pav.id,
-                  posicoes: Object.fromEntries(arrastados.map(n => [n.id, arredondar(n.position)])),
-                })}
+                onNodeDragStop={soltarNo} nodeDragThreshold={4}
                 onConnectStart={(_, { nodeId }) => setOrigemLigacao(nodeId)} onConnectEnd={terminarLigacao}
                 onEdgesDelete={desligar}
                 // Delete só desliga a seta selecionada — nó some pelo botão de
