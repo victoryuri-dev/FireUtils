@@ -365,3 +365,40 @@ test('escada única ignora todos os pisos de descarga, não só o térreo', () =
   ]
   assert.equal(calc.calcErEstrutura(pavs, taxa, larg).pavimento.id, 'P3')
 })
+
+// ── Escadas padrão ligadas à saída do piso de descarga ──
+const pavEst = (id, piso, extra = {}) => fluxo.migrarFluxoPavimento({ id, estruturaId: 'e1', label: id, pisoDescarga: piso, ambientes: [], acessos: [], ...extra })
+const raizDe = (pavs, id) => pavs.find(p => p.id === id).acessos.find(a => a.fixo)
+const liga = pavs => Object.fromEntries(pavs.map(p => [p.id, raizDe(pavs, p.id).ligadoA]))
+
+test('escadas padrão ligam em cadeia até a saída do piso de descarga', () => {
+  const pavs = fluxo.ligarEscadasPadrao([pavEst('P1', true), pavEst('P2', false), pavEst('P3', false)])
+  assert.deepEqual(liga(pavs), { P1: undefined, P2: 'acs-fixo-P1', P3: 'acs-fixo-P2' })
+  assert.equal(raizDe(pavs, 'P2').ligacaoPadrao, true)
+  // Idempotente (mesmas referências, nada a mudar).
+  assert.equal(fluxo.ligarEscadasPadrao(pavs), pavs)
+  // Subsolo liga pra cima, em direção ao térreo.
+  const comSub = fluxo.ligarEscadasPadrao([pavEst('S1', false), pavEst('P1', true), pavEst('P2', false)])
+  assert.deepEqual(liga(comSub), { S1: 'acs-fixo-P1', P1: undefined, P2: 'acs-fixo-P1' })
+})
+
+test('com dois pisos de descarga, cada escada vai pro mais próximo (empate: o de baixo)', () => {
+  const pavs = fluxo.ligarEscadasPadrao([pavEst('P1', true), pavEst('P2', false), pavEst('P3', true), pavEst('P4', false), pavEst('P5', false)])
+  assert.deepEqual(liga(pavs), { P1: undefined, P2: 'acs-fixo-P1', P3: undefined, P4: 'acs-fixo-P3', P5: 'acs-fixo-P4' })
+  // Sem nenhum piso de descarga não liga nada.
+  assert.deepEqual(liga(fluxo.ligarEscadasPadrao([pavEst('P1', false), pavEst('P2', false)])), { P1: undefined, P2: undefined })
+})
+
+test('ligação feita ou desfeita à mão não é refeita; mudar o piso de descarga refaz só as automáticas', () => {
+  let s = { pavimentos: fluxo.ligarEscadasPadrao([pavEst('P1', true), pavEst('P2', false), pavEst('P3', false)]), estruturas: [] }
+  // Usuário desliga a escada do 3º: fica desligada mesmo depois de mexer no piso de descarga.
+  s = reducer(s, { type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId: 'P3', acessoId: 'acs-fixo-P3', destinoId: null })
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'P3', valor: false })
+  assert.equal(raizDe(s.pavimentos, 'P3').ligadoA, null)
+  // O 2º vira piso de descarga: a escada dele vira saída e larga a ligação automática.
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'P2', valor: true })
+  assert.deepEqual([raizDe(s.pavimentos, 'P2').tipo, raizDe(s.pavimentos, 'P2').ligadoA], ['saida', undefined])
+  // Desmarcar de novo religa à saída mais próxima.
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'P2', valor: false })
+  assert.equal(raizDe(s.pavimentos, 'P2').ligadoA, 'acs-fixo-P1')
+})

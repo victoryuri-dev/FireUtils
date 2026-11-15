@@ -4,7 +4,7 @@ import { carregarNormasRemotas, carregarCatalogoNormas } from '../lib/normasRemo
 import { useAuth } from './AuthContext'
 import { PROCEDIMENTOS_PADRAO } from '../utils/planoEmergencia'
 import { dimsPadrao } from '../data/se_calc'
-import { fluxoPadrao, migrarFluxoPavimento, sincronizarAmbientes } from '../data/se_fluxo'
+import { fluxoPadrao, ligarEscadasPadrao, migrarFluxoPavimento, sincronizarAmbientes } from '../data/se_fluxo'
 import { alturaEdificacaoBase, limparAlturasOcultas } from '../data/trrf_calc'
 
 // Gera um ID interno único
@@ -335,7 +335,7 @@ export function hydrateState(saved) {
     // ela, ver fluxoNovo. Pavimentos anteriores ao fluxograma de saídas
     // (sem `grupos`/`fluxoPos`/`tipo` nos nós) são migrados por
     // migrarFluxoPavimento.
-    pavimentos: (saved.pavimentos || INITIAL_STATE.pavimentos).map(p => migrarFluxoPavimento({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) })),
+    pavimentos: ligarEscadasPadrao((saved.pavimentos || INITIAL_STATE.pavimentos).map(p => migrarFluxoPavimento({ ambientes: [], acessos: [], pisoDescarga: p.tipo === 'terreo', ...p, label: normalizarRotuloPavimento(p.label) }))),
     ...migrarParaPorEstrutura(saved),
   }
 }
@@ -802,7 +802,7 @@ export function reducer(state, action) {
       const idsValidos = new Set(list.map(p => p.id))
       return {
         ...state,
-        pavimentos: [...others, ...list],
+        pavimentos: ligarEscadasPadrao([...others, ...list]),
         extintores: state.extintores.filter(e => e.estruturaId !== estruturaId || idsValidos.has(e.pavimentoId)),
         iluminacao: state.iluminacao.filter(i => i.estruturaId !== estruturaId || idsValidos.has(i.pavimentoId)),
       }
@@ -816,7 +816,7 @@ export function reducer(state, action) {
       const { pavimentoId, valor } = action
       return {
         ...state,
-        pavimentos: state.pavimentos.map(p => (p.id === pavimentoId ? acompanharPisoDescarga({ ...p, pisoDescarga: valor }, p.pisoDescarga) : p)),
+        pavimentos: ligarEscadasPadrao(state.pavimentos.map(p => (p.id === pavimentoId ? acompanharPisoDescarga({ ...p, pisoDescarga: valor }, p.pisoDescarga) : p))),
       }
     }
     case 'REPLICATE_TERREO': {
@@ -1112,7 +1112,7 @@ export function reducer(state, action) {
       return {
         ...state,
         pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, ligadoA: action.destinoId } : ac) }
+          ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, ligadoA: action.destinoId, ligacaoPadrao: false } : ac) }
           : p),
       }
     // Liga um grupo de ambientes a um nó (ou null pra desligar) — os

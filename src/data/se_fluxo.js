@@ -180,6 +180,39 @@ export function fluxoPadrao(pisoDescarga, novoId) {
   return { acessos, grupos: [], fluxoPos: layoutFluxo(acessos, []), fluxoVer: FLUXO_VER }
 }
 
+/** Liga as escadas/rampas padrão à saída do piso de descarga: cada pavimento
+ * que NÃO é piso de descarga liga a sua escada padrão à saída/escada padrão do
+ * pavimento vizinho, na direção do piso de descarga mais próximo (empate: o de
+ * baixo) — em cadeia, até chegar à saída. `pavimentos` = lista do estado (a
+ * ordem dentro de cada estrutura é a do prédio: subsolos, térreo, demais).
+ * Só mexe em ligação que ainda não foi decidida (`ligadoA` ausente) ou que foi
+ * feita por aqui (`ligacaoPadrao`) — o que o usuário ligou ou desligou à mão
+ * fica como está. A raiz de um pavimento que virou piso de descarga larga a
+ * ligação automática. Devolve a mesma lista (mesmas referências) se nada mudar. */
+export function ligarEscadasPadrao(pavimentos) {
+  const porEstrutura = new Map()
+  pavimentos.forEach(p => porEstrutura.set(p.estruturaId, [...(porEstrutura.get(p.estruturaId) || []), p]))
+  const novosAcessos = new Map() // id do pavimento -> acessos novos
+  porEstrutura.forEach(lista => {
+    const pisos = lista.map((p, i) => (p.pisoDescarga ? i : -1)).filter(i => i >= 0)
+    lista.forEach((p, i) => {
+      const raiz = (p.acessos || []).find(ac => ac.fixo)
+      if (!raiz || !(raiz.ligadoA === undefined || raiz.ligacaoPadrao)) return
+      let alvoId
+      if (!p.pisoDescarga && pisos.length) {
+        const j = pisos.reduce((melhor, k) => (Math.abs(k - i) < Math.abs(melhor - i) || (Math.abs(k - i) === Math.abs(melhor - i) && k < melhor) ? k : melhor), pisos[0])
+        alvoId = (lista[i + Math.sign(j - i)]?.acessos || []).find(ac => ac.fixo)?.id
+      }
+      const atual = raiz.ligacaoPadrao ? raiz.ligadoA : undefined
+      if (atual === alvoId) return
+      const nova = { ...raiz }
+      if (alvoId) { nova.ligadoA = alvoId; nova.ligacaoPadrao = true } else { delete nova.ligadoA; delete nova.ligacaoPadrao }
+      novosAcessos.set(p.id, p.acessos.map(ac => (ac === raiz ? nova : ac)))
+    })
+  })
+  return novosAcessos.size ? pavimentos.map(p => (novosAcessos.has(p.id) ? { ...p, acessos: novosAcessos.get(p.id) } : p)) : pavimentos
+}
+
 /** Migra um pavimento salvo antes do fluxograma (ou ainda parcial): dá
  * `tipo` explícito a cada nó (congela o que antes dependia de
  * `pisoDescarga`), cria um grupo por acesso que já tinha ambientes ligados
