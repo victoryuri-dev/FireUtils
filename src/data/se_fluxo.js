@@ -132,6 +132,9 @@ export function migrarFluxoPavimento(p) {
 
   const ambientes = (p.ambientes || []).map(a => {
     if (a.grupoId && idsGrupo.has(a.grupoId)) return a
+    // Ambiente solto na área (tem posição própria) com ligação direta já está
+    // no formato novo — só o formato antigo (acessoId sem grupo nem posição) vira grupo.
+    if (p.fluxoPos?.[a.id]) return { ...a, grupoId: null }
     if (a.acessoId && idsAcesso.has(a.acessoId)) {
       const grupoId = `grp-mig-${a.acessoId}`
       if (!idsGrupo.has(grupoId)) {

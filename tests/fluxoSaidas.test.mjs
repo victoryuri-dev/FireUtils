@@ -196,3 +196,16 @@ test('remover o grupo manda os ambientes de volta pra lista, sem ligação', () 
   s = reducer(s, { type: 'REMOVER_GRUPO', pavimentoId: 'p1', grupoId: 'g1' })
   assert.deepEqual([pavDe(s).ambientes[0].grupoId, pavDe(s).ambientes[0].acessoId], [null, null])
 })
+
+test('migração não transforma em grupo o ambiente solto na área que está ligado a um nó', () => {
+  let s = estado(pavBase({ ambientes: [amb('m1')] }))
+  s = reducer(s, { type: 'SOLTAR_AMBIENTES_NA_AREA', pavimentoId: 'p1', posicoes: { m1: { x: 5, y: 5 } } })
+  s = reducer(s, { type: 'LIGAR_AMBIENTE', pavimentoId: 'p1', ambienteId: 'm1', acessoId: 'a1' })
+  // Criar um nó depois não muda o ambiente.
+  s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'p1', id: 'n1', tipo: 'acesso', nome: 'Acesso 2', pos: { x: 1, y: 1 } })
+  // Recarregar o projeto (hydrateState roda a migração de novo) também não.
+  const recarregado = fluxo.migrarFluxoPavimento(pavDe(s))
+  assert.deepEqual(recarregado.grupos, [])
+  assert.deepEqual([recarregado.ambientes[0].grupoId, recarregado.ambientes[0].acessoId], [null, 'a1'])
+  assert.deepEqual(fluxo.migrarFluxoPavimento(recarregado), recarregado)
+})
