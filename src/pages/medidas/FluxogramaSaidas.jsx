@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
   ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Panel, Position, MarkerType,
-  applyNodeChanges, useReactFlow,
+  applyNodeChanges, useConnection, useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import Icon from '../../components/ui/Icon'
@@ -12,7 +12,7 @@ import { AmbienteForm, fmtM } from './se_shared'
 import {
   calcPopAmb, calcNoAmbientePT, calcDimsAcesso, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
 } from '../../data/se_calc'
-import { criaCicloNoFluxo, proximoNomeGrupo } from '../../data/se_fluxo'
+import { criaCicloNoFluxo, ladosMaisProximos, proximoNomeGrupo } from '../../data/se_fluxo'
 
 // Fluxograma de saídas de um pavimento (Grupo de ambientes -> Acesso ->
 // Saída/Escada). Área de trabalho livre: o usuário arrasta os nós, liga um
@@ -159,9 +159,11 @@ function AmbienteLinha({ amb, noGrupo }) {
 // ── Alças de ligação ───────────────────────────────────────────────────
 // Cada nó tem alças nos quatro lados (em cima, embaixo, esquerda, direita):
 // a vermelha (origem) é por onde a seta SAI, a cinza (destino) por onde ela
-// CHEGA. As duas ficam lado a lado em cada lado do nó. O id da alça
-// (`s-<lado>` / `t-<lado>`) diz qual lado a seta usa — e isso é salvo
-// (ver `fluxoLados` em se_fluxo.js).
+// CHEGA. As duas ficam lado a lado em cada lado do nó. Ficam ocultas até o
+// usuário interagir com o nó (passar o mouse, selecionar) ou estar
+// arrastando uma ligação — ver `.fluxo-saidas` em index.css. Uma seta já
+// ligada não depende de qual alça o usuário usou: ela sai e chega sempre
+// pelos lados mais próximos entre os dois nós (ver ladosMaisProximos).
 const LADOS = [['top', Position.Top], ['right', Position.Right], ['bottom', Position.Bottom], ['left', Position.Left]]
 function Alcas({ origem, destino }) {
   return LADOS.flatMap(([lado, posicao]) => {
@@ -174,7 +176,7 @@ function Alcas({ origem, destino }) {
 }
 
 // ── Grupo de ambientes ───────────────────────────────────────────────────
-// Agrupa ambientes e liga o conjunto a UM nó (seta pela alça da direita).
+// Agrupa ambientes e liga o conjunto a UM nó (seta pela alça vermelha).
 // Grupo sem ligação = ambientes com acesso direto à área de relativa
 // segurança — não gera pendência.
 function GrupoNode({ data }) {
@@ -304,6 +306,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   const [alvoSelecao, setAlvoSelecao] = useState('')
   const wrapRef = useRef(null)
   const rf = useReactFlow()
+  const conexao = useConnection()
 
   const [filtroSoltos, setFiltroSoltos] = useState('')
   const soltos = ambientes.filter(a => !a.grupoId)
@@ -449,18 +452,24 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
 
   // Seta selecionada (clique) — a única coisa que Delete/"Desligar" apaga.
   const [setaSelecionada, setSetaSelecionada] = useState(null)
-  const fluxoLados = pav.fluxoLados
   const edges = useMemo(() => {
     const existe = new Set(acessos.map(a => a.id))
     const liga = [
       ...grupos.filter(g => existe.has(g.acessoId)).map(g => ({ id: `e-${g.id}`, source: g.id, target: g.acessoId })),
       ...acessos.filter(a => existe.has(a.alimentaEm)).map(a => ({ id: `e-${a.id}`, source: a.id, target: a.alimentaEm })),
     ]
-    return liga.map(e => ({
-      ...e, sourceHandle: `s-${fluxoLados?.[e.id.slice(2)]?.de || 'right'}`, targetHandle: `t-${fluxoLados?.[e.id.slice(2)]?.para || 'left'}`,
+    const retangulo = id => {
+      const n = nodes.find(x => x.id === id)
+      return { x: n.position.x, y: n.position.y, w: n.measured?.width ?? (n.type === 'grupo' ? 340 : 300), h: n.measured?.height ?? 160 }
+    }
+    return liga.filter(e => nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target)).map(e => {
+      const { de, para } = ladosMaisProximos(retangulo(e.source), retangulo(e.target))
+      return { ...e, sourceHandle: `s-${de}`, targetHandle: `t-${para}` }
+    }).map(e => ({
+      ...e,
       type: 'smoothstep', selected: e.id === setaSelecionada, markerEnd: { type: MarkerType.ArrowClosed }, style: { strokeWidth: 2 },
     }))
-  }, [grupos, acessos, fluxoLados, setaSelecionada])
+  }, [grupos, acessos, nodes, setaSelecionada])
 
   // Cada nó alimenta no máximo UM seguinte; origem = grupo ou acesso (saída/
   // escada não têm alça de saída), destino = acesso/saída/escada, sem ciclo.
@@ -472,11 +481,10 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     const origem = acessos.find(a => a.id === source)
     return !!origem && origem.tipo === 'acesso' && !criaCicloNoFluxo(acessos, origem.id, destino.id)
   }
-  const ligar = ({ source, target, sourceHandle, targetHandle }) => {
+  const ligar = ({ source, target }) => {
     if (!conexaoValida({ source, target })) return
-    const lados = { de: sourceHandle?.split('-')[1] || 'right', para: targetHandle?.split('-')[1] || 'left' }
-    if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target, lados })
-    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: source, novoAlimentaEm: target, lados })
+    if (grupos.some(g => g.id === source)) dispatch({ type: 'LIGAR_GRUPO', pavimentoId: pav.id, grupoId: source, acessoId: target })
+    else dispatch({ type: 'MOVER_ACESSO', pavimentoId: pav.id, acessoId: source, novoAlimentaEm: target })
   }
   const desligar = removidas => removidas.forEach(e => {
     setSetaSelecionada(null)
@@ -541,7 +549,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
             </aside>
 
             {/* Área de trabalho */}
-            <div ref={wrapRef} className="fluxo-saidas flex-1 min-w-0 relative">
+            <div ref={wrapRef} className={`fluxo-saidas flex-1 min-w-0 relative ${conexao.inProgress ? 'conectando' : ''}`}>
               <ReactFlow
                 nodes={nodes} edges={edges} nodeTypes={nodeTypes}
                 onNodesChange={changes => setNodes(ns => applyNodeChanges(changes, ns))}
@@ -575,7 +583,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                   </Panel>
                 )}
                 <Panel position="bottom-center" className="text-[10px] text-ink-faint bg-surface/80 rounded px-2 py-1">
-                  Arraste da alça vermelha (saída) até a alça cinza (entrada) de outro nó, em qualquer lado, para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
+                  Passe o mouse num nó para ver as alças: arraste da vermelha (saída) até a cinza (entrada) de outro nó para ligar · clique numa seta e tecle Delete (ou use o botão) para desligar
                 </Panel>
               </ReactFlow>
             </div>

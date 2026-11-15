@@ -692,17 +692,6 @@ function omitirChave(obj, chave) {
   return copia
 }
 
-// Lados (alças) por onde a seta de cada nó sai e chega: { [idDaOrigem]:
-// { de, para } } com 'top'|'right'|'bottom'|'left'. Sem entrada, a seta usa
-// o padrão (sai pela direita, chega pela esquerda). `lados` null apaga —
-// seta desligada não guarda lado.
-function comLados(fluxoLados, origemId, lados) {
-  const novo = { ...(fluxoLados || {}) }
-  if (lados) novo[origemId] = lados
-  else delete novo[origemId]
-  return novo
-}
-
 // Aplica `fn` ao pavimento e re-sincroniza `ambiente.acessoId` com o grupo de
 // cada ambiente (ver sincronizarAmbientes) — toda mudança no fluxo de saídas
 // (nós, ligações, ambientes) passa por aqui, então motor de cálculo e
@@ -1051,7 +1040,6 @@ export function reducer(state, action) {
         acessos: (p.acessos || []).map(ac => ac.id === action.acessoId
           ? { ...ac, tipo: action.tipo, dims: dimsPadrao(action.tipo), alimentaEm: action.tipo === 'acesso' ? ac.alimentaEm : null }
           : ac),
-        fluxoLados: action.tipo === 'acesso' ? p.fluxoLados : comLados(p.fluxoLados, action.acessoId, null),
       }))
     // Liga/desliga um dimensionamento (AD/ER/PT) de um nó específico — um
     // nó pode precisar de mais de um ao mesmo tempo (ex.: o ponto de
@@ -1089,11 +1077,7 @@ export function reducer(state, action) {
       return {
         ...state,
         pavimentos: state.pavimentos.map(p => p.id === action.pavimentoId
-          ? {
-              ...p,
-              acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac),
-              fluxoLados: comLados(p.fluxoLados, action.acessoId, action.novoAlimentaEm ? action.lados : null),
-            }
+          ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac) }
           : p),
       }
     // Liga um grupo de ambientes a um nó (ou null pra desligar) — os
@@ -1102,7 +1086,6 @@ export function reducer(state, action) {
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
         grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, acessoId: action.acessoId } : g),
-        fluxoLados: comLados(p.fluxoLados, action.grupoId, action.acessoId ? action.lados : null),
       }))
     // Move ambientes pra dentro de um grupo — inclusive entre grupos
     // diferentes — ou pra fora de qualquer grupo (`grupoId` null).
@@ -1122,7 +1105,6 @@ export function reducer(state, action) {
         return {
           ...p,
           fluxoPos: omitirChave(p.fluxoPos, acessoId),
-          fluxoLados: omitirChave(p.fluxoLados, acessoId),
           acessos: (p.acessos || [])
             .filter(ac => ac.id !== acessoId)
             .map(ac => ac.alimentaEm === acessoId ? { ...ac, alimentaEm: null } : ac),
@@ -1138,7 +1120,6 @@ export function reducer(state, action) {
         return {
           ...p,
           fluxoPos: omitirChave(p.fluxoPos, grupoId),
-          fluxoLados: omitirChave(p.fluxoLados, grupoId),
           grupos: (p.grupos || []).filter(g => g.id !== grupoId),
           ambientes: (p.ambientes || []).map(a => a.grupoId === grupoId ? { ...a, grupoId: null } : a),
         }

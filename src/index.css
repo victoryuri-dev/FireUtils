@@ -494,3 +494,9 @@
 }
 .fluxo-saidas .react-flow__edge-path { stroke-width: 2; }
 .fluxo-saidas .react-flow__marker path { fill: var(--color-ink-faint); stroke: var(--color-ink-faint); }
+/* Alças de ligação ocultas até haver interação com o nó (mouse em cima,
+   nó selecionado) ou uma ligação sendo arrastada. */
+.fluxo-saidas .react-flow__handle { opacity: 0; transition: opacity .15s; }
+.fluxo-saidas .react-flow__node:hover .react-flow__handle,
+.fluxo-saidas .react-flow__node.selected .react-flow__handle,
+.fluxo-saidas.conectando .react-flow__handle { opacity: 1; }

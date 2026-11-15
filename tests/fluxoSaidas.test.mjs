@@ -63,8 +63,8 @@ test('migração: pavimento antigo vira grupos por acesso, com tipo e posições
   assert.equal(p.grupos.length, 1)
   assert.equal(p.grupos[0].acessoId, 'a1')
   assert.equal(p.grupos[0].nome, 'Grupo 1')
-  assert.equal(fluxo.proximoNomeGrupo([{ nome: 'Grupo 2' }, { nome: 'Grupo 3' }]), 'Grupo 4')
-  assert.equal(fluxo.proximoNomeGrupo([{ nome: 'Grupo 2' }]), 'Grupo 3')
+  assert.equal(fluxo.proximoNomeGrupo([{ nome: 'Grupo 1' }, { nome: 'Grupo 2' }]), 'Grupo 3')
+  assert.equal(fluxo.proximoNomeGrupo([{ nome: 'Grupo 2' }]), 'Grupo 1')
   assert.equal(fluxo.proximoNomeGrupo([]), 'Grupo 1')
   assert.deepEqual(p.ambientes.map(a => [a.grupoId, a.acessoId]), [['grp-mig-a1', 'a1'], ['grp-mig-a1', 'a1'], [null, null]])
   for (const id of ['r1', 'a1', 'grp-mig-a1']) assert.ok(p.fluxoPos[id], `posição de ${id}`)
@@ -151,13 +151,15 @@ test('dimensionamento: população de um grupo ligado soma no acesso e na saída
   assert.equal(calc.calcPopAcesso('s1', p.ambientes, p.acessos, taxa), 40)
 })
 
-test('setas guardam o lado por onde saem e chegam; desligar ou remover apaga', () => {
-  let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Grupo 1', acessoId: null }] }))
-  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: 'a1', lados: { de: 'bottom', para: 'top' } })
-  s = reducer(s, { type: 'MOVER_ACESSO', pavimentoId: 'p1', acessoId: 'a1', novoAlimentaEm: 's1', lados: { de: 'left', para: 'right' } })
-  assert.deepEqual(pavDe(s).fluxoLados, { g1: { de: 'bottom', para: 'top' }, a1: { de: 'left', para: 'right' } })
-  s = reducer(s, { type: 'LIGAR_GRUPO', pavimentoId: 'p1', grupoId: 'g1', acessoId: null })
-  assert.deepEqual(pavDe(s).fluxoLados, { a1: { de: 'left', para: 'right' } })
-  s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'p1', acessoId: 'a1' })
-  assert.deepEqual(pavDe(s).fluxoLados, {})
+test('migração dá nome padrão a grupo sem nome, sem repetir os já nomeados', () => {
+  const p = fluxo.migrarFluxoPavimento(pavBase({ grupos: [{ id: 'g1', acessoId: null }, { id: 'g2', nome: 'Grupo 1', acessoId: null }, { id: 'g3', acessoId: null }] }))
+  assert.deepEqual(p.grupos.map(g => g.nome), ['Grupo 2', 'Grupo 1', 'Grupo 3'])
+})
+
+test('lados da seta: sai e chega pelos lados mais próximos entre os dois nós', () => {
+  const a = { x: 0, y: 0, w: 100, h: 100 }
+  assert.deepEqual(fluxo.ladosMaisProximos(a, { x: 300, y: 0, w: 100, h: 100 }), { de: 'right', para: 'left' })
+  assert.deepEqual(fluxo.ladosMaisProximos(a, { x: -300, y: 0, w: 100, h: 100 }), { de: 'left', para: 'right' })
+  assert.deepEqual(fluxo.ladosMaisProximos(a, { x: 0, y: 300, w: 100, h: 100 }), { de: 'bottom', para: 'top' })
+  assert.deepEqual(fluxo.ladosMaisProximos(a, { x: 0, y: -300, w: 100, h: 100 }), { de: 'top', para: 'bottom' })
 })

@@ -11,10 +11,6 @@
 //   ambiente.acessoId  : string|null   -- sempre igual ao `acessoId` do grupo
 //        (o reducer mantém sincronizado, ver sincronizarAmbientes) — é o que
 //        o motor de cálculo e o memorial leem.
-//   pavimento.fluxoLados = { [idDaOrigem]: { de, para } }
-//     -- por qual lado (top|right|bottom|left) cada seta sai da origem e chega
-//        ao destino; sem entrada vale o padrão (sai pela direita, chega pela
-//        esquerda).
 //   pavimento.fluxoPos = { [idDoNo]: { x, y } }
 //     -- posição de cada grupo e de cada acesso/saída/escada na área de trabalho.
 
@@ -23,11 +19,30 @@ import { ehRaiz, tipoNo } from './se_calc'
 export const COL_W = 400
 export const ROW_H = 220
 
+/** Por quais lados uma seta deve sair da origem e chegar ao destino: o par
+ * (lado da origem, lado do destino) cujos pontos médios estão mais perto
+ * um do outro. Cada nó é { x, y, w, h } (canto superior esquerdo + tamanho). */
+export function ladosMaisProximos(origem, destino) {
+  const pontos = n => ({
+    top: [n.x + n.w / 2, n.y], right: [n.x + n.w, n.y + n.h / 2],
+    bottom: [n.x + n.w / 2, n.y + n.h], left: [n.x, n.y + n.h / 2],
+  })
+  const po = pontos(origem), pd = pontos(destino)
+  let melhor = { de: 'right', para: 'left', dist: Infinity }
+  for (const de of Object.keys(po)) {
+    for (const para of Object.keys(pd)) {
+      const dist = Math.hypot(po[de][0] - pd[para][0], po[de][1] - pd[para][1])
+      if (dist < melhor.dist) melhor = { de, para, dist }
+    }
+  }
+  return { de: melhor.de, para: melhor.para }
+}
+
 /** Nome padrão de um grupo novo: "Grupo 1", "Grupo 2"… — o menor número
  * ainda não usado por outro grupo do pavimento. */
 export function proximoNomeGrupo(grupos) {
   const usados = new Set((grupos || []).map(g => g.nome))
-  let n = (grupos || []).length + 1
+  let n = 1
   while (usados.has(`Grupo ${n}`)) n++
   return `Grupo ${n}`
 }
@@ -101,6 +116,8 @@ export function fluxoPadrao(pisoDescarga, novoId) {
 export function migrarFluxoPavimento(p) {
   const acessos = (p.acessos || []).map(ac => ac.tipo ? ac : { ...ac, tipo: tipoNo(ac, p.pisoDescarga) })
   const grupos = [...(p.grupos || [])]
+  // Grupo sem nome (criado quando o grupo ainda não tinha nome) recebe o padrão.
+  grupos.forEach((g, i) => { if (!g.nome) grupos[i] = { ...g, nome: proximoNomeGrupo(grupos) } })
   const idsGrupo = new Set(grupos.map(g => g.id))
   const idsAcesso = new Set(acessos.map(ac => ac.id))
 
