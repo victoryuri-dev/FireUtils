@@ -676,8 +676,8 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
     setPavAtivoId(pavId)
     const r = wrapRef.current.getBoundingClientRect()
     setMenu({
-      x: Math.max(8, Math.min(e.clientX - r.left, r.width - 650)),
-      y: Math.max(8, Math.min(e.clientY - r.top, r.height - 110)),
+      x: Math.max(8, Math.min(e.clientX - r.left, r.width - 240)),
+      y: Math.max(8, Math.min(e.clientY - r.top, r.height - 270)),
       ponto, pavId,
     })
   }
@@ -926,11 +926,11 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
               </ReactFlow>
               {menu && (
                 <div style={{ left: menu.x, top: menu.y }} onContextMenu={e => e.preventDefault()}
-                  className="absolute z-50 flex flex-col gap-2 p-2.5 max-w-[640px] rounded-lg border border-solid border-border bg-surface shadow-[0_12px_32px_rgba(0,0,0,.45)]">
+                  className="absolute z-50 flex flex-col gap-2 p-2.5 w-[220px] rounded-lg border border-solid border-border bg-surface shadow-[0_12px_32px_rgba(0,0,0,.45)]">
                   <span className="text-[11px] text-ink-faint">Criar em <strong className="text-ink">{pavPorId.get(menu.pavId)?.label}</strong></span>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col gap-1.5">
                     {OPCOES_CRIAR.map(([op, rotulo]) => (
-                      <button key={op} className="btn-ghost whitespace-nowrap" onClick={() => { criarDaOpcao(op, menu.pavId, menu.ponto); setMenu(null) }}><Icon name="plus" size={12}/> {rotulo}</button>
+                      <button key={op} className="btn-ghost whitespace-nowrap justify-start" onClick={() => { criarDaOpcao(op, menu.pavId, menu.ponto); setMenu(null) }}><Icon name="plus" size={12}/> {rotulo}</button>
                     ))}
                   </div>
                 </div>
