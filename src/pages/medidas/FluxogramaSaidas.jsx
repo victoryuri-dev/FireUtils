@@ -196,8 +196,8 @@ function AmbienteNode({ data }) {
 }
 
 // ── Alças de ligação ───────────────────────────────────────────────────
-// A alça vermelha (origem) é por onde o usuário puxa a seta — nos quatro
-// lados, só visível com o mouse sobre o nó ou o nó selecionado (ver
+// A alça vermelha (origem) é por onde o usuário puxa a seta — no centro dos
+// quatro lados, só visível com o mouse sobre o nó ou o nó selecionado (ver
 // `.fluxo-saidas` em index.css). O destino não precisa de alça: o usuário
 // solta a seta em qualquer ponto do corpo do nó (ver `terminarLigacao`). As
 // alças de destino existem só pro React Flow ter onde encaixar a ponta da
@@ -206,13 +206,10 @@ function AmbienteNode({ data }) {
 // importa de qual alça o usuário puxou.
 const LADOS = [['top', Position.Top], ['right', Position.Right], ['bottom', Position.Bottom], ['left', Position.Left]]
 function Alcas({ origem, destino }) {
-  return LADOS.flatMap(([lado, posicao]) => {
-    const deslocar = pct => (lado === 'top' || lado === 'bottom' ? { left: pct } : { top: pct })
-    return [
-      origem && <Handle key={`s-${lado}`} id={`s-${lado}`} type="source" position={posicao} style={deslocar(destino ? '35%' : '50%')} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>,
-      destino && <Handle key={`t-${lado}`} id={`t-${lado}`} type="target" position={posicao} isConnectable={false} style={deslocar(origem ? '65%' : '50%')} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>,
-    ]
-  })
+  return LADOS.flatMap(([lado, posicao]) => [
+    origem && <Handle key={`s-${lado}`} id={`s-${lado}`} type="source" position={posicao} className="!w-3 !h-3 !bg-red !border-2 !border-surface"/>,
+    destino && <Handle key={`t-${lado}`} id={`t-${lado}`} type="target" position={posicao} isConnectable={false} className="!w-3 !h-3 !bg-ink-faint !border-2 !border-surface"/>,
+  ])
 }
 
 // ── Grupo de ambientes ───────────────────────────────────────────────────
