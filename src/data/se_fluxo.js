@@ -23,6 +23,27 @@ import { ehRaiz, tipoNo } from './se_calc'
 export const COL_W = 400
 export const ROW_H = 220
 
+/** Caminho de um nó até a saída: o próprio nó e cada nó seguinte (grupo ->
+ * acesso -> … -> saída/escada), com os ids das setas entre eles (`e-<origem>`).
+ * Pára no fim da cadeia (nó sem ligação ou saída/escada). */
+export function caminhoAteSaida(id, { acessos, grupos, ambientes }) {
+  const proximo = no => {
+    const alvo = grupos.find(g => g.id === no)?.acessoId
+      ?? acessos.find(a => a.id === no)?.alimentaEm
+      ?? ambientes.find(a => a.id === no && !a.grupoId)?.acessoId
+    return alvo && acessos.some(a => a.id === alvo) ? alvo : null
+  }
+  const nos = [id]
+  const setas = []
+  const vistos = new Set(nos)
+  for (let atual = id, prox = proximo(atual); prox && !vistos.has(prox); atual = prox, prox = proximo(atual)) {
+    nos.push(prox)
+    setas.push(`e-${atual}`)
+    vistos.add(prox)
+  }
+  return { nos, setas }
+}
+
 /** Por quais lados uma seta deve sair da origem e chegar ao destino: o par
  * (lado da origem, lado do destino) cujos pontos médios estão mais perto
  * um do outro. Cada nó é { x, y, w, h } (canto superior esquerdo + tamanho). */

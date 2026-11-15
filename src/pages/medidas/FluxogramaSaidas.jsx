@@ -12,7 +12,7 @@ import { AmbienteForm, fmtM } from './se_shared'
 import {
   calcPopAmb, calcNoAmbientePT, calcDimsAcesso, dimsDoAcesso, contarSaidasPavimento, ehRaiz,
 } from '../../data/se_calc'
-import { criaCicloNoFluxo, ladosMaisProximos, proximoNomeGrupo } from '../../data/se_fluxo'
+import { caminhoAteSaida, criaCicloNoFluxo, ladosMaisProximos, proximoNomeGrupo } from '../../data/se_fluxo'
 
 // Fluxograma de saídas de um pavimento (Grupo de ambientes -> Acesso ->
 // Saída/Escada). Área de trabalho livre: o usuário arrasta os nós, liga um
@@ -185,7 +185,7 @@ function AmbienteNode({ data }) {
     c.agruparAmbientes(data.amb.id, ids)
   }
   return (
-    <div className={`w-[300px] cursor-grab rounded-md ${sobre ? 'outline outline-2 outline-red' : ''}`}
+    <div className={`w-[300px] cursor-grab rounded-md ${sobre || c.noQuente(data.amb.id) ? 'outline outline-2 outline-red' : ''}`}
       onDragOver={e => { if (e.dataTransfer.types.includes(MIME_AMBIENTES)) { e.preventDefault(); setSobre(true) } }}
       onDragLeave={() => setSobre(false)} onDrop={soltarAqui}
     >
@@ -226,7 +226,7 @@ function GrupoNode({ data }) {
   const drop = c.dropProps(grupo.id, setSobre)
   return (
     <div {...drop}
-      className={`w-[340px] rounded-lg border border-solid transition-colors ${sobre ? 'border-red bg-[rgba(192,21,42,.05)]' : 'border-border'}`}
+      className={`w-[340px] rounded-lg border border-solid transition-colors ${sobre ? 'border-red bg-[rgba(192,21,42,.05)]' : 'border-border'} ${c.noQuente(grupo.id) ? 'outline outline-2 outline-red' : ''}`}
     >
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 rounded-t-lg border-b border-solid border-border-2 cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
@@ -273,7 +273,7 @@ function AcessoNode({ data }) {
   const dispatch = c.dispatch
   const toggleDim = d => dispatch({ type: 'SET_ACESSO_DIM', pavimentoId: c.pavId, acessoId: acesso.id, dim: d, valor: !dims[d] })
   return (
-    <div className={`${alvoValido ? 'alvo-valido' : ''} w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
+    <div className={`${alvoValido ? 'alvo-valido' : ''} ${c.noQuente(acesso.id) ? 'outline outline-2 outline-red' : ''} w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 bg-surface-2 rounded-t-lg cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
@@ -353,6 +353,14 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
   // de useConnection(): esse hook re-renderiza a cada movimento do ponteiro e,
   // junto com as props novas a cada render do <ReactFlow>, entra em loop.
   const [origemLigacao, setOrigemLigacao] = useState(null)
+
+  // Nó sob o mouse: ele e tudo até a saída (nós e setas) ficam vermelhos.
+  // Não vale durante o arrasto de uma seta nova.
+  const [noHover, setNoHover] = useState(null)
+  const caminhoQuente = useMemo(
+    () => (noHover && !origemLigacao ? caminhoAteSaida(noHover, { acessos, grupos, ambientes }) : null),
+    [noHover, origemLigacao, acessos, grupos, ambientes],
+  )
 
   const [filtroSoltos, setFiltroSoltos] = useState('')
   // Lista lateral: ambientes sem grupo e sem posição na área de trabalho.
@@ -482,6 +490,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
     pavId: pav.id, dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
     toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
     moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps, ambientes, grupos,
+    noQuente: id => !!caminhoQuente?.nos.includes(id),
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
   }
 
@@ -547,9 +556,12 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
       return { ...e, sourceHandle: `s-${de}`, targetHandle: `t-${para}` }
     }).map(e => ({
       ...e,
-      type: 'smoothstep', selected: e.id === setaSelecionada, markerEnd: { type: MarkerType.ArrowClosed }, style: { strokeWidth: 2 },
+      type: 'smoothstep', selected: e.id === setaSelecionada,
+      ...(caminhoQuente?.setas.includes(e.id)
+        ? { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-red)' }, style: { strokeWidth: 3, stroke: 'var(--color-red)' }, zIndex: 10 }
+        : { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-ink-faint)' }, style: { strokeWidth: 2 } }),
     }))
-  }, [grupos, acessos, ambientes, fluxoPos, nodes, setaSelecionada])
+  }, [grupos, acessos, ambientes, fluxoPos, nodes, setaSelecionada, caminhoQuente])
 
   // Cada nó alimenta no máximo UM seguinte; origem = grupo ou acesso (saída/
   // escada não têm alça de saída), destino = acesso/saída/escada, sem ciclo.
@@ -674,6 +686,7 @@ function Fluxograma({ pav, seNorma, ocupacoes, dispatch, onClose }) {
                 nodes={nodes} edges={edges} nodeTypes={nodeTypes}
                 onNodesChange={changes => setNodes(ns => applyNodeChanges(changes, ns))}
                 onNodeDragStop={soltarNo} nodeDragThreshold={4}
+                onNodeMouseEnter={(_, no) => setNoHover(no.id)} onNodeMouseLeave={() => setNoHover(null)}
                 onConnectStart={(_, { nodeId }) => setOrigemLigacao(nodeId)} onConnectEnd={terminarLigacao}
                 onEdgesDelete={desligar}
                 // Delete só desliga a seta selecionada — nó some pelo botão de

@@ -220,3 +220,20 @@ test('agrupar ambientes soltos: grupo novo no lugar do alvo, herdando a ligaçã
   assert.deepEqual(p.ambientes.map(a => [a.grupoId, a.acessoId]), [['g7', 'a1'], ['g7', 'a1']])
   assert.deepEqual(p.fluxoPos, { g7: { x: 10, y: 10 } })
 })
+
+test('caminho até a saída: nós e setas da cadeia, de grupo, ambiente solto ou acesso', () => {
+  const dados = {
+    acessos: [{ id: 's1', alimentaEm: null }, { id: 'a1', alimentaEm: 's1' }, { id: 'a2', alimentaEm: 'a1' }, { id: 'a3', alimentaEm: null, tipo: 'acesso' }],
+    grupos: [{ id: 'g1', acessoId: 'a2' }, { id: 'g2', acessoId: null }],
+    ambientes: [{ id: 'm1', grupoId: null, acessoId: 'a1' }, { id: 'm2', grupoId: 'g1', acessoId: 'a2' }],
+  }
+  assert.deepEqual(fluxo.caminhoAteSaida('g1', dados), { nos: ['g1', 'a2', 'a1', 's1'], setas: ['e-g1', 'e-a2', 'e-a1'] })
+  assert.deepEqual(fluxo.caminhoAteSaida('m1', dados), { nos: ['m1', 'a1', 's1'], setas: ['e-m1', 'e-a1'] })
+  assert.deepEqual(fluxo.caminhoAteSaida('s1', dados), { nos: ['s1'], setas: [] })
+  assert.deepEqual(fluxo.caminhoAteSaida('g2', dados), { nos: ['g2'], setas: [] })
+  assert.deepEqual(fluxo.caminhoAteSaida('a3', dados), { nos: ['a3'], setas: [] })
+  // Ambiente dentro de grupo não tem seta própria: o caminho é o do grupo.
+  assert.deepEqual(fluxo.caminhoAteSaida('m2', dados), { nos: ['m2'], setas: [] })
+  // Ciclo (dado corrompido) não trava.
+  assert.deepEqual(fluxo.caminhoAteSaida('x', { acessos: [{ id: 'x', alimentaEm: 'y' }, { id: 'y', alimentaEm: 'x' }], grupos: [], ambientes: [] }).nos, ['x', 'y'])
+})

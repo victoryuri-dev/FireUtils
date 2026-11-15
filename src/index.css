@@ -493,7 +493,6 @@
   --xy-attribution-background-color-default: transparent;
 }
 .fluxo-saidas .react-flow__edge-path { stroke-width: 2; }
-.fluxo-saidas .react-flow__marker path { fill: var(--color-ink-faint); stroke: var(--color-ink-faint); }
 /* Alça de saída (vermelha) só aparece com o mouse sobre o nó ou o nó
    selecionado; as alças de destino ficam sempre invisíveis (a seta é solta
    no corpo do nó). */
