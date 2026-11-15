@@ -336,7 +336,7 @@ function FaixaNode({ data }) {
   const { pav } = data
   const ativa = c.pavAtivoId === pav.id
   return (
-    <div className={`w-full h-full rounded-lg border border-dashed transition-colors ${ativa ? 'border-red bg-[rgba(255,255,255,.03)]' : 'border-ink-hint'}`}>
+    <div className={`w-full h-full rounded-lg border border-dashed transition-colors ${ativa ? 'border-red bg-[rgba(255,255,255,.012)]' : 'border-ink-hint'}`}>
       <div style={{ pointerEvents: 'auto' }} title="Arraste para mover o pavimento inteiro" className="faixa-cab inline-flex items-baseline gap-4 py-3 px-6 cursor-grab">
         <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
         {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
