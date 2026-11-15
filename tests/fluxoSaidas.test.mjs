@@ -279,10 +279,14 @@ test('a saída/escada padrão não pode ser excluída nem trocar de tipo; acompa
   s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'e1-P1', acessoId: 'acs-fixo-e1-P1' })
   s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'e1-P2', acessoId: 'acs-fixo-e1-P2', tipo: 'acesso' })
   assert.deepEqual(s.pavimentos.map(p => [p.acessos.length, p.acessos[0].tipo]), [[1, 'saida'], [1, 'escada']])
-  // O piso de descarga muda do térreo pro 1º pavimento: os tipos e nomes seguem.
-  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'e1-P2', estruturaId: 'e1', valor: true })
+  // Mais de um piso de descarga: marcar o 1º pavimento não desmarca o térreo, e a
+  // escada dele vira saída (nome e dimensionamento padrão acompanham).
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'e1-P2', valor: true })
+  assert.deepEqual(s.pavimentos.map(p => [p.pisoDescarga, p.acessos[0].tipo, p.acessos[0].nome]), [[true, 'saida', 'Saída 01'], [true, 'saida', 'Saída 01']])
+  assert.deepEqual(s.pavimentos[1].acessos[0].dims, { AD: true, ER: false, PT: true })
+  // Desmarcar só afeta o próprio pavimento: o térreo volta a ser escada/rampa.
+  s = reducer(s, { type: 'SET_PISO_DESCARGA', pavimentoId: 'e1-P1', valor: false })
   assert.deepEqual(s.pavimentos.map(p => [p.pisoDescarga, p.acessos[0].tipo, p.acessos[0].nome]), [[false, 'escada', 'Escada/Rampa 01'], [true, 'saida', 'Saída 01']])
-  assert.deepEqual(s.pavimentos[0].acessos[0].dims, { AD: false, ER: true, PT: true })
 })
 
 test('ligação: mesmo pavimento como antes; entre pavimentos só saída/escada <-> saída/escada, sem ciclo', () => {
@@ -349,4 +353,15 @@ test('escada/rampa: um cálculo único por estrutura (pavimento mais populoso, s
   assert.equal(unico.er.n, 3)
   assert.equal(unico.nPorta, 3)
   assert.equal(unico.pop, 10) // população do nó continua a local
+})
+
+test('escada única ignora todos os pisos de descarga, não só o térreo', () => {
+  const taxa = { 'C-1': { A: 3, AD: 100, ER: 75, PT: 100 } }
+  const larg = { AD: 1.1, ER: 1.2, LARG_UP: 0.55, PT: [{ n_up: 1, largura: 0.8, tipo: '1 folha' }] }
+  const pavs = [
+    { id: 'P1', pisoDescarga: true, ambientes: [{ id: 'a', divisao: 'C-1', area: 900 }] },
+    { id: 'P2', pisoDescarga: true, ambientes: [{ id: 'b', divisao: 'C-1', area: 3000 }] }, // 2º piso de descarga: fora
+    { id: 'P3', pisoDescarga: false, ambientes: [{ id: 'c', divisao: 'C-1', area: 300 }] },
+  ]
+  assert.equal(calc.calcErEstrutura(pavs, taxa, larg).pavimento.id, 'P3')
 })

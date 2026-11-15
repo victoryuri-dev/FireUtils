@@ -809,20 +809,14 @@ export function reducer(state, action) {
     }
     case 'UPDATE_PAV':
       return { ...state, pavimentos: state.pavimentos.map(p => p.id === action.id ? { ...p, ...action.changes } : p) }
-    // Só pode haver um piso de descarga por estrutura — marcar um como
-    // piso de descarga (valor:true) desmarca automaticamente qualquer
-    // outro pavimento da MESMA estrutura. Desmarcar (valor:false) só afeta
-    // o próprio pavimento (pode deixar a estrutura sem nenhum marcado
-    // temporariamente, enquanto o usuário reconfigura).
+    // Uma estrutura pode ter mais de um piso de descarga (ex.: dois pavimentos
+    // com saída direta pra rua): marcar/desmarcar só afeta o próprio pavimento.
+    // A saída/escada padrão dele acompanha (ver acompanharPisoDescarga).
     case 'SET_PISO_DESCARGA': {
-      const { pavimentoId, estruturaId, valor } = action
+      const { pavimentoId, valor } = action
       return {
         ...state,
-        pavimentos: state.pavimentos.map(p => {
-          if (p.id === pavimentoId) return acompanharPisoDescarga({ ...p, pisoDescarga: valor }, p.pisoDescarga)
-          if (valor && p.estruturaId === estruturaId) return acompanharPisoDescarga({ ...p, pisoDescarga: false }, p.pisoDescarga)
-          return p
-        }),
+        pavimentos: state.pavimentos.map(p => (p.id === pavimentoId ? acompanharPisoDescarga({ ...p, pisoDescarga: valor }, p.pisoDescarga) : p)),
       }
     }
     case 'REPLICATE_TERREO': {

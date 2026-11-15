@@ -350,7 +350,7 @@ const nodeTypes = { faixa: FaixaNode, grupo: GrupoNode, acesso: AcessoNode, ambi
 function PisoDescargaSwitch({ checked, onChange }) {
   return (
     <div className="flex items-center gap-3 border border-solid border-border rounded-md py-1.5 px-3 shrink-0">
-      <span className="text-xs text-ink-faint whitespace-nowrap">Este pavimento é o <strong className="text-ink font-semibold">piso de descarga</strong>?</span>
+      <span className="text-xs text-ink-faint whitespace-nowrap">Este pavimento é <strong className="text-ink font-semibold">piso de descarga</strong>?</span>
       <button onClick={() => onChange(!checked)} className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 shrink-0">
         <div className={`w-7 h-4 rounded-[8px] shrink-0 relative transition-colors duration-200 ${checked ? 'bg-red' : 'bg-border'}`}>
           <div className={`absolute top-0.5 ${checked ? 'left-3.5' : 'left-0.5'} w-3 h-3 rounded-full bg-white transition-[left] duration-200`}/>
@@ -774,7 +774,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
                 Escada/rampa (única): <strong className="text-ink">{erEstrutura.pop} pessoas</strong> · {erEstrutura.pavimento.label} · <strong className="text-red">{fmtM(erEstrutura.er.la)}</strong>
               </span>
             )}
-            <PisoDescargaSwitch checked={!!pavAtivo.pisoDescarga} onChange={v => dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pavAtivo.id, estruturaId: estrutura.id, valor: v })}/>
+            <PisoDescargaSwitch checked={!!pavAtivo.pisoDescarga} onChange={v => dispatch({ type: 'SET_PISO_DESCARGA', pavimentoId: pavAtivo.id, valor: v })}/>
           </div>
         </div>
 
