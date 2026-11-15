@@ -111,8 +111,9 @@ function DimEntry({ label, value }) {
 // ── Ambiente (cartão dentro de um grupo, solto na área ou na lista) ───────
 // Arrastável por HTML5 DnD (solta num grupo, na área de trabalho ou na lista
 // lateral); marcar vários pelo checkbox e arrastar um leva a seleção inteira.
-// Com pelo menos um marcado, o clique no cartão marca/desmarca em vez de abrir
-// o formulário. Nome em cima (com toda a largura); população e porta embaixo.
+// Checkbox e botão do canto só aparecem no hover — ou em todos os cartões
+// enquanto houver algum marcado. Com pelo menos um marcado, o clique no
+// cartão marca/desmarca em vez de abrir o formulário. Nome em cima (com toda a largura); população e porta embaixo.
 // `noGrupo`: já está posicionado (em grupo ou solto na área) — o botão do
 // canto devolve pra lista; na lista, o botão exclui o ambiente.
 function AmbienteLinha({ amb, noGrupo, naArea = false }) {
@@ -120,6 +121,9 @@ function AmbienteLinha({ amb, noGrupo, naArea = false }) {
   const pop = calcPopAmb(amb, c.taxa)
   const { pt } = calcNoAmbientePT(amb, c.taxa, c.larguras)
   const selecionado = c.selecionados.has(amb.id)
+  // Checkbox e botão do canto só aparecem com o mouse sobre o cartão (ou foco
+  // dentro dele) — ou em todos os cartões, enquanto houver algum selecionado.
+  const controles = c.selecionados.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
   return (
     <div draggable={!naArea}
       onDragStart={naArea ? undefined : e => {
@@ -131,7 +135,7 @@ function AmbienteLinha({ amb, noGrupo, naArea = false }) {
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="nodrag flex"><Checkbox checked={selecionado} onChange={() => c.toggleSelecao(amb.id)} title="Selecionar pra mover em massa"/></span>
+          <span className={`nodrag flex transition-opacity ${controles}`}><Checkbox checked={selecionado} onChange={() => c.toggleSelecao(amb.id)} title="Selecionar pra mover em massa"/></span>
           <span className="font-heading text-[12px] font-semibold text-ink truncate min-w-0">{amb.nome}</span>
           {amb.origem === 'manual' && (
             <span title="Ambiente criado manualmente (não veio do Revit)" className="inline-flex items-center justify-center w-[18px] h-[18px] rounded border border-solid border-border-2 text-ink-faint shrink-0">
@@ -140,11 +144,11 @@ function AmbienteLinha({ amb, noGrupo, naArea = false }) {
           )}
         </div>
         {noGrupo ? (
-          <button onClick={e => { e.stopPropagation(); c.moverParaGrupo([amb.id], null) }} className="nodrag bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0" title="Voltar pra lista de ambientes (fora da área)">
+          <button onClick={e => { e.stopPropagation(); c.moverParaGrupo([amb.id], null) }} className={`nodrag bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0 transition-opacity ${controles}`} title="Voltar pra lista de ambientes (fora da área)">
             <Icon name="exitBox" size={12}/>
           </button>
         ) : (
-          <button onClick={e => { e.stopPropagation(); c.removerAmbiente(amb.id) }} className="bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0" title="Excluir ambiente">
+          <button onClick={e => { e.stopPropagation(); c.removerAmbiente(amb.id) }} className={`bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 shrink-0 transition-opacity ${controles}`} title="Excluir ambiente">
             <Icon name="trash" size={12}/>
           </button>
         )}
