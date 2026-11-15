@@ -115,9 +115,9 @@ export function calcPT(pop, capPT, larguras) {
 //
 //   ambiente.acessoId : string|null
 //     -- a qual nó (acesso/saída/escada) este ambiente alimenta. Derivado do
-//        box de ambientes (`grupo`) em que o ambiente está: o reducer mantém
-//        `ambiente.acessoId === grupo.acessoId` — null = box ainda sem
-//        ligação (ou ambiente fora de qualquer box).
+//        grupo de ambientes (`grupo`) em que o ambiente está: o reducer mantém
+//        `ambiente.acessoId === grupo.acessoId` — null = grupo ainda sem
+//        ligação (ou ambiente fora de qualquer grupo).
 //
 //   acesso = { id, nome, tipo, alimentaEm: string|null, dims }
 //     -- `tipo`: 'acesso' (nó intermediário, corredor/porta de passagem),
@@ -248,7 +248,7 @@ export function calcDimsAcesso(acessoId, ambientes, acessos, taxaPopulacional, l
 }
 
 /** Largura mínima da porta de um nó de Acesso/Saída/Escada-Rampa —
- * reaproveita o mesmo N de UP já calculado pro AD/ER daquele box (ver
+ * reaproveita o mesmo N de UP já calculado pro AD/ER daquele nó (ver
  * calcNoAcesso) em vez de recalcular população/capacidade: a mesma vazão
  * que passa pelo corredor/escada precisa caber na porta daquele ponto.
  * Só busca a largura mínima de porta pra esse N na tabela PT — mesma

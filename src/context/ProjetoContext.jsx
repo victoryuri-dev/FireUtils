@@ -124,14 +124,14 @@ function idAcesso() {
 
 // Fluxo inicial de todo pavimento novo: uma saída (piso de descarga) ou
 // escada/rampa (demais pavimentos) já com um acesso ligado a ela, pronto
-// pra receber boxes de ambientes — ver fluxoPadrao em se_fluxo.js. Evita a
+// pra receber grupos de ambientes — ver fluxoPadrao em se_fluxo.js. Evita a
 // área de trabalho vazia no primeiro uso; o usuário renomeia, cria mais nós
 // ou remove estes como qualquer outro.
 function fluxoNovo(pisoDescarga) {
   return fluxoPadrao(pisoDescarga, idAcesso)
 }
 
-// Mesma lógica de idAcesso — evita colisão entre boxes de ambientes
+// Mesma lógica de idAcesso — evita colisão entre grupos de ambientes
 // criados no mesmo milissegundo (fluxograma de saídas).
 let grupoSeq = 0
 function idGrupo() {
@@ -692,7 +692,7 @@ function omitirChave(obj, chave) {
   return copia
 }
 
-// Aplica `fn` ao pavimento e re-sincroniza `ambiente.acessoId` com o box de
+// Aplica `fn` ao pavimento e re-sincroniza `ambiente.acessoId` com o grupo de
 // cada ambiente (ver sincronizarAmbientes) — toda mudança no fluxo de saídas
 // (nós, ligações, ambientes) passa por aqui, então motor de cálculo e
 // memorial sempre leem um `acessoId` consistente com o desenho.
@@ -988,7 +988,7 @@ export function reducer(state, action) {
     // despachadas ao clicar em "Adicionar"/"Salvar"/lixeira no modal — o
     // formulário em si (nome, divisão, área...) fica em useState local até
     // esse clique, então não gera broadcast a cada tecla digitada.
-    // `ambiente.grupoId` (box) opcional; `acessoId` nasce do box, nunca é
+    // `ambiente.grupoId` (grupo) opcional; `acessoId` nasce do grupo, nunca é
     // informado direto — ver sincronizarAmbientes.
     case 'ADD_AMBIENTE_SE':
       return atualizarPavSE(state, action.pavimentoId, p => ({ ...p, ambientes: [...(p.ambientes || []), { id: action.id, ...action.ambiente }] }))
@@ -1010,9 +1010,9 @@ export function reducer(state, action) {
           : p),
       }
     }
-    // ── Fluxograma de saídas (Box de ambientes -> Acesso -> Saída/Escada) ──
+    // ── Fluxograma de saídas (Grupo de ambientes -> Acesso -> Saída/Escada) ──
     // Ver se_fluxo.js (dados) e se_calc.js (motor de cálculo). Nó = acesso
-    // (`tipo` 'acesso'|'saida'|'escada', escolhido por nó) ou box de
+    // (`tipo` 'acesso'|'saida'|'escada', escolhido por nó) ou grupo de
     // ambientes (`grupo`). Cada nó alimenta no máximo UM seguinte
     // (`alimentaEm` / `grupo.acessoId`); saída e escada são as raízes.
     case 'CRIAR_NO_FLUXO':
@@ -1021,7 +1021,7 @@ export function reducer(state, action) {
         acessos: [...(p.acessos || []), { id: action.id, nome: action.nome, tipo: action.tipo, alimentaEm: null, dims: dimsPadrao(action.tipo) }],
         fluxoPos: { ...(p.fluxoPos || {}), [action.id]: action.pos },
       }))
-    // Box novo; com `ambienteIds`, já nasce com esses ambientes dentro.
+    // Grupo novo; com `ambienteIds`, já nasce com esses ambientes dentro.
     case 'CRIAR_GRUPO_AMBIENTES': {
       const idsMovidos = new Set(action.ambienteIds || [])
       return atualizarPavSE(state, action.pavimentoId, p => ({
@@ -1080,15 +1080,15 @@ export function reducer(state, action) {
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac) }
           : p),
       }
-    // Liga um box de ambientes a um nó (ou null pra desligar) — os
+    // Liga um grupo de ambientes a um nó (ou null pra desligar) — os
     // ambientes dentro dele passam a alimentar esse nó.
     case 'LIGAR_GRUPO':
       return atualizarPavSE(state, action.pavimentoId, p => ({
         ...p,
         grupos: (p.grupos || []).map(g => g.id === action.grupoId ? { ...g, acessoId: action.acessoId } : g),
       }))
-    // Move ambientes pra dentro de um box — inclusive entre boxes
-    // diferentes — ou pra fora de qualquer box (`grupoId` null).
+    // Move ambientes pra dentro de um grupo — inclusive entre grupos
+    // diferentes — ou pra fora de qualquer grupo (`grupoId` null).
     case 'MOVER_AMBIENTES_GRUPO': {
       const idsMovidos = new Set(action.ambienteIds)
       return atualizarPavSE(state, action.pavimentoId, p => ({
@@ -1097,7 +1097,7 @@ export function reducer(state, action) {
       }))
     }
     // Remove um acesso/saída/escada sem apagar em cascata: o que alimentava
-    // ele (boxes e/ou outros acessos) fica sem ligação em vez de sumir — o
+    // ele (grupos e/ou outros acessos) fica sem ligação em vez de sumir — o
     // usuário religa depois, mas não perde nenhum ambiente cadastrado.
     case 'REMOVER_ACESSO': {
       const { pavimentoId, acessoId } = action
@@ -1112,7 +1112,7 @@ export function reducer(state, action) {
         }
       })
     }
-    // Remove um box; os ambientes dentro dele ficam soltos (sem box), nunca
+    // Remove um grupo; os ambientes dentro dele ficam soltos (sem grupo), nunca
     // são apagados junto.
     case 'REMOVER_GRUPO': {
       const { pavimentoId, grupoId } = action

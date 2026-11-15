@@ -100,9 +100,9 @@ function resolverPavimentoSite(payloadPavimento, estruturaId, projetoPavimentos)
 // importação de ambientes deva sobrescrever silenciosamente.
 //
 // Ambiente já existente no pavimento é ATUALIZADO no lugar — mantém `id` e
-// `grupoId` (o box em que está no fluxograma; `acessoId` é derivado dele no
+// `grupoId` (o grupo em que está no fluxograma; `acessoId` é derivado dele no
 // reducer), só troca os dados que são autoridade do Revit (nome/divisão/
-// área) — em vez de recriado do zero, o que tirava do box qualquer
+// área) — em vez de recriado do zero, o que tirava do grupo qualquer
 // ambiente que já estivesse posicionado no fluxograma a cada nova
 // importação. Casamento é primeiro por `revitId` (Room.UniqueId, ver
 // rooms.get_rooms_classificados no plugin) — estável mesmo se o ambiente
