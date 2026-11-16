@@ -5,7 +5,7 @@
 import { fmtUn } from './numero'
 import { classificarRisco } from '../data/extintores_calc'
 import { alturaEdificacaoBase } from '../data/trrf_calc'
-import { getExtintores, getOcupacoes, getMemorialFormulario } from '../data/normas/index'
+import { getExtintores, getOcupacoes, getMemorialFormulario, getCNAEsDivisao } from '../data/normas/index'
 
 // Mesma lista/ordem do formulario oficial. `key` aponta para state.sistemas —
 // quando null, a medida nao e rastreada pelo app e nunca recebe X (ex.:
@@ -84,6 +84,21 @@ export function buildAnexoBData(state, sistemas) {
     return descricao ? `${divisao} - ${descricao}` : divisao
   }).join('; ')
 
+  // CNAE principal: o da ocupação principal classificada na Etapa 4 (o de maior
+  // área somada entre os pavimentos). Sem pavimento classificado, cai no CNAE
+  // cadastrado na identificação do projeto.
+  const areaPorCnae = new Map()
+  ;(state.pavimentos || []).forEach(p => {
+    if (!p.cnae) return
+    const atual = areaPorCnae.get(p.cnae) || { area: 0, pav: p }
+    atual.area += parseFloat(p.area) || 0
+    areaPorCnae.set(p.cnae, atual)
+  })
+  const principal = [...areaPorCnae.entries()].sort((a, b) => b[1].area - a[1].area)[0]
+  const cnaePrincipal = principal
+    ? [principal[0], principal[1].pav.cnaeDesc || getCNAEsDivisao(state.uf, principal[1].pav.divisao)?.[principal[0]]?.descricao].filter(Boolean).join(' — ')
+    : [state.cnaePrincipal, state.cnaePrincipalDesc].filter(Boolean).join(' — ')
+
   const estruturas     = state.estruturas || []
   // Exibe somente a área total gravada no campo correspondente. A soma
   // das estruturas é feita na configuração, quando escolhida pelo usuário.
@@ -121,7 +136,7 @@ export function buildAnexoBData(state, sistemas) {
     razaoSocial: state.respRazaoSocial || '',
     cnpj: state.respCNPJ || '',
     nomeFantasia: state.respFantasia || '',
-    cnaePrincipal: [state.cnaePrincipal, state.cnaePrincipalDesc].filter(Boolean).join(' — '),
+    cnaePrincipal,
     classificacaoOcupacao,
     areaTotalConstruida: areaConstruida ? fmtUn(areaConstruida, 'm²') : '',
     pavimentosSubsolo: subsolosSum ? String(subsolosSum) : '',
