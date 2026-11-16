@@ -1092,10 +1092,11 @@ export function reducer(state, action) {
           ? { ...p, acessos: (p.acessos || []).map(ac => ac.id === action.acessoId ? { ...ac, alimentaEm: action.novoAlimentaEm } : ac) }
           : p),
       }
-    // Liga uma saída/escada a outra saída/escada de OUTRO pavimento (ou null pra
-    // desligar). Não altera o cálculo — o dimensionamento da escada é único por
-    // estrutura (ver calcErEstrutura); a ligação registra o desenho do fluxo.
-    // Validar (extremos, ciclo) é de quem despacha — ver tipoDeLigacao.
+    // Liga uma saída/escada a qualquer acesso, saída ou escada, de qualquer
+    // pavimento (ou null pra desligar). Não altera o cálculo — o dimensionamento da
+    // escada é único por estrutura (ver calcErEstrutura); a ligação registra o
+    // desenho do fluxo. Validar (destino, ciclo) é de quem despacha — ver
+    // tipoDeLigacao. (O nome da ação é mantido: faz parte do protocolo em tempo real.)
     case 'LIGAR_ENTRE_PAVIMENTOS':
       return {
         ...state,

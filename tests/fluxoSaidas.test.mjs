@@ -288,7 +288,7 @@ test('a saída/escada padrão não pode ser excluída; acompanha o piso de desca
   assert.deepEqual(s.pavimentos.map(p => [p.pisoDescarga, p.acessos[0].tipo, p.acessos[0].nome]), [[false, 'escada', 'Escada/Rampa 01'], [true, 'saida', 'Saída 01']])
 })
 
-test('ligação: mesmo pavimento como antes; entre pavimentos só saída/escada <-> saída/escada, sem ciclo', () => {
+test('ligação: mesmo pavimento como antes; saída/escada liga livremente a qualquer acesso/saída/escada, sem ciclo', () => {
   const acessos = [
     { id: 's1', tipo: 'saida', alimentaEm: null }, { id: 'e2', tipo: 'escada', alimentaEm: null, ligadoA: 's1' }, { id: 'e3', tipo: 'escada', alimentaEm: null },
     { id: 'a3', tipo: 'acesso', alimentaEm: 'e3' }, { id: 'a2', tipo: 'acesso', alimentaEm: 'e2' },
@@ -299,12 +299,14 @@ test('ligação: mesmo pavimento como antes; entre pavimentos só saída/escada 
   const t = (o, d) => fluxo.tipoDeLigacao(o, d, dados)
   assert.equal(t('g3', 'a3'), 'local')            // grupo -> acesso do mesmo pavimento
   assert.equal(t('a3', 'e3'), 'local')            // acesso -> escada do mesmo pavimento
-  assert.equal(t('e3', 'e2'), 'entre-pavimentos') // escada do 3º -> escada do 2º
-  assert.equal(t('e2', 's1'), 'entre-pavimentos') // escada -> saída
+  assert.equal(t('e3', 'e2'), 'livre')            // escada do 3º -> escada do 2º
+  assert.equal(t('e2', 's1'), 'livre')            // escada -> saída
   assert.equal(t('g3', 'e2'), null)               // grupo -> escada de outro pavimento
   assert.equal(t('a3', 'e2'), null)               // acesso -> escada de outro pavimento
-  assert.equal(t('e3', 'a2'), null)               // escada -> acesso de outro pavimento
-  assert.equal(t('s1', 'e3'), 'entre-pavimentos') // saída também pode ser origem...
+  assert.equal(t('e3', 'a2'), 'livre')            // escada -> acesso de outro pavimento
+  assert.equal(t('e2', 'a3'), 'livre')            // escada do 2º -> acesso do 3º
+  assert.equal(t('e3', 'a3'), null)               // ...mas não o acesso que alimenta a própria escada (ciclo)
+  assert.equal(t('s1', 'e3'), 'livre')            // saída também pode ser origem...
   assert.equal(t('s1', 'e2'), null)               // ...mas não fecha ciclo (e2 já liga em s1)
   assert.equal(t('e3', 'e3'), null)
   assert.equal(t('e3', 'g3'), null)
