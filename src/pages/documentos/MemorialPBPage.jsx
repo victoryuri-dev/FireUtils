@@ -9,8 +9,6 @@ import { getSE, getHidrantes, getExtintores } from '../../data/normas/index'
 import { numerarBlocos } from '../../utils/memorialEstilo'
 import { BlocoMedida } from '../../components/documentos/BlocosMemorial'
 import PreviewPaginado from '../../components/documentos/PreviewPaginado'
-import BotaoAssinarImprimir from '../../components/documentos/BotaoAssinarImprimir'
-import { coletarMemorial } from '../../components/documentos/coletarFolhas'
 import Icon from '../../components/ui/Icon'
 import { imprimirComNome, nomeDocumentoMemorial } from '../../utils/exportarWord'
 import { baixarBlob } from '../../utils/docx/ooxml'
@@ -122,7 +120,6 @@ export default function MemorialPBPage({ onBack }) {
           <button className="btn-ghost" onClick={salvarWord} title="Baixar o memorial como documento do Word (.docx)">
             <Icon name="download" size={13}/> Salvar Word
           </button>
-          <BotaoAssinarImprimir coletar={() => coletarMemorial(nomeDocumentoMemorial(state.nome))}/>
           <button className="btn-primary" onClick={() => imprimirComNome(nomeDocumentoMemorial(state.nome))}>
             <Icon name="file" size={13}/> Imprimir / Salvar PDF
           </button>
