@@ -3,6 +3,8 @@ import { useProjeto } from '../../context/ProjetoContext'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { buildAnexoBData } from '../../utils/anexoB'
 import Icon from '../../components/ui/Icon'
+import BotaoAssinarImprimir from '../../components/documentos/BotaoAssinarImprimir'
+import { coletarAnexoB } from '../../components/documentos/coletarFolhas'
 import { exportarWordElemento, nomeDocumentoAnexoB } from '../../utils/exportarWord'
 
 // Grade e mesclagens extraídas do formulário CBMMA de 2024.
@@ -65,6 +67,7 @@ export default function AnexoBPage({ onBack }) {
           <button className="btn-ghost" onClick={() => exportarWordElemento(contentRef.current, nomeDocumentoAnexoB(state.nome))} title="Baixar o Anexo B como documento do Word (.doc)">
             <Icon name="download" size={13}/> Salvar Word
           </button>
+          <BotaoAssinarImprimir coletar={() => coletarAnexoB(nomeDocumentoAnexoB(state.nome))}/>
           <button className="btn-primary" onClick={() => window.print()}><Icon name="file" size={13}/> Imprimir / Salvar PDF</button>
         </div>
       </div>

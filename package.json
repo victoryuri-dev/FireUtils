@@ -17,6 +17,7 @@
     "@xyflow/react": "^12.12.1",
     "fflate": "^0.8.3",
     "gsap": "^3.15.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.31.0",
     "node-forge": "^1.4.3",
     "pagedjs": "^0.4.3",

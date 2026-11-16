@@ -14,6 +14,8 @@ import { BarraZoom, JanelaDocumento } from '../../components/documentos/ZoomDocu
 import Icon from '../../components/ui/Icon'
 import { exportarWord, imprimirComNome, nomeDocumentoMemorial } from '../../utils/exportarWord'
 import PreviewPaginado from '../../components/documentos/PreviewPaginado'
+import BotaoAssinarImprimir from '../../components/documentos/BotaoAssinarImprimir'
+import { coletarMemorial } from '../../components/documentos/coletarFolhas'
 import MenuSecoes from '../../components/documentos/MenuSecoes'
 import { Titulo, BlocoMedida } from '../../components/documentos/BlocosMemorial'
 import { TABELA, TABELA_THEAD, TABELA_TH, TABELA_TD, zebra, TEXTO, TEXTO_PEQUENO, tituloCase, numerarBlocos } from '../../utils/memorialEstilo'
@@ -587,6 +589,7 @@ export default function MemorialDescritivoPage({ onBack }) {
           <button className="btn-ghost" onClick={() => exportarWord(rolagemRef.current, nomeDocumentoMemorial(state.nome))} disabled={!secoes.length} title="Baixar o memorial como documento do Word (.doc)">
             <Icon name="download" size={13}/> Salvar Word
           </button>
+          {secoes.length > 0 && <BotaoAssinarImprimir coletar={() => coletarMemorial(nomeDocumentoMemorial(state.nome))}/>}
           <button className="btn-primary" onClick={() => imprimirComNome(nomeDocumentoMemorial(state.nome))} disabled={!secoes.length}>
             <Icon name="file" size={13}/> Imprimir / Salvar PDF
           </button>
