@@ -2,9 +2,9 @@ import Obrigatorio from '../../components/ui/Obrigatorio'
 import { numeroPositivo, inteiroPositivo } from '../../data/auditoriaProjeto'
 // ─────────────────────────────────────────────────────────────────────────────
 // se_shared.jsx — UI compartilhada entre SaidaEmergenciaPage.jsx e
-// AcessosDescargasView.jsx (formulário de ambiente, badges, toggle,
+// FluxogramaSaidas.jsx (formulário de ambiente, badges, toggle,
 // formatação). Módulo próprio pra evitar import circular entre as duas
-// páginas (a principal renderiza a árvore; a árvore reaproveita o
+// páginas (a principal lista os pavimentos; o fluxograma reaproveita o
 // formulário de ambiente da principal).
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from 'react'
@@ -59,10 +59,10 @@ function DivisaoSelect({ value, onChange, ocupacoes }) {
 
 // ── Formulário de ambiente ────────────────────────────────────────────
 // Sem campo de nome — o nome do ambiente é editado pelo lápis no título do
-// modal que envolve este formulário (ver AcessosDescargasView.jsx), não
+// modal que envolve este formulário (ver FluxogramaSaidas.jsx), não
 // aqui. `larguras`, se informado, habilita o cálculo de N° UP (porta) no
 // rodapé — omitir pra esconder esse número (ex.: uso fora do contexto da
-// árvore de Acessos e Descargas, onde ele não faz sentido).
+// fluxograma de saídas, onde ele não faz sentido).
 export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, larguras }) {
   const { TAXA_POPULACIONAL, NOTAS_NORMATIVAS } = seNorma
   const blank = { divisao:'', popTipo:'area', area:'', assentos:'', popManual:'', arquibancada:false, arquibancadaComprimento:'' }
