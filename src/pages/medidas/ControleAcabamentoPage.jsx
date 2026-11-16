@@ -333,6 +333,25 @@ export default function ControleAcabamentoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedDepsKey])
 
+  // Mantém o nome sugerido em dia: se a divisão do pavimento mudou (ex.: D-4 →
+  // C-2) e o ambiente ainda tem o nome padrão "<divisão> — <descrição>" (o
+  // usuário não personalizou), renomeia para a divisão nova. Nome editado à mão
+  // nunca é tocado.
+  const nomePadrao = d => (descricaoDivisao(ocupacoes, d) ? `${d} — ${descricaoDivisao(ocupacoes, d)}` : d)
+  const codigoPadrao = a => { const m = /^([A-Z]-\d+)/.exec(a.nome || ''); return m && a.nome === nomePadrao(m[1]) ? m[1] : null }
+  const syncKey = state.estruturas.map(est => `${est.id}:${divisoesDaEstrutura(state.pavimentos.filter(p => p.estruturaId === est.id)).join('|')}:${state.acabamentoAmbientes.filter(a => a.estruturaId === est.id).map(a => a.nome).join('|')}`).join(';')
+  useEffect(() => {
+    state.estruturas.forEach(est => {
+      const atuais = divisoesDaEstrutura(state.pavimentos.filter(p => p.estruturaId === est.id))
+      const ambs = state.acabamentoAmbientes.filter(a => a.estruturaId === est.id)
+      if (atuais.length === 0 || ambs.length === 0) return
+      const orfaos = ambs.filter(a => { const c = codigoPadrao(a); return c && !atuais.includes(c) })
+      const livres = atuais.filter(d => !ambs.some(a => a.nome === d || (a.nome || '').startsWith(`${d} `)))
+      orfaos.forEach((a, i) => { if (livres[i]) dispatch({ type: 'RENAME_AMBIENTE_ACABAMENTO', id: a.id, nome: nomePadrao(livres[i]) }) })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncKey])
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-[980px] mx-auto pt-8 px-10 pb-20">
