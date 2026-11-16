@@ -219,7 +219,7 @@ function GrupoNode({ data }) {
       <div className="p-2.5 flex flex-col gap-2">
         {ambientes.map(a => <AmbienteLinha key={a.id} amb={a} noGrupo/>)}
         {ambientes.length === 0 && <div className="text-[11px] text-ink-faint italic py-1 text-center">Arraste ambientes para trazê-los pra cá.</div>}
-        <button className="nodrag btn-ghost justify-center" onClick={() => c.criarAmbiente(grupo.id)}><Icon name="plus" size={12}/> ADICIONAR AMBIENTE</button>
+        <button className="nodrag btn-ghost justify-center" onClick={() => c.abrirEscolhaAmbientes(grupo.id)}><Icon name="plus" size={12}/> ADICIONAR AMBIENTE</button>
       </div>
       {!data.ligado && <div className="px-3 pb-2.5 text-[10px] text-ink-faint text-center">Sem ligação — acesso direto à área de relativa segurança</div>}
       <Alcas origem/>
@@ -294,6 +294,70 @@ function FaixaNode({ data }) {
       <div style={{ pointerEvents: 'auto' }} title="Arraste para mover o pavimento inteiro" className="faixa-cab inline-flex items-baseline gap-4 py-3 px-6 cursor-grab">
         <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
         {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
+      </div>
+    </div>
+  )
+}
+
+// ── Popup "Adicionar ambiente" de um grupo ──────────────────────────────
+// Lista os ambientes do MESMO pavimento do grupo que ainda não estão nele (na
+// lista lateral, soltos na área ou em outro grupo) e deixa marcar vários pra
+// trazer pro grupo; "Novo ambiente" cria um ambiente manual já dentro dele.
+function EscolherAmbientesModal({ grupo, candidatos, onAdicionar, onNovo, onFechar }) {
+  const [busca, setBusca] = useState('')
+  const [marcados, setMarcados] = useState(new Set())
+  const termo = normalizar(busca)
+  const visiveis = candidatos.filter(c => normalizar(c.amb.nome).includes(termo))
+  const alternar = id => setMarcados(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const todosVisiveisMarcados = visiveis.length > 0 && visiveis.every(c => marcados.has(c.amb.id))
+  const alternarTodos = () => setMarcados(prev => {
+    const n = new Set(prev)
+    visiveis.forEach(c => (todosVisiveisMarcados ? n.delete(c.amb.id) : n.add(c.amb.id)))
+    return n
+  })
+  return (
+    <div className="fixed inset-0 z-[600] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4" onClick={e => { e.stopPropagation(); onFechar() }}>
+      <div role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}
+        className="bg-surface border border-solid border-border rounded-lg w-[520px] max-w-full max-h-[86vh] flex flex-col shadow-[0_24px_64px_rgba(0,0,0,.55)]">
+        <div className="flex items-center justify-between gap-3 py-3.5 px-5 border-b border-solid border-border">
+          <div className="min-w-0">
+            <div className="font-heading text-base font-bold text-ink truncate">Adicionar ambientes</div>
+            <div className="text-[11px] text-ink-faint">em <strong className="text-ink">{grupo.nome}</strong></div>
+          </div>
+          <button onClick={onFechar} className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer p-1" title="Fechar"><Icon name="x" size={14}/></button>
+        </div>
+        <div className="px-5 pt-3.5 flex items-center gap-3">
+          <CampoBusca value={busca} onChange={setBusca} placeholder="Buscar ambiente…" className="flex-1"/>
+          {visiveis.length > 0 && (
+            <button type="button" onClick={alternarTodos} className="bg-transparent border-none text-ink-faint hover:text-ink cursor-pointer text-xs underline whitespace-nowrap">
+              {todosVisiveisMarcados ? 'Desmarcar todos' : 'Marcar todos'}
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-3.5 flex flex-col gap-2 min-h-[120px]">
+          {candidatos.length === 0 && <div className="text-xs text-ink-faint italic py-3 text-center">Não há outros ambientes deste pavimento. Use "Novo ambiente".</div>}
+          {candidatos.length > 0 && visiveis.length === 0 && <div className="text-xs text-ink-faint italic py-3 text-center">Nenhum ambiente corresponde à busca.</div>}
+          {visiveis.map(({ amb, onde, pop }) => (
+            <div key={amb.id} onClick={() => alternar(amb.id)}
+              className={`flex items-center justify-between gap-3 py-2 px-2.5 rounded-md border border-solid bg-surface cursor-pointer transition-colors ${marcados.has(amb.id) ? 'border-red' : 'border-border-2 hover:border-ink-hint'}`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Checkbox checked={marcados.has(amb.id)} onChange={() => alternar(amb.id)}/>
+                <span className="font-heading text-[12px] font-semibold text-ink truncate">{amb.nome}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 text-[11px] text-ink-faint whitespace-nowrap">
+                <span>{pop} pessoas</span>
+                <span className="opacity-30">|</span>
+                <span>{onde}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between gap-3 py-3.5 px-5 border-t border-solid border-border">
+          <button type="button" className="btn-ghost" onClick={onNovo}><Icon name="plus" size={12}/> Novo ambiente</button>
+          <button type="button" className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed" disabled={marcados.size === 0} onClick={() => onAdicionar([...marcados])}>
+            Adicionar ambiente{marcados.size > 1 ? 's' : ''}{marcados.size > 0 ? ` (${marcados.size})` : ''}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -611,6 +675,8 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
 
   // Confirmação de remover grupo/nó: caixa do próprio site (ConfirmacaoModal).
   const [confirmacao, setConfirmacao] = useState(null)
+  // Popup de "Adicionar ambiente" de um grupo (id do grupo, ou null).
+  const [escolhaGrupoId, setEscolhaGrupoId] = useState(null)
   const removerGrupo = grupo => {
     const n = ambientes.filter(a => a.grupoId === grupo.id).length
     const remover = () => dispatch({ type: 'REMOVER_GRUPO', pavimentoId: pavDe.get(grupo.id), grupoId: grupo.id })
@@ -683,7 +749,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
 
   const ctx = {
     pavAtivoId, pavDe: id => pavDe.get(id), dispatch, taxa: TAXA_POPULACIONAL, larguras: LARGURAS_MINIMAS, selecionados,
-    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente,
+    toggleSelecao, idsDoArrasto, editarAmbiente: setEditAmb, criarAmbiente, removerAmbiente, abrirEscolhaAmbientes: setEscolhaGrupoId,
     moverParaGrupo, agruparAmbientes, removerGrupo, removerAcesso, dropProps,
     noQuente: id => !!caminhoQuente?.nos.includes(id),
     podeReceberLigacao: id => !!origemLigacao && conexaoValida({ source: origemLigacao, target: id }),
@@ -932,6 +998,20 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
           </div>
         </FluxoCtx.Provider>
       </div>
+
+      {escolhaGrupoId && grupos.find(g => g.id === escolhaGrupoId) && (() => {
+        const grupo = grupos.find(g => g.id === escolhaGrupoId)
+        const pavId = pavDe.get(grupo.id)
+        const nomeGrupo = new Map(grupos.map(g => [g.id, g.nome]))
+        const candidatos = ambientes
+          .filter(a => pavDe.get(a.id) === pavId && a.grupoId !== grupo.id)
+          .map(a => ({ amb: a, pop: calcPopAmb(a, TAXA_POPULACIONAL), onde: a.grupoId ? `em ${nomeGrupo.get(a.grupoId) || 'outro grupo'}` : posDe(a.id) ? 'solto na área' : 'na lista' }))
+        return (
+          <EscolherAmbientesModal grupo={grupo} candidatos={candidatos} onFechar={() => setEscolhaGrupoId(null)}
+            onAdicionar={ids => { moverParaGrupo(ids, grupo.id); setEscolhaGrupoId(null) }}
+            onNovo={() => { setEscolhaGrupoId(null); criarAmbiente(grupo.id) }}/>
+        )
+      })()}
 
       {confirmacao && (
         <ConfirmacaoModal titulo={confirmacao.titulo} texto={confirmacao.texto} rotuloConfirmar={confirmacao.rotulo} perigo
