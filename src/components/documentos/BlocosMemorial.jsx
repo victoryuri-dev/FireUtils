@@ -140,7 +140,10 @@ export function BlocoMedida({ bloco }) {
       const alinhamento = bloco.centralizado ? 'text-center' : 'text-left'
       const alinhaCol = i => (bloco.alinhas ? `text-${bloco.alinhas[i] || 'left'}` : alinhamento)
       return (
-        <table className={TABELA} style={bloco.larguras ? { tableLayout: 'fixed' } : undefined}>
+        // Tabela curta não se parte entre folhas; a longa pode, mas o cabeçalho
+        // nunca fica sozinho no fim de uma folha (break-after-avoid no thead e
+        // break-before-avoid na 1ª linha).
+        <table className={`${TABELA} ${bloco.linhas.length <= 10 ? 'break-inside-avoid' : ''}`} style={bloco.larguras ? { tableLayout: 'fixed' } : undefined}>
           {bloco.larguras && (
             <colgroup>
               {bloco.larguras.map((w, i) => <col key={i} style={{ width: w }}/>)}
@@ -155,14 +158,14 @@ export function BlocoMedida({ bloco }) {
                 Sem isso, cai no `colunas` de sempre (uma linha só). */}
             {bloco.linhasCabecalho
               ? bloco.linhasCabecalho.map((linha, i) => (
-                  <tr key={i} className={TABELA_THEAD}>
+                  <tr key={i} className={`${TABELA_THEAD} break-after-avoid`}>
                     {linha.map((c, j) => (
                       <th key={j} colSpan={c.colSpan} rowSpan={c.rowSpan} className={`${TABELA_TH} ${alinhamento}`}>{c.texto}</th>
                     ))}
                   </tr>
                 ))
               : (
-                <tr className={TABELA_THEAD}>
+                <tr className={`${TABELA_THEAD} break-after-avoid`}>
                   {bloco.colunas.map((c, i) => <th key={i} className={`${TABELA_TH} ${alinhaCol(i)}`}>{c}</th>)}
                 </tr>
               )}
@@ -175,7 +178,7 @@ export function BlocoMedida({ bloco }) {
                 célula normal que mescla verticalmente com as próximas
                 `n-1` linhas nessa mesma posição. */}
             {bloco.linhas.map((linha, i) => (
-              <tr key={i} className={zebra(i)}>
+              <tr key={i} className={`${zebra(i)} ${i === 0 ? 'break-before-avoid' : ''}`}>
                 {linha.map((cel, j) => {
                   if (cel === null) return null
                   const temRowSpan = cel && typeof cel === 'object' && 'texto' in cel
