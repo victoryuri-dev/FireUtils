@@ -140,10 +140,9 @@ export function BlocoMedida({ bloco }) {
       const alinhamento = bloco.centralizado ? 'text-center' : 'text-left'
       const alinhaCol = i => (bloco.alinhas ? `text-${bloco.alinhas[i] || 'left'}` : alinhamento)
       return (
-        // Tabela curta não se parte entre folhas; a longa pode, mas o cabeçalho
-        // nunca fica sozinho no fim de uma folha (break-after-avoid no thead e
-        // break-before-avoid na 1ª linha).
-        <table className={`${TABELA} ${bloco.linhas.length <= 10 ? 'break-inside-avoid' : ''}`} style={bloco.larguras ? { tableLayout: 'fixed' } : undefined}>
+        // A tabela pode quebrar entre folhas, mas o cabeçalho nunca fica sozinho no
+        // fim de uma folha (break-after-avoid no thead, break-before-avoid na 1ª linha).
+        <table className={TABELA} style={bloco.larguras ? { tableLayout: 'fixed' } : undefined}>
           {bloco.larguras && (
             <colgroup>
               {bloco.larguras.map((w, i) => <col key={i} style={{ width: w }}/>)}
