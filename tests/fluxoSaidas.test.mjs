@@ -122,13 +122,13 @@ test('remover acesso desliga grupos e deixa os ambientes sem ligação (nada é 
   assert.equal(p.fluxoPos.a1, undefined)
 })
 
-test('remover grupo solta os ambientes; trocar o tipo do nó reinicia dims e desliga a saída seguinte', () => {
+test('remover grupo solta os ambientes; escada criada conta como saída do pavimento', () => {
   let s = estado(pavBase({ grupos: [{ id: 'g1', nome: 'Grupo', acessoId: 'a1' }], ambientes: [amb('m1', 'g1')] }))
   s = reducer(s, { type: 'REMOVER_GRUPO', pavimentoId: 'p1', grupoId: 'g1' })
   assert.deepEqual([pavDe(s).grupos.length, pavDe(s).ambientes[0].grupoId, pavDe(s).ambientes[0].acessoId], [0, null, null])
-  s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'p1', acessoId: 'a1', tipo: 'escada' })
-  const a1 = pavDe(s).acessos.find(a => a.id === 'a1')
-  assert.deepEqual([a1.tipo, a1.alimentaEm, a1.dims.ER], ['escada', null, true])
+  s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'p1', id: 'e9', tipo: 'escada', nome: 'Escada/Rampa 02', pos: { x: 0, y: 0 } })
+  const e9 = pavDe(s).acessos.find(a => a.id === 'e9')
+  assert.deepEqual([e9.tipo, e9.alimentaEm, e9.dims.ER], ['escada', null, true])
   assert.equal(calc.contarSaidasPavimento(pavDe(s).acessos), 2)
 })
 
@@ -272,12 +272,11 @@ test('migração: posições antigas (área livre) são deslocadas pra dentro da
   assert.deepEqual(fluxo.migrarFluxoPavimento(p).fluxoPos, p.fluxoPos)
 })
 
-test('a saída/escada padrão não pode ser excluída nem trocar de tipo; acompanha o piso de descarga', () => {
+test('a saída/escada padrão não pode ser excluída; acompanha o piso de descarga', () => {
   const t = fluxo.migrarFluxoPavimento(pavLegado({ id: 'e1-P1', label: 'Térreo', pisoDescarga: true }))
   const u = fluxo.migrarFluxoPavimento(pavLegado())
   let s = { pavimentos: [t, u], estruturas: [] }
   s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'e1-P1', acessoId: 'acs-fixo-e1-P1' })
-  s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'e1-P2', acessoId: 'acs-fixo-e1-P2', tipo: 'acesso' })
   assert.deepEqual(s.pavimentos.map(p => [p.acessos.length, p.acessos[0].tipo]), [[1, 'saida'], [1, 'escada']])
   // Mais de um piso de descarga: marcar o 1º pavimento não desmarca o térreo, e a
   // escada dele vira saída (nome e dimensionamento padrão acompanham).
@@ -311,7 +310,7 @@ test('ligação: mesmo pavimento como antes; entre pavimentos só saída/escada 
   assert.equal(t('e3', 'g3'), null)
 })
 
-test('ligação entre pavimentos: guarda em ligadoA, some com o nó de destino e ao virar acesso', () => {
+test('ligação entre pavimentos: guarda em ligadoA e some com o nó de destino', () => {
   const mk = (id, piso) => fluxo.migrarFluxoPavimento(pavLegado({ id, pisoDescarga: piso }))
   let s = { pavimentos: [mk('e1-P1', true), mk('e1-P2', false), mk('e1-P3', false)], estruturas: [] }
   // Escada extra no 2º pavimento (removível) ligada à saída do térreo e à escada do 3º ligada a ela.
@@ -325,11 +324,6 @@ test('ligação entre pavimentos: guarda em ligadoA, some com o nó de destino e
   // Remover a escada extra desliga quem apontava pra ela, em outro pavimento.
   s = reducer(s, { type: 'REMOVER_ACESSO', pavimentoId: 'e1-P2', acessoId: 'ex' })
   assert.equal(todos().find(a => a.id === 'acs-fixo-e1-P3').ligadoA, null)
-  // Virar acesso solta a ligação entre pavimentos.
-  s = reducer(s, { type: 'CRIAR_NO_FLUXO', pavimentoId: 'e1-P3', id: 'ey', tipo: 'escada', nome: 'Escada/Rampa 02', pos: { x: 1, y: 1 } })
-  s = reducer(s, { type: 'LIGAR_ENTRE_PAVIMENTOS', pavimentoId: 'e1-P3', acessoId: 'ey', destinoId: 'acs-fixo-e1-P1' })
-  s = reducer(s, { type: 'SET_ACESSO_TIPO', pavimentoId: 'e1-P3', acessoId: 'ey', tipo: 'acesso' })
-  assert.equal(todos().find(a => a.id === 'ey').ligadoA, undefined)
 })
 
 test('escada/rampa: um cálculo único por estrutura (pavimento mais populoso, sem o piso de descarga)', () => {

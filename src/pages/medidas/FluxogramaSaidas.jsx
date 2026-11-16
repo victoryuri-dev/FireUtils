@@ -228,16 +228,8 @@ function GrupoNode({ data }) {
 }
 
 // ── Acesso / Saída / Escada-Rampa ──────────────────────────────────────
-const TIPOS = [
-  { tipo: 'acesso', label: 'Acesso' },
-  { tipo: 'saida',  label: 'Saída' },
-  { tipo: 'escada', label: 'Escada/Rampa' },
-]
-const TOM_TIPO = {
-  acesso: { faixa: 'border-border text-ink-faint', ativo: 'bg-surface-2 text-ink border-ink-hint' },
-  saida:  { faixa: 'border-green-border bg-green-dim text-green', ativo: 'bg-green-dim text-green border-green-border' },
-  escada: { faixa: 'border-amber-border bg-amber-dim text-amber', ativo: 'bg-amber-dim text-amber border-amber-border' },
-}
+// Borda do nó por tipo (o tipo é escolhido ao criar: botões da barra / clique direito).
+const BORDA_TIPO = { acesso: 'border-border', saida: 'border-green-border', escada: 'border-amber-border' }
 
 function AcessoNode({ data }) {
   const c = useContext(FluxoCtx)
@@ -247,7 +239,7 @@ function AcessoNode({ data }) {
   const pavimentoId = c.pavDe(acesso.id)
   const toggleDim = d => dispatch({ type: 'SET_ACESSO_DIM', pavimentoId, acessoId: acesso.id, dim: d, valor: !dims[d] })
   return (
-    <div className={`${alvoValido ? 'alvo-valido' : ''} ${c.noQuente(acesso.id) ? 'outline outline-2 outline-red' : ''} w-[300px] rounded-lg border border-solid bg-surface ${tipo === 'acesso' ? 'border-border' : TOM_TIPO[tipo].faixa.split(' ')[0]}`}>
+    <div className={`${alvoValido ? 'alvo-valido' : ''} ${c.noQuente(acesso.id) ? 'outline outline-2 outline-red' : ''} w-[300px] rounded-lg border border-solid bg-surface ${BORDA_TIPO[tipo]}`}>
       <div className="flex items-center justify-between gap-2 py-2.5 px-3 bg-surface-2 rounded-t-lg cursor-grab">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="grip" size={13} className="text-ink-faint shrink-0"/>
@@ -265,15 +257,6 @@ function AcessoNode({ data }) {
             </button>
           )}
         </div>
-      </div>
-      <div className="nodrag flex gap-1 px-3 pt-2.5">
-        {TIPOS.map(t => (
-          <button key={t.tipo} type="button" disabled={!!acesso.fixo}
-            title={acesso.fixo ? 'Acompanha o piso de descarga do pavimento (saída) ou os demais (escada/rampa)' : undefined}
-            onClick={() => tipo !== t.tipo && dispatch({ type: 'SET_ACESSO_TIPO', pavimentoId, acessoId: acesso.id, tipo: t.tipo })}
-            className={`flex-1 text-[10px] font-semibold py-1 px-1.5 rounded border border-solid transition-colors ${acesso.fixo ? 'cursor-default' : 'cursor-pointer'} ${tipo === t.tipo ? TOM_TIPO[t.tipo].ativo : `bg-transparent border-border text-ink-faint ${acesso.fixo ? 'opacity-40' : 'hover:text-ink'}`}`}
-          >{t.label}</button>
-        ))}
       </div>
       <div className="flex items-center justify-center gap-1.5 px-3 pt-2.5">
         <DimButton label="AD" ativo={dims.AD} onClick={() => toggleDim('AD')}/>
