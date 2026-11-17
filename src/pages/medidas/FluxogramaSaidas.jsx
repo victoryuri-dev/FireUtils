@@ -11,7 +11,7 @@ import InlineEditableNome from '../../components/ui/InlineEditableNome'
 import ConfirmacaoModal from '../../components/ui/ConfirmacaoModal'
 import { AmbienteForm, fmtM } from './se_shared'
 import {
-  calcPopAmb, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz, tipoEscadaEstrutura,
+  calcPopAmb, calcPopContada, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz, tipoEscadaEstrutura,
 } from '../../data/se_calc'
 import { FAIXA_CAB, FAIXA_PAD, ORIGEM_X, ORIGEM_Y, caminhoAteSaida, ladosMaisProximos, proximoNomeGrupo, tipoDeLigacao } from '../../data/se_fluxo'
 
@@ -124,6 +124,9 @@ function AmbienteLinha({ amb, noGrupo, naArea = false }) {
       </div>
       <div className="flex items-center gap-2 pl-6 text-[11px] text-ink-faint whitespace-nowrap">
         <span>{pop} pessoas</span>
+        {amb.areaApoio && (
+          <span title="Área de apoio: a população não soma no total da edificação; só dimensiona a própria porta" className="text-[9px] uppercase tracking-[.06em] px-1 py-px rounded border border-solid border-border-2">Apoio</span>
+        )}
         <span className="opacity-30">|</span>
         <span className="flex items-center gap-1">
           <span className="text-[9px] uppercase tracking-[.06em]">Porta</span>
@@ -492,7 +495,7 @@ function Fluxograma({ estrutura, pavimentos, focoPavId, seNorma, ocupacoes, disp
       const filho = (id, type, data) => ({ id, type, zIndex: 1, position: { x: o.x + (p.fluxoPos?.[id]?.x ?? ORIGEM_X), y: o.y + (p.fluxoPos?.[id]?.y ?? ORIGEM_Y) }, data })
       ;(p.grupos || []).forEach(g => {
         const ambs = pambs.filter(a => a.grupoId === g.id)
-        nos.push(filho(g.id, 'grupo', { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopAmb(a, TAXA_POPULACIONAL), 0) }))
+        nos.push(filho(g.id, 'grupo', { grupo: g, ambientes: ambs, ligado: !!g.acessoId, pop: ambs.reduce((s, a) => s + calcPopContada(a, TAXA_POPULACIONAL), 0) }))
       })
       pambs.filter(a => !a.grupoId && p.fluxoPos?.[a.id]).forEach(a => nos.push(filho(a.id, 'ambiente', { amb: a })))
       pacs.forEach(ac => {

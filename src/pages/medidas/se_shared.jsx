@@ -65,13 +65,14 @@ function DivisaoSelect({ value, onChange, ocupacoes }) {
 // fluxograma de saídas, onde ele não faz sentido).
 export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, larguras }) {
   const { TAXA_POPULACIONAL, NOTAS_NORMATIVAS } = seNorma
-  const blank = { divisao:'', popTipo:'area', area:'', assentos:'', popManual:'', arquibancada:false, arquibancadaComprimento:'' }
+  const blank = { divisao:'', popTipo:'area', area:'', assentos:'', popManual:'', arquibancada:false, arquibancadaComprimento:'', areaApoio:false }
   const [form, setForm] = useState(() => initial ? {
     divisao: initial.divisao, popTipo: initial.popTipo,
     area: initial.area ? String(initial.area) : '',
     assentos: initial.assentos ? String(initial.assentos) : '',
     popManual: initial.popManual ? String(initial.popManual) : '',
     arquibancada: !!initial.arquibancada,
+    areaApoio: !!initial.areaApoio,
     arquibancadaComprimento: initial.arquibancadaComprimento ? String(initial.arquibancadaComprimento) : '',
   } : blank)
 
@@ -106,6 +107,7 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
   const handleSave = () => {
     if (!canSave()) return
     onSave({ divisao: form.divisao, popTipo: form.popTipo, area: parseFloat(form.area)||0, assentos: parseInt(form.assentos)||0, popManual: parseInt(form.popManual)||0,
+      areaApoio: form.areaApoio,
       arquibancada: arquibancadaOn, arquibancadaComprimento: arquibancadaOn ? (parseFloat(form.arquibancadaComprimento)||0) : 0 })
   }
 
@@ -164,6 +166,16 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
         </div>
       )}
 
+      <div>
+        <Toggle label="Área de apoio da edificação" checked={form.areaApoio}
+          onChange={v => setForm(f => ({ ...f, areaApoio: v }))}/>
+        <div className="text-[11px] text-ink-faint leading-[1.5] mt-1.5">
+          {form.areaApoio
+            ? 'Ativado: a população deste ambiente não soma na população total da edificação nem no dimensionamento de acessos e escadas — é a mesma de outros ambientes. Ela é usada só para dimensionar a porta deste ambiente.'
+            : 'Ative se este ambiente (ex.: depósito, vestiário, copa) só é usado por pessoas que já estão em outros ambientes da edificação.'}
+        </div>
+      </div>
+
       {taxa?.notas?.length > 0 && (
         <div>
           <Label>Notas</Label>
@@ -180,6 +192,7 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
           <div>
             <div className="text-[9px] text-ink-faint uppercase tracking-[.07em] mb-0.5">População</div>
             <div className={`text-lg font-bold ${pop>0 ? 'text-red' : 'text-ink-faint'}`}>{pop} Pessoas</div>
+            {form.areaApoio && <div className="text-[10px] text-ink-faint mt-0.5">não soma no total · só dimensiona a porta</div>}
           </div>
           {nUP !== null && (
             <div>

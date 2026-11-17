@@ -129,7 +129,8 @@ function taxaPopulacionalTexto(amb, taxaPopulacional) {
   if (amb.popTipo === 'fixo') base = 'Assentos informados'
   else if (amb.popTipo === 'manual') base = 'População estimada (informada pelo responsável técnico)'
   else base = taxaPopulacional[amb.divisao]?.obs || '—'
-  if (amb.arquibancada && amb.divisao === 'F-3') return `${base}; arquibancada: ${ARQUIBANCADA_TAXA.obs}`
+  if (amb.arquibancada && amb.divisao === 'F-3') base = `${base}; arquibancada: ${ARQUIBANCADA_TAXA.obs}`
+  if (amb.areaApoio) base = `${base} — área de apoio`
   return base
 }
 
@@ -169,6 +170,20 @@ function tabelaAmbientes(listaAmbientes, taxaPopulacional, larguras) {
 // pendência: é tratado como ambiente com acesso direto à área de relativa
 // segurança (não passa por corredor/escada a dimensionar), e a largura da
 // sua própria porta continua calculada na tabela de ambientes.
+// Área de apoio: ambiente cuja população já está contada em outros ambientes —
+// aparece na tabela com a população própria (só pra porta), mas fica de fora
+// da população total e do dimensionamento de acessos/escadas.
+function notaAreaApoio(listaAmbientes) {
+  const apoio = listaAmbientes.filter(({ amb }) => amb.areaApoio).map(({ amb }) => amb.nome)
+  if (apoio.length === 0) return null
+  const lista = apoio.length === 1 ? apoio[0] : `${apoio.slice(0, -1).join(', ')} e ${apoio[apoio.length - 1]}`
+  const plural = apoio.length > 1
+  return {
+    tipo: 'paragrafo',
+    texto: `${plural ? 'Os ambientes' : 'O ambiente'} ${lista} ${plural ? 'são áreas' : 'é uma área'} de apoio da edificação, utilizada${plural ? 's' : ''} pela mesma população de outros ambientes. Por isso, ${plural ? 'suas populações não são somadas' : 'sua população não é somada'} à população total do pavimento nem ao dimensionamento dos acessos, escadas e rampas; ${plural ? 'a população informada serve' : 'a população informada serve'} apenas para dimensionar ${plural ? 'as portas desses ambientes' : 'a porta desse ambiente'}.`,
+  }
+}
+
 function notaAcessoDireto(pav) {
   const diretos = (pav.ambientes || []).filter(a => !a.acessoId)
   if (diretos.length === 0) return null
@@ -230,6 +245,8 @@ function blocosDoPavimento(pav, seNorma, temChuveiros, temDeteccao) {
       blocos.push(tabelaAmbientes(listaAmbientes, TAXA_POPULACIONAL, LARGURAS_MINIMAS))
       const nota = notaAcessoDireto(pav)
       if (nota) blocos.push(nota)
+      const notaApoio = notaAreaApoio(listaAmbientes)
+      if (notaApoio) blocos.push(notaApoio)
     }
     return blocos
   }
@@ -264,6 +281,8 @@ function blocosDoPavimento(pav, seNorma, temChuveiros, temDeteccao) {
     blocos.push(tabelaAmbientes(listaAmbientes, TAXA_POPULACIONAL, LARGURAS_MINIMAS))
     const nota = notaAcessoDireto(pav)
     if (nota) blocos.push(nota)
+    const notaApoio = notaAreaApoio(listaAmbientes)
+    if (notaApoio) blocos.push(notaApoio)
   }
 
   return blocos
