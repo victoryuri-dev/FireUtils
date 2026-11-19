@@ -66,9 +66,7 @@ export default function Step3({ step, totalSteps }) {
         <div className="g2 mb-3">
           <div className="fg"><label>CPF <Obrigatorio id="rtCpf"/></label><input value={state.rtCpf} onChange={set('rtCpf')} placeholder="000.000.000-00"/></div>
           <div className="fg"><label>Especialidade <Obrigatorio id={'rtEspecialidade'}/></label>
-            <select value={state.rtEspecialidade} onChange={set('rtEspecialidade')}>
-              <option>Engenharia Civil</option><option>Engenharia Eletrica</option><option>Arquitetura</option><option>Engenharia de Seguranca</option>
-            </select>
+            <input type="text" value={state.rtEspecialidade} onChange={set('rtEspecialidade')}/>
           </div>
         </div>
         <div className="fg mb-3">
