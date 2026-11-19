@@ -11,7 +11,7 @@ import InlineEditableNome from '../../components/ui/InlineEditableNome'
 import ConfirmacaoModal from '../../components/ui/ConfirmacaoModal'
 import { AmbienteForm, fmtM } from './se_shared'
 import {
-  calcPopAmb, calcPopContada, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz, tipoEscadaEstrutura,
+  calcPopAmb, calcPopContada, calcNoAmbientePT, calcDimsAcesso, calcErEstrutura, dimsDoAcesso, contarSaidasPavimento, ehRaiz, tipoEscadaEstrutura, calcPopPav,
 } from '../../data/se_calc'
 import { FAIXA_CAB, FAIXA_PAD, ORIGEM_X, ORIGEM_Y, caminhoAteSaida, ladosMaisProximos, proximoNomeGrupo, tipoDeLigacao } from '../../data/se_fluxo'
 
@@ -289,6 +289,9 @@ function FaixaNode({ data }) {
       <div style={{ pointerEvents: 'auto' }} title="Arraste para mover o pavimento inteiro" className="faixa-cab inline-flex items-baseline gap-4 py-3 px-6 cursor-grab">
         <span className={`font-heading text-[30px] font-bold ${ativa ? 'text-ink' : 'text-ink-faint'}`}>{pav.label}</span>
         {pav.pisoDescarga && <span className="text-[11px] py-0.5 px-2 rounded bg-amber-dim border border-solid border-amber-border text-amber font-semibold">PISO DE DESCARGA</span>}
+        <span title="População total do pavimento" className="text-[11px] py-0.5 px-2 rounded bg-surface-2 border border-solid border-border-2 text-ink-faint font-semibold whitespace-nowrap">
+          <strong className="text-ink">{calcPopPav(pav, c.taxa)}</strong> pessoas
+        </span>
       </div>
     </div>
   )
