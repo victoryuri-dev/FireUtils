@@ -346,7 +346,7 @@ function PavModal({ pav, onClose }) {
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-surface border border-solid border-border rounded-lg w-[760px] max-w-[96vw] max-h-[92vh] flex flex-col overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,.55)]"
+        className="bg-surface border border-solid border-border rounded-lg w-[760px] max-w-[96vw] h-[min(760px,92vh)] flex flex-col overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,.55)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 py-[18px] px-[24px] border-b border-solid border-border shrink-0">
