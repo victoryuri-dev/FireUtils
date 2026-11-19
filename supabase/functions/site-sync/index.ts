@@ -64,7 +64,12 @@ function calcPopArquibancada(amb) {
   return Math.ceil((parseFloat(amb.arquibancadaComprimento) || 0) / 0.5)
 }
 
+// Divisões com taxa por vaga de carro (mesmo mapa de se_calc.js).
+const VAGAS_POR_PESSOA = { 'G-3': 40 }
+
 function calcPopBase(amb, tabela) {
+  if (amb.popTipo === 'vagas' && VAGAS_POR_PESSOA[amb.divisao])
+    return Math.ceil(Math.max(0, parseInt(amb.vagas) || 0) / VAGAS_POR_PESSOA[amb.divisao])
   if (amb.popTipo === 'fixo') return Math.max(0, parseInt(amb.assentos) || 0)
   if (amb.popTipo === 'manual') return Math.max(0, parseInt(amb.popManual) || 0)
   const taxa = tabela[amb.divisao]

@@ -127,6 +127,7 @@ function montarArvorePavimento(pav) {
 function taxaPopulacionalTexto(amb, taxaPopulacional) {
   let base
   if (amb.popTipo === 'fixo') base = 'Assentos informados'
+  else if (amb.popTipo === 'vagas') base = taxaPopulacional[amb.divisao]?.obs || 'Vagas de carro'
   else if (amb.popTipo === 'manual') base = 'População estimada (informada pelo responsável técnico)'
   else base = taxaPopulacional[amb.divisao]?.obs || '—'
   if (amb.arquibancada && amb.divisao === 'F-3') base = `${base}; arquibancada: ${ARQUIBANCADA_TAXA.obs}`
@@ -138,6 +139,7 @@ function taxaPopulacionalTexto(amb, taxaPopulacional) {
 // área não conta — vale a quantidade de assentos ("64 p"); nos demais, a área.
 function medidaTexto(amb) {
   const base = amb.popTipo === 'fixo' ? `${fmt(parseInt(amb.assentos) || 0)} p`
+    : amb.popTipo === 'vagas' ? `${fmt(parseInt(amb.vagas) || 0)} vagas`
     : amb.popTipo === 'manual' ? `${fmt(parseInt(amb.popManual) || 0)} p`
     : `${fmt(amb.area || 0)} m²`
   if (amb.arquibancada && amb.divisao === 'F-3') return `${base} + ${fmt(parseFloat(amb.arquibancadaComprimento) || 0)} m linear (arquibancada)`

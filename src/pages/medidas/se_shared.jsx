@@ -9,7 +9,7 @@ import { numeroPositivo, inteiroPositivo } from '../../data/auditoriaProjeto'
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from 'react'
 import Icon from '../../components/ui/Icon'
-import { taxaOpcoes, popTipoPadrao, calcPT, calcPopArquibancada, divisaoComArquibancada, ARQUIBANCADA_TAXA } from '../../data/se_calc'
+import { taxaOpcoes, popTipoPadrao, calcPopAmb, calcPT, calcPopArquibancada, divisaoComArquibancada, ARQUIBANCADA_TAXA } from '../../data/se_calc'
 import { fmtNum } from '../../utils/numero'
 
 export const fmt  = n => fmtNum(n, 2, '0')
@@ -65,11 +65,12 @@ function DivisaoSelect({ value, onChange, ocupacoes }) {
 // fluxograma de saídas, onde ele não faz sentido).
 export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, larguras }) {
   const { TAXA_POPULACIONAL, NOTAS_NORMATIVAS } = seNorma
-  const blank = { divisao:'', popTipo:'area', area:'', assentos:'', popManual:'', arquibancada:false, arquibancadaComprimento:'', areaApoio:false }
+  const blank = { divisao:'', popTipo:'area', area:'', assentos:'', vagas:'', popManual:'', arquibancada:false, arquibancadaComprimento:'', areaApoio:false }
   const [form, setForm] = useState(() => initial ? {
     divisao: initial.divisao, popTipo: initial.popTipo,
     area: initial.area ? String(initial.area) : '',
     assentos: initial.assentos ? String(initial.assentos) : '',
+    vagas: initial.vagas ? String(initial.vagas) : '',
     popManual: initial.popManual ? String(initial.popManual) : '',
     arquibancada: !!initial.arquibancada,
     areaApoio: !!initial.areaApoio,
@@ -80,6 +81,7 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
   const opcoes  = taxaOpcoes(form.divisao, TAXA_POPULACIONAL)
   const isManual = form.popTipo === 'manual'
   const isFixo   = form.popTipo === 'fixo'
+  const isVagas  = form.popTipo === 'vagas'
   const isArea   = form.popTipo === 'area'
 
   const temArquibancada = divisaoComArquibancada(form.divisao)
@@ -88,17 +90,19 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
   const popCalc = () => {
     const arq = calcPopArquibancada({ divisao: form.divisao, arquibancada: form.arquibancada, arquibancadaComprimento: form.arquibancadaComprimento })
     if (isFixo)   return (parseInt(form.assentos)  || 0) + arq
+    if (isVagas)  return calcPopAmb({ divisao: form.divisao, popTipo: 'vagas', vagas: form.vagas }, TAXA_POPULACIONAL) + arq
     if (isManual) return (parseInt(form.popManual) || 0) + arq
     return (taxa?.A && form.area ? Math.ceil(parseFloat(form.area) / taxa.A) : 0) + arq
   }
 
-  const setDivisao = div => setForm(f => ({ ...f, divisao: div, popTipo: popTipoPadrao(div, TAXA_POPULACIONAL), assentos:'', popManual:'', arquibancada:false, arquibancadaComprimento:'' }))
-  const setTipo    = tipo => setForm(f => ({ ...f, popTipo: tipo, assentos:'', popManual:'' }))
+  const setDivisao = div => setForm(f => ({ ...f, divisao: div, popTipo: popTipoPadrao(div, TAXA_POPULACIONAL), assentos:'', vagas:'', popManual:'', arquibancada:false, arquibancadaComprimento:'' }))
+  const setTipo    = tipo => setForm(f => ({ ...f, popTipo: tipo, assentos:'', vagas:'', popManual:'' }))
 
   const canSave = () => {
     if (!form.divisao) return false
     if (isArea && !numeroPositivo(form.area)) return false
     if (isFixo && !inteiroPositivo(form.assentos)) return false
+    if (isVagas && !inteiroPositivo(form.vagas)) return false
     if (isManual && !inteiroPositivo(form.popManual)) return false
     if (arquibancadaOn && !numeroPositivo(form.arquibancadaComprimento)) return false
     return true
@@ -106,12 +110,12 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
 
   const handleSave = () => {
     if (!canSave()) return
-    onSave({ divisao: form.divisao, popTipo: form.popTipo, area: parseFloat(form.area)||0, assentos: parseInt(form.assentos)||0, popManual: parseInt(form.popManual)||0,
+    onSave({ divisao: form.divisao, popTipo: form.popTipo, area: parseFloat(form.area)||0, assentos: parseInt(form.assentos)||0, vagas: parseInt(form.vagas)||0, popManual: parseInt(form.popManual)||0,
       areaApoio: form.areaApoio,
       arquibancada: arquibancadaOn, arquibancadaComprimento: arquibancadaOn ? (parseFloat(form.arquibancadaComprimento)||0) : 0 })
   }
 
-  const inputLabel = isArea ? 'Área (m²)' : isFixo ? 'Assentos' : 'População estimada (pessoas)'
+  const inputLabel = isArea ? 'Área (m²)' : isFixo ? 'Assentos' : isVagas ? 'Vagas de carro' : 'População estimada (pessoas)'
   const pop = popCalc()
   const nUP = larguras ? calcPT(pop, taxa?.PT ?? 100, larguras).n : null
 
@@ -140,6 +144,7 @@ export function AmbienteForm({ initial, onSave, onCancel, seNorma, ocupacoes, la
             <Label>{inputLabel} <Obrigatorio/></Label>
             {isArea   && <input className={inputClass} type="number" min="0" placeholder="ex.: 64,5" value={form.area}     onChange={e => setForm(f=>({...f,area:e.target.value}))}     onKeyDown={e=>e.key==='Enter'&&handleSave()}/>}
             {isFixo   && <input className={inputClass} type="number" min="0" placeholder="ex.: 120"  value={form.assentos} onChange={e => setForm(f=>({...f,assentos:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleSave()}/>}
+            {isVagas  && <input className={inputClass} type="number" min="0" placeholder="ex.: 40"   value={form.vagas}     onChange={e => setForm(f=>({...f,vagas:e.target.value}))}     onKeyDown={e=>e.key==='Enter'&&handleSave()}/>}
             {isManual && <input className={inputClass} type="number" min="0" placeholder="ex.: 8"    value={form.popManual} onChange={e => setForm(f=>({...f,popManual:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleSave()}/>}
           </div>
         </div>
