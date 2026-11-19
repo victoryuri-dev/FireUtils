@@ -72,21 +72,16 @@ export function estadoMedidaSistema(sistemas, key) {
   return 'none'
 }
 
-export function buildAnexoBData(state, sistemas) {
+/** Divisões e CNAEs que o projeto tem classificados (Etapa 4), base da
+ *  "Classificação no Anexo B": as divisões saem de pavimentos e ocupações
+ *  adicionais; os CNAEs são os das ocupações principais, do de maior área
+ *  somada ao de menor. */
+export function opcoesClassificacaoAnexoB(state) {
   const divisoesSet = new Set()
   ;(state.pavimentos || []).forEach(p => {
     if (p.divisao || p.grupo) divisoesSet.add(p.divisao || p.grupo)
     p.acess?.forEach(a => { if (a.divisao || a.grupo) divisoesSet.add(a.divisao || a.grupo) })
   })
-  const ocupacoes = getOcupacoes(state.uf)
-  const classificacaoOcupacao = [...divisoesSet].sort().map(divisao => {
-    const descricao = ocupacoes[divisao.charAt(0)]?.descricao
-    return descricao ? `${divisao} - ${descricao}` : divisao
-  }).join('; ')
-
-  // CNAE principal: o da ocupação principal classificada na Etapa 4 (o de maior
-  // área somada entre os pavimentos). Sem pavimento classificado, cai no CNAE
-  // cadastrado na identificação do projeto.
   const areaPorCnae = new Map()
   ;(state.pavimentos || []).forEach(p => {
     if (!p.cnae) return
@@ -94,9 +89,32 @@ export function buildAnexoBData(state, sistemas) {
     atual.area += parseFloat(p.area) || 0
     areaPorCnae.set(p.cnae, atual)
   })
-  const principal = [...areaPorCnae.entries()].sort((a, b) => b[1].area - a[1].area)[0]
+  const cnaes = [...areaPorCnae.entries()].sort((x, y) => y[1].area - x[1].area).map(([cnae, v]) => ({
+    cnae, divisao: v.pav.divisao, area: v.area,
+    desc: v.pav.cnaeDesc || getCNAEsDivisao(state.uf, v.pav.divisao)?.[cnae]?.descricao || '',
+  }))
+  return { divisoes: [...divisoesSet].sort(), cnaes }
+}
+
+export const rotuloCnaeAnexoB = c => [c.cnae, c.desc].filter(Boolean).join(' — ')
+
+export function buildAnexoBData(state, sistemas) {
+  const { divisoes: divisoesProjeto, cnaes } = opcoesClassificacaoAnexoB(state)
+  // O RT pode ocultar divisões da classificação do Anexo B (Etapa 4) e escolher
+  // qual CNAE aparece como principal; sem escolha, valem os do projeto.
+  const escolha = state.anexoBClassificacao || {}
+  const ocultas = new Set(escolha.divisoesOcultas || [])
+  const ocupacoes = getOcupacoes(state.uf)
+  const classificacaoOcupacao = divisoesProjeto.filter(d => !ocultas.has(d)).map(divisao => {
+    const descricao = ocupacoes[divisao.charAt(0)]?.descricao
+    return descricao ? `${divisao} - ${descricao}` : divisao
+  }).join('; ')
+
+  // CNAE principal: o escolhido (entre os classificados), senão o de maior área
+  // somada; sem pavimento classificado, o cadastrado na identificação.
+  const principal = cnaes.find(c => c.cnae === escolha.cnaePrincipal) || cnaes[0]
   const cnaePrincipal = principal
-    ? [principal[0], principal[1].pav.cnaeDesc || getCNAEsDivisao(state.uf, principal[1].pav.divisao)?.[principal[0]]?.descricao].filter(Boolean).join(' — ')
+    ? rotuloCnaeAnexoB(principal)
     : [state.cnaePrincipal, state.cnaePrincipalDesc].filter(Boolean).join(' — ')
 
   const estruturas     = state.estruturas || []

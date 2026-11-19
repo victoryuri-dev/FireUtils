@@ -450,6 +450,8 @@ const INITIAL_STATE = {
   propNome: '', propDocumento: '', propTelefone: '', propEmail: '',
   respRazaoSocial: '', respFantasia: '', respCNPJ: '', respTelefone: '', respEmail: '',
   cnaePrincipal: '', cnaePrincipalDesc: '',
+  // Anexo B (Etapa 4): divisões que o RT tirou da classificação e CNAE principal escolhido ('' = automático).
+  anexoBClassificacao: { divisoesOcultas: [], cnaePrincipal: '' },
   rtNome: '', rtCpf: '', rtConselhoTipo: '', rtConselho: '', rtEspecialidade: 'Engenharia Civil',
   rtEmpresa: '', rtEmail: '', rtTelefone: '',
   usaArt: true,

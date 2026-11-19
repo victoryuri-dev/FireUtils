@@ -11,6 +11,8 @@ import InfoTip from '../ui/InfoTip'
 import { fmtUn, fmtNum } from '../../utils/numero'
 import { classificarPavimentos } from '../../utils/classificacao'
 import ExtensaoConfig from '../../estados/ExtensaoConfig'
+import { documentosDoEstado } from '../../estados/registro'
+import { opcoesClassificacaoAnexoB, rotuloCnaeAnexoB } from '../../utils/anexoB'
 
 const blockTitle = 'text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border flex items-center justify-between'
 const AREA_OCUPACAO_TIP = 'Informe a área dedicada a esta atividade neste pavimento. Esse valor ajuda a identificar as ocupações principal, secundária e subsidiária. A área informada aqui não aparece no memorial; nele é apresentada a área construída da estrutura.'
@@ -509,6 +511,82 @@ function PavCard({ pav, classificacao, onOpen }) {
   )
 }
 
+// ── Classificação que sai no Anexo B ──────────────────────────────────
+// Só nos estados que geram o Anexo B. A classificação nasce das divisões
+// classificadas nos pavimentos; o RT pode tirar divisões (X) e trazê-las de
+// volta (+), e escolher qual CNAE aparece como principal.
+function ClassificacaoAnexoB() {
+  const { state, dispatch } = useProjeto()
+  const [adicionando, setAdicionando] = useState(false)
+  const { divisoes, cnaes } = opcoesClassificacaoAnexoB(state)
+  const escolha = state.anexoBClassificacao || { divisoesOcultas: [], cnaePrincipal: '' }
+  const ocultas = divisoes.filter(d => (escolha.divisoesOcultas || []).includes(d))
+  const visiveis = divisoes.filter(d => !ocultas.includes(d))
+  const salvar = changes => dispatch({ type: 'SET_FIELD', field: 'anexoBClassificacao', value: { ...escolha, ...changes } })
+  const principal = cnaes.find(c => c.cnae === escolha.cnaePrincipal) || cnaes[0]
+
+  return (
+    <section className="bg-surface border border-solid border-border rounded-lg p-4 mb-6">
+      <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ink mb-3.5">
+        Classificação no Anexo B
+        <InfoTip side="bottom" align="start" text="Ocupação e CNAE que serão impressos no Anexo B. Por padrão vêm das classificações dos pavimentos acima: remova uma divisão com o X (e traga de volta com o +) e escolha qual CNAE aparece como principal."/>
+      </h3>
+
+      <div className="mb-4">
+        <div className="text-[11px] text-ink-faint uppercase tracking-[.06em] mb-2">Ocupações (divisões)</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {visiveis.length === 0 && <span className="text-xs text-ink-faint">Nenhuma divisão na classificação.</span>}
+          {visiveis.map(d => (
+            <span key={d} className="inline-flex items-center gap-1.5 text-[12px] tabular-nums font-semibold text-ink py-1 pl-2.5 pr-1.5 rounded-full bg-bg border border-solid border-border">
+              {d}
+              <button type="button" onClick={() => salvar({ divisoesOcultas: [...(escolha.divisoesOcultas || []), d] })}
+                className="bg-transparent border-none text-ink-faint hover:text-red cursor-pointer p-0.5 leading-none" aria-label={`Remover ${d} do Anexo B`} title="Remover do Anexo B">
+                <Icon name="x" size={11}/>
+              </button>
+            </span>
+          ))}
+          {ocultas.length > 0 && (
+            <span className="relative">
+              <button type="button" onClick={() => setAdicionando(a => !a)} aria-expanded={adicionando} aria-label="Adicionar divisão ao Anexo B" title="Adicionar divisão cadastrada"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-bg border border-dashed border-border text-ink-faint hover:text-ink hover:border-ink-hint cursor-pointer">
+                <Icon name="plus" size={12}/>
+              </button>
+              {adicionando && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setAdicionando(false)}/>
+                  <div className="absolute left-0 top-9 z-50 min-w-[120px] bg-surface border border-solid border-border rounded-md shadow-[var(--shadow-md)] py-1">
+                    {ocultas.map(d => (
+                      <button key={d} type="button" className="block w-full text-left px-3 py-1.5 text-[12px] tabular-nums text-ink-muted hover:text-ink hover:bg-surface-2 cursor-pointer"
+                        onClick={() => { salvar({ divisoesOcultas: (escolha.divisoesOcultas || []).filter(x => x !== d) }); setAdicionando(false) }}>
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="fg mb-0">
+        <label>CNAE principal</label>
+        {cnaes.length === 0 ? (
+          <div className="text-xs text-ink-faint">Classifique um CNAE nos pavimentos para escolher.</div>
+        ) : (
+          <select value={escolha.cnaePrincipal || ''} onChange={e => salvar({ cnaePrincipal: e.target.value })}>
+            <option value="">Automático — {rotuloCnaeAnexoB(cnaes[0])}</option>
+            {cnaes.map(c => <option key={c.cnae} value={c.cnae}>{rotuloCnaeAnexoB(c)}</option>)}
+          </select>
+        )}
+        {escolha.cnaePrincipal && principal && principal.cnae !== escolha.cnaePrincipal && (
+          <div className="text-[11px] text-amber mt-1.5">O CNAE escolhido não está mais nos pavimentos; o Anexo B usa o de maior área.</div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ── Step 4 principal ──────────────────────────────────────────────────
 export default function Step4({ step, totalSteps }) {
   const { state }    = useProjeto()
@@ -544,6 +622,8 @@ export default function Step4({ step, totalSteps }) {
             )
           })
       }
+
+      {state.pavimentos.length > 0 && documentosDoEstado(state.uf, state.tipoProjeto).some(d => d.tipo === 'anexo-b') && <ClassificacaoAnexoB/>}
 
       {state.tipoProjeto !== 'dimensionamento' && <ExtensaoConfig ponto="classificacao"/>}
 
