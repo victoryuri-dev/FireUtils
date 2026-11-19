@@ -173,7 +173,7 @@ function TabelaAreaMaxima({ resultado, onChangeArea, isenta, sigla }) {
                   <AreaConsideradaInput linha={l} onChangeArea={onChangeArea}/> m²
                 </td>
                 <td className="py-2 px-3 text-xs text-ink-faint">
-                  {!l.encontrado ? '—' : typeof l.valor === 'number' ? fmtUn(l.valor, 'm²') : l.valor === 'CTD' ? 'CTD (Comissão Técnica)' : 'sem limite'}
+                  {!l.encontrado ? '—' : typeof l.valor === 'number' ? fmtUn(l.valor, 'm²') : l.valor === 'CTD' ? 'CTD (Comissão Técnica)' : 'Dispensada (–)'}
                 </td>
                 <td className="py-2 px-3 text-xs font-semibold"><SituacaoCelula linha={l}/></td>
               </tr>

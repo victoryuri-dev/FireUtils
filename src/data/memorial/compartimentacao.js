@@ -32,8 +32,12 @@ function labelsMarcados(catalogo, chaves, ctx) {
 
 function fmtArea(valor) {
   if (valor === 'CTD') return 'a definir pela Comissão Técnica (CTD)'
-  return typeof valor === 'number' ? fmtUn(valor, 'm²') : 'sem limite definido'
+  // Traço (–) na tabela do Anexo B: dispensada de área máxima de compartimentação.
+  return typeof valor === 'number' ? fmtUn(valor, 'm²') : 'Dispensada (–)'
 }
+
+const NOTA_DISPENSA = { tipo: 'paragrafo', texto: 'Os locais assinalados com traço (–) estão dispensados de áreas máximas de compartimentação, mantendo-se a compartimentação vertical, de acordo com as tabelas de exigências da NT 01.' }
+const temDispensa = r => r.linhas.some(l => l.encontrado && l.valor == null)
 const m2 = v => fmtUn(v, 'm²', 2, `${v} m²`)
 
 // Caso a norma exija a medida mas o responsável técnico tenha desativado o
@@ -64,6 +68,7 @@ function blocosDentroDoLimite(r) {
       colunas: ['Pavimento', 'Área de compartimentação', 'Área máxima permitida'],
       linhas: r.linhas.map(l => [l.pavimento.label, m2(l.area), fmtArea(l.valor)]),
     },
+    ...(temDispensa(r) ? [NOTA_DISPENSA] : []),
   ]
 }
 
@@ -143,9 +148,10 @@ export function textoMemorialCompartHorizontal(state, sistemas, porEstrutura) {
           l.pavimento.divisao || '—',
           l.area ? m2(l.area) : '—',
           !l.encontrado ? '—' : fmtArea(l.valor),
-          l.excede ? 'Excede o limite' : (l.area > 0 && typeof l.valor === 'number' ? 'Dentro do limite' : 'A definir'),
+          l.excede ? 'Excede o limite' : (l.encontrado && l.valor == null ? 'Dispensada' : l.area > 0 && typeof l.valor === 'number' ? 'Dentro do limite' : 'A definir'),
         ]),
       })
+      if (temDispensa(r)) blocos.push(NOTA_DISPENSA)
     }
 
     for (const l of r.pavimentosExcedentes) {
