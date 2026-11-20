@@ -74,7 +74,9 @@ export function ForcaSenha({ senha }) {
 export default function LoginPage() {
   const { signIn, signUp, signInWithGoogle, resetPassword, resendConfirmation } = useAuth()
 
-  const [mode, setMode] = useState('entrar')
+  // ?modo=cadastro (links do quiz no site) abre direto na criação de conta.
+  const [mode, setMode] = useState(() =>
+    new URLSearchParams(window.location.search).get('modo') === 'cadastro' ? 'cadastro' : 'entrar')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [conselhoTipo, setConselhoTipo] = useState('')
