@@ -4,7 +4,7 @@ import Loader from '../components/ui/Loader'
 import Icon from '../components/ui/Icon'
 import CampoConselho from '../components/ui/CampoConselho'
 import { avaliarSenha, SENHA_MIN } from '../utils/senha'
-import { ModuleNetwork } from './LandingPage'
+import { ModuleNetwork } from '../components/login/ModuleNetwork'
 import './LoginPage.css'
 
 function LoginNetwork() {

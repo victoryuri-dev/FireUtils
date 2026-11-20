@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { urlDoSite } from '../../lib/site'
 import { MODULOS, formatarData, situacaoLicenca, temAcesso, useLicencas } from '../../hooks/useLicencas'
 import Icon from '../ui/Icon'
 import Loader from '../ui/Loader'
@@ -96,7 +96,7 @@ export default function LicencasAtivas() {
       {!erro && ativos.length === 0 && (
         <div className="profile-empty">
           <p>Esta conta não tem nenhuma licença ativa.</p>
-          <Link to="/pricing" className="btn-ghost">Ver planos</Link>
+          <a href={urlDoSite('/pricing')} className="btn-ghost">Ver planos</a>
         </div>
       )}
     </div>

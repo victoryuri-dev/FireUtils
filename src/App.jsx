@@ -10,8 +10,6 @@ import { statusNormas } from './lib/normasRemote'
 import { getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
 import { usePerfil, nomeDeUsuario } from './hooks/usePerfil'
 import LoginPage, { RedefinirSenhaPage } from './pages/LoginPage'
-import LandingPage    from './pages/LandingPage'
-import PricingPage    from './pages/PricingPage'
 import LicencaProvider from './context/LicencaContext'
 import { useAcesso }   from './hooks/useLicencas'
 import ProjectAside   from './components/layout/ProjectAside'
@@ -51,6 +49,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { useTheme } from './context/theme-context'
 import { tituloDaRota } from './utils/tituloPagina'
 import { importarOuRecarregar } from './lib/recarregarPorVersao'
+import { SITE_URL, urlDoSite } from './lib/site'
 
 // ── SaveStatusIndicator ───────────────────────────────────────────────
 // Mostra se o projeto esta sendo sincronizado com o servidor ou se ja foi
@@ -540,6 +539,16 @@ function RedefinirSenhaRoute() {
   return <RedefinirSenhaPage onConcluir={() => navigate('/projetos', { replace: true })}/>
 }
 
+// Landing e planos ficam no site (outro repositório). Sem VITE_SITE_URL
+// configurada, cai no login em vez de uma página em branco.
+function RedirecionaParaSite({ caminho }) {
+  useEffect(() => {
+    if (SITE_URL) window.location.replace(urlDoSite(caminho))
+  }, [caminho])
+  if (SITE_URL) return null
+  return <Navigate to="/login" replace/>
+}
+
 // ── AppInner ──────────────────────────────────────────────────────────
 // Título da aba conforme a rota ("FireUtils | Página").
 function TituloDaAba() {
@@ -566,8 +575,9 @@ function AppInner() {
     <>
     <TituloDaAba/>
     <Routes>
-      <Route path="/landing" element={<LandingPage/>}/>
-      <Route path="/pricing" element={<PricingPage/>}/>
+      {/* Landing e planos moram no repositório do site; links antigos seguem para lá. */}
+      <Route path="/landing" element={<RedirecionaParaSite caminho="/"/>}/>
+      <Route path="/pricing" element={<RedirecionaParaSite caminho="/pricing"/>}/>
       <Route path="/login" element={<LoginRoute/>}/>
       <Route path="/redefinir-senha" element={<RedefinirSenhaRoute/>}/>
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { urlDoSite } from '../../lib/site'
 import { temAcesso, useLicencas } from '../../hooks/useLicencas'
 import { supabase } from '../../lib/supabase'
 import { linkDoInstalador } from '../../lib/instaladorPlugin'
@@ -18,11 +19,11 @@ function Poster({ id, titulo, descricao, claro = false, liberado, acao, rotuloBl
       <div className="poster-foot">
         <p>{descricao}</p>
         {liberado ? acao : (
-          <Link to="/pricing" className="poster-btn">
+          <a href={urlDoSite('/pricing')} className="poster-btn">
             <Icon name="lock" size={14} className="poster-ico-fechado"/>
             <Icon name="lockOpen" size={14} className="poster-ico-aberto"/>
             {rotuloBloqueado}
-          </Link>
+          </a>
         )}
       </div>
     </article>

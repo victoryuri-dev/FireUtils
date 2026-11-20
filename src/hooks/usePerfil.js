@@ -41,7 +41,7 @@ function normalizarRT(bruto) {
   return rt
 }
 
-// Nome de usuário exibido pelo app (header, saudação do perfil, landing): o
+// Nome de usuário exibido pelo app (header, saudação do perfil): o
 // nome salvo no perfil; sem ele, o nome que veio do provedor de login; por
 // último, o início do e-mail. Uma função só, pra todos mostrarem o mesmo.
 export function nomeDeUsuario(perfil, user, padrao = 'Perfil') {
