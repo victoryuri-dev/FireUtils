@@ -230,6 +230,7 @@ function pavimentosLabel(proj) {
 // memorial). '—' enquanto as normas da UF não carregaram ou falta área/altura.
 function rotuloProjeto(proj) {
   if (proj.tipoProjeto === 'dimensionamento') return 'Dimensionamento'
+  if (proj.tipoProjeto === 'hidrantes') return 'Hidrantes'
   const { tipo } = enquadrarTipoProjeto(proj.uf, proj.estruturas)
   return tipo === 'simplificado' ? 'Simplificado' : tipo === 'tecnico' ? 'Técnico' : '—'
 }
@@ -276,7 +277,7 @@ function ProjectCard({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
 
       {/* Números-chave */}
       <dl className="m-0 grid grid-cols-[auto_auto_auto] justify-start gap-x-6">
-        <StatBloco label="UF" value={proj.uf || '—'}/>
+        <StatBloco label="UF" value={proj.avulso ? 'Avulso' : (proj.uf || '—')}/>
         <StatBloco label="Projeto" value={rotuloProjeto(proj)}/>
         <StatBloco label="A.C.T." value={fmtArea(totalArea(proj))}/>
       </dl>
@@ -361,7 +362,7 @@ function ProjectRow({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
       <Chip tone="red">{ocup}</Chip>
 
       {/* UF */}
-      <span className="text-[13px] font-bold text-ink whitespace-nowrap">{proj.uf || '—'}</span>
+      <span className="text-[13px] font-bold text-ink whitespace-nowrap">{proj.avulso ? 'Avulso' : (proj.uf || '—')}</span>
 
       {/* A.C.T. */}
       <span className="text-[13px] font-bold text-ink whitespace-nowrap">{fmtArea(totalArea(proj))}</span>
@@ -385,12 +386,15 @@ function ProjectRow({ proj, onOpen, onDelete, onDuplicate, fixado, onFixar }) {
 // a norma usada em todo o wizard e o modelo de documento gerado no fim
 // (memorial em texto corrido do MA x formulário oficial do CBMPB). Só ficam
 // habilitados os estados com norma cadastrada pro tipo de projeto escolhido.
+// Valor especial de "estado" do projeto de hidrantes avulso (ver App.jsx).
+const UF_AVULSO = 'AVULSO'
+
 function EscolhaEstadoModal({ tipo, onEscolher, onCancel }) {
   // Disponibilidade de cada estado = catálogo da base normativa (Supabase).
   const { recarregarNormas } = useProjeto()
   const catalogo = statusCatalogo()
   const estados = getEstadosDisponiveis()
-  const disponivel = e => (tipo === 'dimensionamento' ? e.ativo || e.ativoDimensionamento : e.ativo)
+  const disponivel = e => (tipo === 'hidrantes' ? e.ativoHidrantes : tipo === 'dimensionamento' ? e.ativo || e.ativoDimensionamento : e.ativo)
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onCancel() }
@@ -425,6 +429,19 @@ function EscolhaEstadoModal({ tipo, onEscolher, onCancel }) {
           </div>
         ) : (
         <div className="flex flex-col gap-2 mb-5">
+          {tipo === 'hidrantes' && (
+            <button
+              type="button"
+              disabled={!estados.some(e => e.ativoHidrantes)}
+              onClick={() => onEscolher(UF_AVULSO)}
+              className="flex items-center justify-between gap-3 py-3 px-4 rounded-md border border-solid border-border bg-transparent text-left cursor-pointer transition-colors hover:border-red-border hover:bg-red-dim disabled:cursor-not-allowed disabled:bg-surface-2"
+            >
+              <span className="flex flex-col gap-0.5">
+                <span className="font-heading text-[14px] font-medium text-ink">Avulso</span>
+                <span className="text-[11px] text-ink-faint">Sem estado — escolha direto o Tipo do sistema e a RTI</span>
+              </span>
+            </button>
+          )}
           {estados.map(e => {
             const ok = disponivel(e)
             return (
@@ -565,6 +582,13 @@ function NovoProjetoBotao({ onNewProject }) {
             <span className="font-heading text-[13px] font-medium text-ink">Apenas dimensionamento</span>
             <span className="text-[11px] text-ink-faint leading-[1.4]">Gera apenas memorial de cálculo</span>
           </button>
+          <button
+            className="w-full text-left px-3.5 py-2.5 bg-transparent border-none cursor-pointer hover:bg-surface-2 flex flex-col gap-0.5"
+            onClick={() => { setAberto(false); onNewProject('hidrantes') }}
+          >
+            <span className="font-heading text-[13px] font-medium text-ink">Dimensionamento de hidrantes</span>
+            <span className="text-[11px] text-ink-faint leading-[1.4]">Um formulário só: classifica o Tipo e a RTI</span>
+          </button>
         </div>
       )}
     </div>
@@ -659,7 +683,7 @@ export default function ProjetosPage({ onOpenProject, onNewProject }) {
   // Tipo de projeto ('completo' | 'dimensionamento') aguardando a escolha do
   // estado — null = modal fechado (ver EscolhaEstadoModal).
   const [novoTipo, setNovoTipo] = useState(null)
-  const pedirEstado = tipo => setNovoTipo(tipo === 'dimensionamento' ? 'dimensionamento' : 'completo')
+  const pedirEstado = tipo => setNovoTipo(tipo === 'dimensionamento' || tipo === 'hidrantes' ? tipo : 'completo')
   // Lista em cache (por usuario) so pra nao piscar o loader ao voltar pra
   // esta tela: mostra a ultima lista de imediato e atualiza em segundo plano.
   const cache = user ? cacheProjetos.get(user.id) : null

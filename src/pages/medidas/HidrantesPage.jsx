@@ -456,7 +456,7 @@ const ETAPAS_HIDRANTES = [
 // `extra`: conteúdo do estado no fim da página — um elemento (em todas as
 // etapas) ou { [etapa]: elemento } (ex.: PB, campos do item 17 do formulário
 // do CBMPB por etapa — ver estados/PB/paginas.jsx).
-export default function HidrantesPage({ extra = null }) {
+export default function HidrantesPage({ extra = null, etapaFixa = null }) {
   const { state, dispatch } = useProjeto()
   // Persistido em state.hidrantes.dimensionamento (não mais useState local)
   // pra sobreviver navegação/reload e alimentar também o memorial de
@@ -467,7 +467,10 @@ export default function HidrantesPage({ extra = null }) {
   const toast = useToast()
   const [buscando,   setBuscando]   = useState(false)
   const { search } = useLocation()
-  const [etapa, setEtapa] = useState(() => Number(new URLSearchParams(search).get('etapa')) === 3 ? 3 : 1)
+  const [etapaSt, setEtapa] = useState(() => Number(new URLSearchParams(search).get('etapa')) === 3 ? 3 : 1)
+  // `etapaFixa` (projeto "Dimensionamento de hidrantes"): cada etapa é uma página
+  // do menu lateral do projeto, sem o menu de etapas próprio.
+  const etapa = etapaFixa ?? etapaSt
   const fileInputRef = useRef(null)
 
   const aplicarHidrantes = payload => {
@@ -529,13 +532,13 @@ export default function HidrantesPage({ extra = null }) {
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <StepsNav
+      {!etapaFixa && <StepsNav
         steps={ETAPAS_HIDRANTES}
         current={etapa}
         isUnlocked={() => true}
         getStatus={getStatus}
         onGo={setEtapa}
-      />
+      />}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-[980px] mx-auto pt-8 px-10 pb-20">
 

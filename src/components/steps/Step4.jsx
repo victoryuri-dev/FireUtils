@@ -32,7 +32,9 @@ function findGlobally(cargaMap, cnae) {
 }
 
 // ── CNAE Autocomplete ─────────────────────────────────────────────────
-function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescChange, onAutoFill }) {
+// Exportado também para o formulário de "Dimensionamento de hidrantes"
+// (pages/HidrantesRapidoPage.jsx), que usa a mesma busca de CNAE.
+export function CnaeBusca({ auditPrefix, divisao, value, descValue, onSelect, onDescChange, onAutoFill }) {
   const { cnaesDiv, cargaMap } = useNorma()
   const [query, setQuery]     = useState(value || '')
   const [open, setOpen]       = useState(false)
@@ -230,7 +232,8 @@ function BuscaCnaePorCnpj({ pav, dispatch }) {
 // ── Linha de ocupação subsidiária ─────────────────────────────────────
 // Carga de incêndio (MJ/m²) tabelada do CNAE escolhido — só leitura; vem da
 // base normativa, a mesma usada na Etapa 5.
-function CargaCnaeBox({ divisao, cnae }) {
+// Exportado também para o formulário de "Dimensionamento de hidrantes".
+export function CargaCnaeBox({ divisao, cnae }) {
   const { cnaesDiv } = useNorma()
   const carga = cnae ? cnaesDiv(divisao)[cnae]?.cargaIncendio : null
   return (

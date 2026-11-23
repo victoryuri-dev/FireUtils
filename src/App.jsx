@@ -7,7 +7,7 @@ import { ProjetoProvider, useProjeto, newIds } from './context/ProjetoContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 import { statusNormas } from './lib/normasRemote'
-import { getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
+import { getEstadosDisponiveis, getSE, getHidrantes, getExtintores, getAV, getTRRF, getCompartimentacao, getIluminacao, getSinalizacao, getBrigada, getDeteccaoAlarme } from './data/normas/index'
 import { usePerfil, nomeDeUsuario } from './hooks/usePerfil'
 import LoginPage, { RedefinirSenhaPage } from './pages/LoginPage'
 import LicencaProvider from './context/LicencaContext'
@@ -16,11 +16,14 @@ import ProjectAside   from './components/layout/ProjectAside'
 import { paginaDaMedida } from './estados/registro'
 import DashboardPage  from './pages/DashboardPage'
 import ConfiguracaoPage from './pages/ConfiguracaoPage'
+import HidrantesRapidoPage from './pages/HidrantesRapidoPage'
+import { ehProjetoHidrantes } from './data/hidrantesRapido'
 import ProjetosPage   from './pages/ProjetosPage'
 import PerfilPage     from './pages/PerfilPage'
 import DocumentosPage from './pages/DocumentosPage'
 // Carregada sob demanda: traz o pdf.js, que não deve pesar no resto do app.
 const AssinaturasPage = lazy(() => importarOuRecarregar(() => import('./pages/AssinaturasPage')))
+import MemorialCalculoPage from './pages/documentos/MemorialCalculoPage'
 import MedidaPage            from './pages/MedidaPage'
 import SaidaEmergenciaPage   from './pages/medidas/SaidaEmergenciaPage'
 import HidrantesPage          from './pages/medidas/HidrantesPage'
@@ -133,7 +136,7 @@ function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
           </button>
           {state.uf && <>
             <span className="text-ink-hint">/</span>
-            <span className="text-ink-muted">{state.uf}</span>
+            <span className="text-ink-muted">{state.avulso ? 'Avulso' : state.uf}</span>
           </>}
           <span className="text-ink-hint">/</span>
           <span className="text-ink font-medium truncate">{state.nome || 'Sem nome'}</span>
@@ -158,7 +161,7 @@ function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
       {/* Direita — conta */}
       <div className="flex items-center gap-5 sm:gap-6 relative shrink-0">
         <div className="flex items-center gap-2">
-          {isProjectPage && <button type="button" className="btn-ghost text-xs" onClick={() => navigate(`/projeto/${state.id}/auditoria`)}>
+          {isProjectPage && !ehProjetoHidrantes(state) && <button type="button" className="btn-ghost text-xs" onClick={() => navigate(`/projeto/${state.id}/auditoria`)}>
             <Icon name="search" size={14}/><span className="hidden sm:inline">Auditar projeto</span>
             <span className="sm:hidden">Auditar</span>
           </button>}
@@ -283,6 +286,22 @@ function PaginaDaMedida({ sistKey }) {
   return <MedidaPage sistKey={sistKey}/>
 }
 
+// Etapas de dimensionamento (2) e bomba (3) do projeto "Dimensionamento de
+// hidrantes": a mesma página de Hidrantes do projeto completo, uma por item
+// do menu lateral (sem o menu de etapas próprio).
+function HidrantesEtapaRoute({ etapa }) {
+  const { state } = useProjeto()
+  const faltando = (NORMAS_DA_MEDIDA.hidrantes || []).filter(([get]) => !get(state.uf)).map(([, nome]) => nome)
+  if (faltando.length) return <NormaNaoCadastrada uf={state.uf} sistemas={[...new Set(faltando)]}/>
+  return <HidrantesPage etapaFixa={etapa}/>
+}
+
+function MemorialCalculoRoute() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  return <MemorialCalculoPage onBack={() => navigate(`/projeto/${id}/config`)}/>
+}
+
 function DashboardRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -299,6 +318,9 @@ function DashboardRoute() {
 function ConfigRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { state } = useProjeto()
+  // "Dimensionamento de hidrantes": formulário único, sem wizard nem dashboard.
+  if (ehProjetoHidrantes(state)) return <HidrantesRapidoPage/>
   return <ConfiguracaoPage onGoDashboard={() => navigate(`/projeto/${id}/dashboard`)}/>
 }
 
@@ -310,12 +332,18 @@ function ProjetosRoute() {
 
   const handleOpenProject = (proj) => {
     dispatch({ type: 'LOAD', payload: proj })
-    navigate(`/projeto/${proj.id}/dashboard`)
+    navigate(`/projeto/${proj.id}/${ehProjetoHidrantes(proj) ? 'config' : 'dashboard'}`)
   }
 
   const handleNewProject = (tipo = 'completo', uf) => {
     const ids = newIds()
-    dispatch({ type: 'NEW_PROJECT', ...ids, tipo, uf })
+    // Hidrantes "avulso": sem estado. A UF gravada só serve de fonte dos
+    // dados-padrão dos Tipos (iguais em todo estado) — o 1º estado com a
+    // norma de hidrantes cadastrada.
+    const avulso = uf === 'AVULSO'
+    const ufNorma = avulso ? getEstadosDisponiveis().find(e => e.ativoHidrantes)?.uf : uf
+    if (!ufNorma) return
+    dispatch({ type: 'NEW_PROJECT', ...ids, tipo, uf: ufNorma, avulso })
     navigate(`/projeto/${ids.id}/config`)
   }
 
@@ -385,6 +413,8 @@ function NormasIndisponiveis({ status, uf }) {
     </div>
   )
 }
+
+const PAGINAS_HIDRANTES = ['config', 'dimensionamento', 'bomba', 'memorial-calculo']
 
 function ProjectLayout() {
   const { id } = useParams()
@@ -457,6 +487,12 @@ function ProjectLayout() {
   // normas do estado carregadas.
   const normas = statusNormas(state.uf)
   if (normas !== 'ok') return <NormasIndisponiveis status={normas} uf={state.uf}/>
+
+  // "Dimensionamento de hidrantes": só classificação (config), dimensionamento,
+  // bomba e memorial de cálculo — sem dashboard, auditoria, documentos nem
+  // as demais medidas.
+  const soHidrantes = ehProjetoHidrantes(state)
+  if (soHidrantes && !PAGINAS_HIDRANTES.includes(rest[0])) return <Navigate to={`/projeto/${id}/config`} replace/>
 
   return (
     <>
@@ -592,6 +628,9 @@ function AppInner() {
           <Route path="dashboard" element={<DashboardRoute/>}/>
           <Route path="auditoria" element={<AuditoriaPage/>}/>
           <Route path="config/:step?" element={<ConfigRoute/>}/>
+          <Route path="dimensionamento" element={<HidrantesEtapaRoute etapa={2}/>}/>
+          <Route path="bomba" element={<HidrantesEtapaRoute etapa={3}/>}/>
+          <Route path="memorial-calculo" element={<MemorialCalculoRoute/>}/>
           <Route path="documentos" element={<DocumentosPage/>}/>
           <Route path="documentos/:docId" element={<DocumentosPage/>}/>
           <Route path="medida/:sistKey" element={<MedidaRoute/>}/>

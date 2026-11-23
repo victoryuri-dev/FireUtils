@@ -6,6 +6,7 @@ import { SISTEMAS } from '../../data/sistemasMenu'
 import { useProjeto } from '../../context/ProjetoContext'
 import { useAuditoria } from '../../context/AuditoriaContext'
 import { statusMedida } from '../../utils/statusMedida'
+import { ehProjetoHidrantes } from '../../data/hidrantesRapido'
 
 // Lista completa de sistemas — mesma ordem do Step7
 
@@ -82,6 +83,17 @@ export default function ProjectAside({ activePage, onNavigate }) {
 
   const itemProps = { activePage, collapsed: col, onNavigate }
 
+  // "Dimensionamento de hidrantes": menu só com as etapas do sistema. Status
+  // no mesmo critério das etapas do projeto completo (HidrantesPage).
+  const soHidrantes = ehProjetoHidrantes(state)
+  const h = state.hidrantes || {}
+  const itensHidrantes = [
+    { key: 'config',           icon: 'hidranteMedida',   label: 'Classificação do sistema', status: h.tipo ? 'concluida' : undefined },
+    { key: 'dimensionamento',  icon: 'drop',             label: 'Dimensionamento',          status: h.dimensionamento ? 'concluida' : undefined },
+    { key: 'bomba',            icon: 'spray',            label: 'Bombas de incêndio',       status: h.bombaEficiencia && h.bombaPotenciaAdotada ? 'concluida' : h.dimensionamento ? 'andamento' : undefined },
+    { key: 'memorial-calculo', icon: 'documentosMedida', label: 'Memorial de cálculo',      status: undefined },
+  ]
+
   return (
     <aside className={`shrink-0 border-r border-solid border-[#2b2b32] bg-[#101014] text-white flex flex-col overflow-hidden transition-[width] duration-200 ${col ? 'w-14' : 'w-60'}`}>
 
@@ -112,6 +124,12 @@ export default function ProjectAside({ activePage, onNavigate }) {
         )}
       </div>
 
+      {soHidrantes ? (
+        <div className="flex-1 overflow-y-auto py-1.5">
+          <SectionLabel text="Sistema de hidrantes" collapsed={col}/>
+          {itensHidrantes.map(i => <NavItem key={i.key} pageKey={i.key} icon={i.icon} label={i.label} status={i.status} {...itemProps}/>)}
+        </div>
+      ) : (<>
       {/* Navegação principal */}
       <div className="py-1.5 border-b border-solid border-[#2b2b32] shrink-0">
         <NavItem pageKey="dashboard" icon="dash"     label="Dashboard" {...itemProps}/>
@@ -133,6 +151,7 @@ export default function ProjectAside({ activePage, onNavigate }) {
         <SectionLabel text="Documentos" collapsed={col}/>
         <NavItem pageKey="documentos" icon="documentosMedida" label="Documentos" {...itemProps}/>
       </div>
+      </>)}
 
     </aside>
   )
