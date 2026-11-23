@@ -26,7 +26,7 @@ import {
 } from './hidraulica.ts'
 import { verificarCondicaoSuccao, FATOR_VAZAO_NPSH, type VerifSuccao } from './succao.ts'
 import { ALTITUDE_PADRAO, TEMPERATURA_PADRAO, calcularNpshd, type ResultadoNpshd } from './npshd.ts'
-import { NormProfileError, opt, req, type PerfilHidrantes, type VarianteTipo } from './perfil.ts'
+import { NormProfileError, opt, req, type PerfilHidrantes } from './perfil.ts'
 import {
   calcularLeqConexoes, leqUnitarioConexao, nomeConexao, TIPOS_CONEXAO, SISTEMAS_CONEXAO,
   type ConexaoEntrada, type SistemaConexao,
@@ -177,7 +177,7 @@ export function validarEntrada(corpo: unknown): EntradaDimensionamento {
 
   return {
     uf: texto(c.uf ?? 'MA', 'uf', 8),
-    valor_sistema: texto(c.valor_sistema, 'valor_sistema', 100),
+    valor_sistema: texto(c.valor_sistema, 'valor_sistema', 200),
     metodo: c.metodo === null || c.metodo === undefined ? null : texto(c.metodo, 'metodo', 100),
     trechos: {
       t1: listaDeSegmentos(c.trechos?.t1, 'trechos.t1'),
@@ -332,6 +332,39 @@ function numeroDoPerfil(valor: unknown, rotulo: string, perfil: PerfilHidrantes)
 }
 
 // ---------------------------------------------------------------------------
+// Sistema classificado: "<Tipo N [– Var. X] | Personalizado> – DN <mangueira> |
+// <Q> L/min | <P> mca | Esg DN <esguicho> | <comprimento> m | <expedições>"
+// ---------------------------------------------------------------------------
+
+const NUM = '(\\d+(?:[.,]\\d+)?)'
+const paraNum = (t: string): number => Number.parseFloat(t.replace(',', '.'))
+
+export function interpretarSistema(valor: string): { ok: true; dados: DadosSistema } | { ok: false; erro: string } {
+  const texto = valor.trim()
+  if (!/^(Personalizado|Tipo\s+\d+)/.test(texto)) {
+    return { ok: false, erro: 'Não foi possível interpretar o tipo classificado.' }
+  }
+  const pega = (re: RegExp): string | null => re.exec(texto)?.[1] ?? null
+  const mang = pega(new RegExp(`DN\\s*${NUM}\\s*\\|`))
+  const q = pega(new RegExp(`${NUM}\\s*L/min`))
+  const p = pega(new RegExp(`${NUM}\\s*mca`))
+  const esg = pega(new RegExp(`Esg\\s*DN\\s*${NUM}`))
+  const comp = pega(new RegExp(`\\|\\s*${NUM}\\s*m\\s*\\|`))
+  const exp = pega(/\|\s*(simples|duplo)\s*$/i)
+  if (mang === null || q === null || p === null || esg === null || comp === null || exp === null) {
+    return { ok: false, erro: 'A classificação gravada no projeto está incompleta (versão antiga). Aplique a classificação do site no Revit novamente.' }
+  }
+  const dados: DadosSistema = {
+    mang_dn: paraNum(mang), mang_comp: paraNum(comp), q_min: paraNum(q), p_min: paraNum(p),
+    expedicoes: exp.toLowerCase(), esguicho_dn: paraNum(esg),
+  }
+  if (dados.q_min <= 0 || dados.p_min <= 0) {
+    return { ok: false, erro: 'A classificação define vazão ou pressão mínima não positiva.' }
+  }
+  return { ok: true, dados }
+}
+
+// ---------------------------------------------------------------------------
 // Dimensionamento
 // ---------------------------------------------------------------------------
 
@@ -352,49 +385,16 @@ export function dimensionar(entrada: EntradaDimensionamento, perfil: PerfilHidra
 function processar(entrada: EntradaDimensionamento, perfil: PerfilHidrantes): RespostaDimensionamento {
   const valorSistema = entrada.valor_sistema
 
-  // Etapa 1: tipo de sistema (classificação já aplicada no Project Information).
-  const partes = valorSistema.trim().split(/\s+/)
-  const tipoNum = Number.parseInt(partes[1], 10)
-  if (partes.length < 2 || Number.isNaN(tipoNum)) {
-    return { ok: false, erro: 'Não foi possível interpretar o tipo classificado.' }
-  }
-
-  let varianteIdx = 0
-  if (valorSistema.includes('Var.')) {
-    const aposVar = valorSistema.split('Var.')[1]?.trim() ?? ''
-    const letra = aposVar.charCodeAt(0) - 65
-    varianteIdx = Number.isNaN(letra) || letra < 0 ? 0 : letra
-  }
-
-  const tipos = req<Record<number, { variantes: VarianteTipo[] }>>(perfil, 'tipos')
-  const tipoPerfil = tipos[tipoNum]
-  if (!tipoPerfil) {
-    return { ok: false, erro: `O perfil normativo '${perfil.norma}' não define o Tipo ${tipoNum} de sistema de hidrante.` }
-  }
-
-  const variante = tipoPerfil.variantes[varianteIdx]
-  if (!variante) {
-    return {
-      ok: false,
-      erro: `O perfil normativo '${perfil.norma}' não define a variante ${String.fromCharCode(65 + varianteIdx)} do Tipo ${tipoNum}.`,
-    }
-  }
-
-  // A Tabela 2 pode vir da base central com esses valores como inteiros.
-  const dadosSistema: DadosSistema = {
-    mang_dn: numeroDoPerfil(variante.mang_dn, 'mangueiraDn', perfil),
-    mang_comp: numeroDoPerfil(variante.mang_comp, 'mangueiraComprimento', perfil),
-    q_min: numeroDoPerfil(variante.q_min, 'vazaoMin', perfil),
-    p_min: numeroDoPerfil(variante.p_min, 'pressaoMin', perfil),
-    expedicoes: variante.expedicoes,
-    esguicho_dn: numeroDoPerfil(variante.esguicho_dn, 'esguicho', perfil),
-  }
+  // Etapa 1: sistema classificado (já aplicado no Project Information). Os
+  // parâmetros vêm NO PRÓPRIO texto — o site interpreta o Tipo (da norma ou
+  // personalizado) e o plugin só grava o que recebeu; o motor não consulta
+  // tabela de Tipos.
+  const sistema = interpretarSistema(valorSistema)
+  if (!sistema.ok) return { ok: false, erro: sistema.erro }
+  const dadosSistema = sistema.dados
 
   const Qs = dadosSistema.q_min
   const Pmin = dadosSistema.p_min
-  if (Qs <= 0 || Pmin <= 0) {
-    return { ok: false, erro: `O perfil normativo '${perfil.norma}' define vazão ou pressão mínima não positiva para o Tipo ${tipoNum}.` }
-  }
 
   const hazen = req<Record<string, number>>(perfil, 'hazen_c')
   const CHW = numeroDoPerfil(hazen.galvanizado, 'hazen_c.galvanizado', perfil)

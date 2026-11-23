@@ -96,3 +96,29 @@ test('avulso: completude é só nome, Tipo e RTI (sem área/ocupação/carga)', 
   p.hidrantes = { tipo: 4, rti: '25' }
   assert.equal(completudeHidrantesRapido(p), 100)
 })
+
+test('sistema personalizado: parâmetros digitados viram os dados e os parâmetros do plugin', async () => {
+  const { dadosDoSistemaDoProjeto, parametrosDoSistema } = await server.ssrLoadModule('/src/data/hidrantes_calc.js')
+  const h = { tipo: 'personalizado', personalizado: { vazaoMin: '250,5', pressaoMin: '40', esguicho: '45', mangueiraDn: '50', mangueiraComprimento: '20', expedicoes: 'duplo' } }
+  const dados = dadosDoSistemaDoProjeto(h, norma)
+  assert.equal(dados.label, 'Personalizado')
+  assert.deepEqual(parametrosDoSistema(dados), { vazaoMin: 250.5, pressaoMin: 40, esguicho: 45, mangueiraDn: 50, mangueiraComprimento: 20, expedicoes: 'duplo' })
+  // parâmetro vazio, zero ou expedição inválida: sem sistema (não inventa valor)
+  assert.equal(dadosDoSistemaDoProjeto({ ...h, personalizado: { ...h.personalizado, vazaoMin: '' } }, norma), null)
+  assert.equal(dadosDoSistemaDoProjeto({ ...h, personalizado: { ...h.personalizado, pressaoMin: '0' } }, norma), null)
+  assert.equal(dadosDoSistemaDoProjeto({ ...h, personalizado: { ...h.personalizado, expedicoes: 'x' } }, norma), null)
+})
+
+test('Tipo da norma: os parâmetros do plugin saem da tabela do estado (Tipo 4, variante B)', async () => {
+  const { dadosDoSistemaDoProjeto, parametrosDoSistema } = await server.ssrLoadModule('/src/data/hidrantes_calc.js')
+  const p = parametrosDoSistema(dadosDoSistemaDoProjeto({ tipo: 4, tipoVariante: 1 }, norma))
+  assert.deepEqual(p, { vazaoMin: 300, pressaoMin: 30, esguicho: 60, mangueiraDn: 65, mangueiraComprimento: 30, expedicoes: 'simples' })
+  assert.equal(parametrosDoSistema(dadosDoSistemaDoProjeto({ tipo: '' }, norma)), null)
+})
+
+test('avulso personalizado: completude exige os parâmetros', () => {
+  const base = { nome: 'A', avulso: true, estruturas: [], pavimentos: [], cargaState: {}, hidrantes: { tipo: 'personalizado', rti: '10', personalizado: {} } }
+  assert.equal(completudeHidrantesRapido(base), 75)
+  base.hidrantes.personalizado = { vazaoMin: '150', pressaoMin: '30', esguicho: '40', mangueiraDn: '40', mangueiraComprimento: '30', expedicoes: 'simples' }
+  assert.equal(completudeHidrantesRapido(base), 100)
+})

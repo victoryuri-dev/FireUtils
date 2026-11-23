@@ -5,7 +5,7 @@
 // (memorial de cálculo) é responsabilidade do plugin Revit e entra depois.
 
 import { getHidrantes, getExtintores } from '../normas/index'
-import { dadosDoTipo, posicoesReservatorio } from '../hidrantes_calc'
+import { dadosDoSistemaDoProjeto, posicoesReservatorio } from '../hidrantes_calc'
 import { classificacaoHidrantesData } from '../../hooks/useClassificacaoHidrantes'
 import { fmtNum } from '../../utils/numero'
 import { rotuloLancesInternos, rotuloLancesExternos, rotuloTipoMangueira, tipoMangueiraValido } from '../hidrantesMangueiras'
@@ -36,7 +36,13 @@ export function textoMemorialHidrantes(state, _sistemas, porEstrutura) {
     }
   }
 
-  const dadosTipo = dadosDoTipo(h.tipo, h.tipoVariante || 0, norma)
+  const dadosTipo = dadosDoSistemaDoProjeto(h, norma)
+  if (!dadosTipo) {
+    return {
+      titulo: 'Sistema de Proteção por Hidrantes e Mangotinhos',
+      blocos: [{ tipo: 'paragrafo', texto: 'Parâmetros do sistema personalizado ainda não informados — pendente de preenchimento pelo responsável técnico.' }],
+    }
+  }
   const material = norma.MATERIAIS_TUBULACAO.find(m => m.key === h.redeMaterial)
 
   // Classificação (Tipo/RTI, Tabela 3) recalculada aqui — MESMA lógica de

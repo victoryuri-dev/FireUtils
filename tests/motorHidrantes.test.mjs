@@ -15,6 +15,7 @@ import { calcularNpshd } from '../supabase/functions/_shared/motor/hidrantes/nps
 import { resolverPerfil, montarPerfil } from '../supabase/functions/_shared/motor/hidrantes/perfil.ts'
 import {
   dimensionar,
+  interpretarSistema,
   resumoFalhaHidrante,
   resumoFalhaVelocidade,
   validarEntrada,
@@ -123,7 +124,7 @@ const seg = (d_mm, L, Leq = 0) => ({ d_mm, L, Leq, n_tubos: 1, ids: [1, 2], aces
 function entradaBase(sobrescrever = {}) {
   return {
     uf: 'MA',
-    valor_sistema: 'Tipo 4 Var. A',
+    valor_sistema: 'Tipo 4 – DN 40 | 300 L/min | 65 mca | Esg DN 40 | 30 m | simples',
     metodo: hid.METODO_VALVULA,
     trechos: {
       t1: [seg(100, 4, 3)],
@@ -361,10 +362,26 @@ test('texto das falhas usa 2 casas decimais (golden.json tem o texto antigo, 3/4
   )
 })
 
-test('tipo inexistente e variante inexistente na norma voltam como erro, não exceção', () => {
-  assert.match(dimensionar(entradaBase({ valor_sistema: 'Tipo 9' }), perfilMA()).erro, /não define o Tipo 9/)
-  assert.match(dimensionar(entradaBase({ valor_sistema: 'Tipo 4 Var. F' }), perfilMA()).erro, /variante F do Tipo 4/)
+test('sistema: interpreta os parâmetros do próprio texto (sem tabela de Tipos)', () => {
+  const ok = interpretarSistema('Personalizado – DN 50 | 250,5 L/min | 40 mca | Esg DN 45 | 20 m | duplo')
+  assert.deepEqual(ok, { ok: true, dados: { mang_dn: 50, mang_comp: 20, q_min: 250.5, p_min: 40, expedicoes: 'duplo', esguicho_dn: 45 } })
+  const tipo = interpretarSistema('Tipo 4 – Var. B – DN 65 | 300 L/min | 30 mca | Esg DN 60 | 30 m | simples')
+  assert.equal(tipo.dados.mang_dn, 65)
+  assert.equal(tipo.dados.esguicho_dn, 60)
+})
+
+test('sistema ilegível, incompleto (formato antigo) ou não positivo volta como erro, não exceção', () => {
   assert.match(dimensionar(entradaBase({ valor_sistema: 'sistema' }), perfilMA()).erro, /interpretar o tipo classificado/)
+  assert.match(dimensionar(entradaBase({ valor_sistema: 'Tipo 4 Var. A' }), perfilMA()).erro, /incompleta/)
+  assert.match(dimensionar(entradaBase({ valor_sistema: 'Tipo 4 – DN 40 | 300 L/min | 65 mca' }), perfilMA()).erro, /incompleta/)
+  assert.match(dimensionar(entradaBase({ valor_sistema: 'Personalizado – DN 40 | 0 L/min | 65 mca | Esg DN 40 | 30 m | simples' }), perfilMA()).erro, /não positiva/)
+})
+
+test('dimensionar com sistema personalizado usa os valores digitados', () => {
+  const r = dimensionar(entradaBase({ valor_sistema: 'Personalizado – DN 40 | 150 L/min | 30 mca | Esg DN 40 | 30 m | simples' }), perfilMA())
+  assert.equal(r.ok, true)
+  assert.equal(r.resultado.dados_sistema.q_min, 150)
+  assert.equal(r.resultado.dados_sistema.p_min, 30)
 })
 
 test('método de cálculo desconhecido é recusado; ausente cai para Válvula', () => {
@@ -420,7 +437,7 @@ test('entrada malformada é recusada', () => {
     { ...entradaBase(), trechos: { ...entradaBase().trechos, t1: [{ ...seg(100, 1), d_mm: 0 }] } },
     { ...entradaBase(), trechos: { ...entradaBase().trechos, t1: [{ ...seg(100, 1), L: -1 }] } },
     { ...entradaBase(), trechos: { ...entradaBase().trechos, t1: Array(101).fill(seg(100, 1)) } },
-    { ...entradaBase(), valor_sistema: 'x'.repeat(101) },
+    { ...entradaBase(), valor_sistema: 'x'.repeat(201) },
   ]
   for (const c of casos) assert.throws(() => validarEntrada(c), EntradaInvalida)
 })

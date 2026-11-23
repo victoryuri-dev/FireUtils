@@ -21,7 +21,7 @@ banco — por isso também roda em Node nos testes).
 ```jsonc
 {
   "uf": "MA",
-  "valor_sistema": "Tipo 4 Var. B",          // classificação gravada no Project Information
+  "valor_sistema": "Tipo 4 – Var. B – DN 65 | 300 L/min | 30 mca | Esg DN 60 | 30 m | simples",  // classificação gravada no Project Information; os parâmetros vêm no próprio texto (o site interpreta o Tipo; o motor não tem tabela de Tipos). Também aceita "Personalizado – DN …"
   "metodo": "Válvula do Hidrante",           // ou "Ponta do Esguicho Regulável"; null = Válvula
   "trechos": {                               // t1 RTI→Bomba, t2 Bomba→Ponto A, t3 Ponto A→HD01, t4 Ponto A→HD02
     "t1": [{ "d_mm": 100, "L": 4.0, "Leq": 3.0, "n_tubos": 2, "ids": [123], "acessorios": [] }]

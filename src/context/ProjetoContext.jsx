@@ -540,6 +540,11 @@ const INITIAL_STATE = {
     // 'nao' | 'exigido' (Nota 1) | 'instalado' sem ser exigido (Nota 2).
     // Nos demais projetos isso vem do motor de medidas obrigatórias.
     chuveiros: 'nao',
+    // Parâmetros do sistema "Personalizado" (digitados pelo RT) e os
+    // parâmetros resolvidos do sistema escolhido — `parametros` é o que o
+    // plugin lê (o plugin não tem tabela de Tipos; ver hidrantes_calc.js).
+    personalizado: { vazaoMin: '', pressaoMin: '', esguicho: '', mangueiraDn: '', mangueiraComprimento: '', expedicoes: 'simples' },
+    parametros: null,
     tipo: '', tipoVariante: 0, rti: '',
     reservatorioMaterial: '', reservatorioExclusivo: true, reservatorioVolumeTotal: '',
     // Posição em relação ao nível do solo (elevado/nível do solo/

@@ -18,7 +18,7 @@ import { getEstadosDisponiveis } from '../data/normas/index'
 import { fmtNum } from '../utils/numero'
 import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
 import { OPCOES_CHUVEIROS, analisarHidrantesRapido } from '../data/hidrantesRapido'
-import { dadosDoTipo, exigeRecalqueDuplo } from '../data/hidrantes_calc'
+import { dadosDoSistemaDoProjeto, parametrosDoSistema, exigeRecalqueDuplo, TIPO_PERSONALIZADO, PERSONALIZADO_VAZIO } from '../data/hidrantes_calc'
 
 const S = {
   section: 'max-w-[980px] mx-auto pt-8 px-10 pb-20',
@@ -164,7 +164,7 @@ function ClassificacaoEdificacao({ est }) {
 function FaixaResultado({ h, dadosTipo }) {
   return (
     <div className="flex flex-wrap justify-between gap-x-8 gap-y-3 bg-surface-2 border border-solid border-border rounded-lg p-4 mt-4">
-      <Resultado label="Tipo" value={h.tipo ? `Tipo ${h.tipo}` : '—'}/>
+      <Resultado label="Tipo" value={h.tipo === TIPO_PERSONALIZADO ? 'Personalizado' : h.tipo ? `Tipo ${h.tipo}` : '—'}/>
       {dadosTipo && (
         <>
           <Resultado label="Esguicho" value={`DN${dadosTipo.esguicho}`}/>
@@ -237,16 +237,20 @@ export default function HidrantesRapidoPage() {
 
   // Campos que o plugin lê e que são derivados da norma/classificação
   // (método de cálculo e nº de entradas do recalque), como no projeto completo.
-  const dadosTipo = h.tipo && norma ? dadosDoTipo(h.tipo, h.tipoVariante || 0, norma) : null
+  const dadosTipo = norma ? dadosDoSistemaDoProjeto(h, norma) : null
   const entradas = dadosTipo && exigeRecalqueDuplo(dadosTipo.vazaoMin * norma.HIDRANTES_SIMULTANEOS, norma) ? 2 : 1
   useEffect(() => {
     if (!norma) return
     const changes = {}
+    // Parâmetros do sistema escolhido, gravados no projeto: é o que o plugin
+    // lê — ele não tem tabela de Tipos própria.
+    const parametros = parametrosDoSistema(dadosTipo)
+    if (JSON.stringify(parametros) !== JSON.stringify(h.parametros ?? null)) changes.parametros = parametros
     if (h.metodoCalculo !== norma.REFERENCIA_PRESSAO_VAZAO) changes.metodoCalculo = norma.REFERENCIA_PRESSAO_VAZAO
     if (dadosTipo && h.recalqueEntradas !== entradas) changes.recalqueEntradas = entradas
     if (Object.keys(changes).length) setH(changes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [norma, dadosTipo, entradas, h.metodoCalculo, h.recalqueEntradas])
+  }, [norma, dadosTipo, entradas, h.metodoCalculo, h.recalqueEntradas, h.parametros])
 
   if (!norma) {
     return (
@@ -259,7 +263,10 @@ export default function HidrantesRapidoPage() {
     )
   }
 
-  const variantes = h.tipo ? (norma.TIPOS_SISTEMA[h.tipo]?.variantes || []) : []
+  const personalizado = h.tipo === TIPO_PERSONALIZADO
+  const variantes = h.tipo && !personalizado ? (norma.TIPOS_SISTEMA[h.tipo]?.variantes || []) : []
+  const setPers = changes => setH({ personalizado: { ...PERSONALIZADO_VAZIO, ...(h.personalizado || {}), ...changes } })
+  const pers = { ...PERSONALIZADO_VAZIO, ...(h.personalizado || {}) }
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -278,13 +285,45 @@ export default function HidrantesRapidoPage() {
         {avulso ? (
           <FormSection title="Tipo do sistema e RTI">
             <Field label="Tipo do sistema"/>
-            <div className="grid grid-cols-5 gap-2 mt-1 mb-4 max-[600px]:grid-cols-2">
+            <div className="grid grid-cols-6 gap-2 mt-1 mb-4 max-[720px]:grid-cols-3">
               {Object.keys(norma.TIPOS_SISTEMA).map(k => (
                 <Pill key={k} centro active={h.tipo === Number(k)} onClick={() => setH({ tipo: Number(k), tipoVariante: 0 })}>
                   Tipo {k}
                 </Pill>
               ))}
+              <Pill centro active={personalizado} onClick={() => setH({ tipo: TIPO_PERSONALIZADO, tipoVariante: 0 })}>
+                Personalizado
+              </Pill>
             </div>
+
+            {personalizado && (
+              <div className="mb-4">
+                <Field label="Parâmetros mínimos do sistema (informados pelo responsável técnico)"/>
+                <div className="grid grid-cols-3 gap-3 mt-1 max-[720px]:grid-cols-1 [&_input]:h-10">
+                  {[
+                    ['vazaoMin', 'Vazão mín. (L/min)'],
+                    ['pressaoMin', 'Pressão mín. (mca)'],
+                    ['esguicho', 'Esguicho DN (mm)'],
+                    ['mangueiraDn', 'Mangueira DN (mm)'],
+                    ['mangueiraComprimento', 'Comprimento da mangueira (m)'],
+                  ].map(([campo, rotulo]) => (
+                    <div className="fg" key={campo}>
+                      <label>{rotulo} {REQ}</label>
+                      <input type="number" min="0" step="any" placeholder="0" value={pers[campo]}
+                        onChange={e => setPers({ [campo]: e.target.value })}/>
+                    </div>
+                  ))}
+                  <div className="fg">
+                    <label>Expedições {REQ}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[['simples', 'Simples'], ['duplo', 'Duplo']].map(([k, nome]) => (
+                        <Pill key={k} centro active={pers.expedicoes === k} onClick={() => setPers({ expedicoes: k })}>{nome}</Pill>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {dadosTipo && variantes.length > 1 && (
               <div className="mb-4">
@@ -307,6 +346,12 @@ export default function HidrantesRapidoPage() {
               </div>
             </div>
 
+            {h.tipo && (personalizado ? !dadosTipo : false) && (
+              <div className="ibox amber mt-3">
+                <Icon name="info" size={14} color="var(--color-amber)" className="shrink-0"/>
+                <span className="text-xs">Informe todos os parâmetros mínimos do sistema personalizado.</span>
+              </div>
+            )}
             {h.tipo && !(parseFloat(h.rti) > 0) && (
               <div className="ibox amber mt-3">
                 <Icon name="info" size={14} color="var(--color-amber)" className="shrink-0"/>

@@ -13,7 +13,7 @@
 // state.hidrantes), então o plugin Revit e a sincronização leem esse projeto
 // sem nenhuma mudança. Funções puras: a norma entra por parâmetro.
 // ─────────────────────────────────────────────────────────────────────────────
-import { sugerirClassificacao } from './hidrantes_calc'
+import { sugerirClassificacao, dadosDoSistemaDoProjeto } from './hidrantes_calc'
 import { cargaDaDivisao, classificarRisco } from './extintores_calc'
 
 export const TIPO_PROJETO_HIDRANTES = 'hidrantes'
@@ -91,7 +91,9 @@ export function analisarHidrantesRapido(state, norma, extNorma) {
 export function completudeHidrantesRapido(state) {
   // Avulso: só nome, Tipo e RTI.
   if (state.avulso) {
-    const c = [!!String(state.nome || '').trim(), !!state.hidrantes?.tipo, (parseFloat(state.hidrantes?.rti) || 0) > 0]
+    const h = state.hidrantes || {}
+    const c = [!!String(state.nome || '').trim(), !!h.tipo, (parseFloat(h.rti) || 0) > 0]
+    if (h.tipo === 'personalizado') c.push(!!dadosDoSistemaDoProjeto(h, null))
     return Math.round((c.filter(Boolean).length / c.length) * 100)
   }
   const checks = [!!String(state.nome || '').trim()]

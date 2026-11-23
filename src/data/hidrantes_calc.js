@@ -221,6 +221,42 @@ export function dadosDoTipo(tipo, variante, norma) {
   }
 }
 
+// ── Sistema "Personalizado" ─────────────────────────────────────────────────
+// O RT digita os parâmetros mínimos (vazão, pressão, esguicho, mangueira,
+// expedições) em vez de usar um Tipo da norma. O SITE interpreta o Tipo
+// (da norma ou personalizado) e grava em state.hidrantes.parametros os
+// valores que o plugin precisa — o plugin e o motor de cálculo não têm
+// tabela de Tipos própria, só usam o que chega daqui.
+export const TIPO_PERSONALIZADO = 'personalizado'
+export const PERSONALIZADO_VAZIO = { vazaoMin: '', pressaoMin: '', esguicho: '', mangueiraDn: '', mangueiraComprimento: '', expedicoes: 'simples' }
+// Componentes (Tabela 4) do sistema personalizado: sem tabela da norma, adota
+// o conjunto exigido pelos Tipos de maior porte (abrigo + chave + esguicho).
+const COMPONENTES_PERSONALIZADO = { abrigo: 'obrigatorio', mangueiraIncendio: 'tipo2_3_4_ou_5', chaveEngate: true, esguichoAvulso: true, mangueiraSemirrigida: false }
+
+/** Dados do sistema ESCOLHIDO no projeto (`h` = state.hidrantes): um Tipo da
+ *  norma (+ variante) ou o personalizado. null enquanto não há escolha válida
+ *  (no personalizado, enquanto algum parâmetro estiver vazio ou <= 0). */
+export function dadosDoSistemaDoProjeto(h, norma) {
+  if (!h?.tipo) return null
+  if (h.tipo === TIPO_PERSONALIZADO) {
+    const p = { ...PERSONALIZADO_VAZIO, ...(h.personalizado || {}) }
+    const n = k => parseFloat(String(p[k]).replace(',', '.'))
+    const valores = { vazaoMin: n('vazaoMin'), pressaoMin: n('pressaoMin'), esguicho: n('esguicho'), mangueiraDn: n('mangueiraDn'), mangueiraComprimento: n('mangueiraComprimento') }
+    if (Object.values(valores).some(v => !(v > 0))) return null
+    if (p.expedicoes !== 'simples' && p.expedicoes !== 'duplo') return null
+    return { label: 'Personalizado', expedicoes: p.expedicoes, ...valores, componentes: COMPONENTES_PERSONALIZADO }
+  }
+  return norma ? dadosDoTipo(h.tipo, h.tipoVariante || 0, norma) : null
+}
+
+/** Os parâmetros que o plugin precisa (state.hidrantes.parametros), a partir
+ *  dos dados do sistema escolhido — null sem escolha válida. */
+export function parametrosDoSistema(dados) {
+  if (!dados) return null
+  const { vazaoMin, pressaoMin, esguicho, mangueiraDn, mangueiraComprimento, expedicoes } = dados
+  return { vazaoMin, pressaoMin, esguicho, mangueiraDn, mangueiraComprimento, expedicoes }
+}
+
 /** true se o número de entradas do dispositivo de recalque deve ser 2
  *  (item 5.3.3 — vazão do sistema acima do limite normativo). */
 export function exigeRecalqueDuplo(vazaoMin, norma) {

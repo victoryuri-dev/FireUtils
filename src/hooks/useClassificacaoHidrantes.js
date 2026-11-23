@@ -10,7 +10,7 @@ import { useProjeto } from '../context/ProjetoContext'
 import { useNorma } from './useNorma'
 import { useMedidasObrigatorias } from './useMedidasObrigatorias'
 import { cargaDaDivisao, classificarRisco } from '../data/extintores_calc'
-import { sugerirClassificacao, dadosDoTipo, exigeRecalqueDuplo, bombaReservaObrigatoria } from '../data/hidrantes_calc'
+import { sugerirClassificacao, dadosDoSistemaDoProjeto, parametrosDoSistema, exigeRecalqueDuplo, bombaReservaObrigatoria } from '../data/hidrantes_calc'
 
 // Núcleo puro (sem hooks) do cálculo de classificação — extraído pra poder
 // ser chamado também fora de componentes React, como na geração do memorial
@@ -111,7 +111,7 @@ export function classificacaoHidrantesData(state, norma, extNorma, porEstrutura)
   const reservaSugerida = bombaReservaObrigatoria(risco, norma)
 
   const tipoAtual = h.tipo || (sugestao.opcoes[0]?.tipo ?? '')
-  const dadosTipo = tipoAtual ? dadosDoTipo(tipoAtual, h.tipoVariante || 0, norma) : null
+  const dadosTipo = tipoAtual ? dadosDoSistemaDoProjeto({ ...h, tipo: tipoAtual }, norma) : null
   // dadosTipo.vazaoMin é a vazão de UM hidrante (Tabela 2) — a "vazão do
   // sistema" do item 5.3.3 (critério de recalque simples/duplo) é essa
   // vazão com os hidrantes mais desfavoráveis em funcionamento simultâneo
@@ -202,6 +202,15 @@ export function useClassificacaoHidrantes() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [norma.REFERENCIA_PRESSAO_VAZAO])
+
+  // Parâmetros do sistema escolhido (vazão, pressão, esguicho, mangueira,
+  // expedições) gravados no projeto: é o que o plugin lê — ele não tem tabela
+  // de Tipos própria.
+  useEffect(() => {
+    const parametros = parametrosDoSistema(dadosTipo)
+    if (JSON.stringify(parametros) !== JSON.stringify(h.parametros ?? null)) set({ parametros })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosTipo])
 
   // Nº de entradas do dispositivo de recalque não é escolha do RT: é
   // derivado da vazão do sistema (item 5.3.3, NT 22 — acima de 1.000 L/min
