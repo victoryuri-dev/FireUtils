@@ -12,7 +12,7 @@ import { fmtUn, fmtNum } from '../../utils/numero'
 import { classificarPavimentos } from '../../utils/classificacao'
 import ExtensaoConfig from '../../estados/ExtensaoConfig'
 import { documentosDoEstado } from '../../estados/registro'
-import { opcoesClassificacaoAnexoB, rotuloCnaeAnexoB } from '../../utils/anexoB'
+import { opcoesClassificacaoAnexoB, rotuloCnaeAnexoB, CNAE_AVULSO } from '../../utils/anexoB'
 
 const blockTitle = 'text-[11px] font-medium text-ink-faint uppercase tracking-[.08em] mb-3 pb-2 border-b border-solid border-border flex items-center justify-between'
 const AREA_OCUPACAO_TIP = 'Informe a área dedicada a esta atividade neste pavimento. Esse valor ajuda a identificar as ocupações principal, secundária e subsidiária. A área informada aqui não aparece no memorial; nele é apresentada a área construída da estrutura.'
@@ -521,12 +521,20 @@ function PavCard({ pav, classificacao, onOpen }) {
 function ClassificacaoAnexoB() {
   const { state, dispatch } = useProjeto()
   const [adicionando, setAdicionando] = useState(false)
+  const { cargaMap } = useNorma()
   const { divisoes, cnaes } = opcoesClassificacaoAnexoB(state)
   const escolha = state.anexoBClassificacao || { divisoesOcultas: [], cnaePrincipal: '' }
   const ocultas = divisoes.filter(d => (escolha.divisoesOcultas || []).includes(d))
   const visiveis = divisoes.filter(d => !ocultas.includes(d))
   const salvar = changes => dispatch({ type: 'SET_FIELD', field: 'anexoBClassificacao', value: { ...escolha, ...changes } })
   const principal = cnaes.find(c => c.cnae === escolha.cnaePrincipal) || cnaes[0]
+  const avulso = escolha.cnaeAvulso || { cnae: '', desc: '' }
+  const digitarCnae = raw => {
+    const cnae = maskCNAE(raw)
+    // Com o CNAE completo, a descrição vem da base normativa quando existir.
+    const achado = cnae.length === 9 ? findGlobally(cargaMap, cnae) : null
+    salvar({ cnaeAvulso: { cnae, desc: achado?.descricao || (cnae === avulso.cnae ? avulso.desc : '') } })
+  }
 
   return (
     <section className="bg-surface border border-solid border-border rounded-lg p-4 mb-6">
@@ -574,15 +582,18 @@ function ClassificacaoAnexoB() {
 
       <div className="fg mb-0">
         <label>CNAE principal</label>
-        {cnaes.length === 0 ? (
-          <div className="text-xs text-ink-faint">Classifique um CNAE nos pavimentos para escolher.</div>
-        ) : (
-          <select value={escolha.cnaePrincipal || ''} onChange={e => salvar({ cnaePrincipal: e.target.value })}>
-            <option value="">Automático — {rotuloCnaeAnexoB(cnaes[0])}</option>
-            {cnaes.map(c => <option key={c.cnae} value={c.cnae}>{rotuloCnaeAnexoB(c)}</option>)}
-          </select>
+        <select value={escolha.cnaePrincipal || ''} onChange={e => salvar({ cnaePrincipal: e.target.value })}>
+          <option value="">{cnaes.length ? `Automático — ${rotuloCnaeAnexoB(cnaes[0])}` : 'Automático — sem CNAE classificado'}</option>
+          {cnaes.map(c => <option key={c.cnae} value={c.cnae}>{rotuloCnaeAnexoB(c)}</option>)}
+          <option value={CNAE_AVULSO}>Outro CNAE (avulso)…</option>
+        </select>
+        {escolha.cnaePrincipal === CNAE_AVULSO && (
+          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 mt-2.5">
+            <input value={avulso.cnae} onChange={e => digitarCnae(e.target.value)} placeholder="0000-0/00" inputMode="numeric" aria-label="Número do CNAE"/>
+            <input value={avulso.desc} onChange={e => salvar({ cnaeAvulso: { ...avulso, desc: e.target.value } })} placeholder="Descrição da atividade" aria-label="Descrição do CNAE"/>
+          </div>
         )}
-        {escolha.cnaePrincipal && principal && principal.cnae !== escolha.cnaePrincipal && (
+        {escolha.cnaePrincipal && escolha.cnaePrincipal !== CNAE_AVULSO && principal && principal.cnae !== escolha.cnaePrincipal && (
           <div className="text-[11px] text-amber mt-1.5">O CNAE escolhido não está mais nos pavimentos; o Anexo B usa o de maior área.</div>
         )}
       </div>

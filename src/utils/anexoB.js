@@ -96,6 +96,9 @@ export function opcoesClassificacaoAnexoB(state) {
   return { divisoes: [...divisoesSet].sort(), cnaes }
 }
 
+/** Valor do seletor de CNAE principal para um CNAE digitado, fora dos pavimentos. */
+export const CNAE_AVULSO = '__avulso__'
+
 export const rotuloCnaeAnexoB = c => [c.cnae, c.desc].filter(Boolean).join(' — ')
 
 export function buildAnexoBData(state, sistemas) {
@@ -113,7 +116,10 @@ export function buildAnexoBData(state, sistemas) {
   // CNAE principal: o escolhido (entre os classificados), senão o de maior área
   // somada; sem pavimento classificado, o cadastrado na identificação.
   const principal = cnaes.find(c => c.cnae === escolha.cnaePrincipal) || cnaes[0]
-  const cnaePrincipal = principal
+  const avulso = escolha.cnaePrincipal === CNAE_AVULSO ? escolha.cnaeAvulso : null
+  const cnaePrincipal = avulso?.cnae
+    ? [avulso.cnae, avulso.desc].filter(Boolean).join(' — ')
+    : principal
     ? rotuloCnaeAnexoB(principal)
     : [state.cnaePrincipal, state.cnaePrincipalDesc].filter(Boolean).join(' — ')
 
