@@ -276,7 +276,10 @@ function blocosDoPavimento(pav, seNorma, temChuveiros, temDeteccao) {
   blocos.push({ tipo: 'organograma', nos: organograma })
 
   blocos.push({ tipo: 'titulo2', texto: 'Larguras Mínimas' })
-  nos.forEach(no => {
+  // Todos os ambientes com acesso direto para fora: não há população passando por
+  // acesso/saída/escada, então a tabela de cálculo de saída e acesso (zerada) não entra.
+  const todosDiretos = ambientes.length > 0 && ambientes.every(a => !a.acessoId)
+  if (!todosDiretos) nos.forEach(no => {
     blocos.push(tabelaNo(no, ambientes, acessos, TAXA_POPULACIONAL, LARGURAS_MINIMAS, !!pav.pisoDescarga))
   })
   if (listaAmbientes.length > 0) {
