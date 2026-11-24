@@ -4,7 +4,7 @@ import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
 import { buildMemorial, PRIMEIRA_SECAO_MEDIDA } from '../../data/memorial/registry'
 import { SISTEMAS } from '../../data/sistemasMenu'
 import { MEDIDAS_ANEXO_B_COL1, MEDIDAS_ANEXO_B_COL2, RISCOS_ESPECIAIS, estadoMedidaSistema } from '../../utils/anexoB'
-import { getCNAEsDivisao, getNts, getCompartimentacao } from '../../data/normas/index'
+import { getCNAEsDivisao, getNts, getCompartimentacao, getGrupos } from '../../data/normas/index'
 import { classificarTipoEdificacao } from '../../data/compart_calc'
 import { classificarPavimentos } from '../../utils/classificacao'
 import { fmtNum, fmtUn } from '../../utils/numero'
@@ -364,7 +364,7 @@ function Caracterizacao({ state, porEstrutura }) {
                     <tr key={i} className={zebra(i)}>
                       {l.pavimentoSpan > 0 && <td rowSpan={l.pavimentoSpan} className={TABELA_TD}>{l.pavimento}</td>}
                       <td className={TABELA_TD}>{l.divisao}</td>
-                      <td className={TABELA_TD}>{[l.cnae, l.cnaeDesc].filter(Boolean).join(' — ')}</td>
+                      <td className={TABELA_TD}>{[l.cnae, l.cnaeDesc].filter(Boolean).join(' — ') || getGrupos(state.uf)[l.divisao?.charAt(0)] || ''}</td>
                       <td className={`${TABELA_TD} text-center`}>{cargaQ ? <>{fmtUn(cargaQ, 'MJ/m²')}<br/>{classificarCarga(cargaQ)}</> : '—'}</td>
                     </tr>
                   )
