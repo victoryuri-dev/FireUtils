@@ -89,8 +89,9 @@ export function camposObrigatorios(state, porEstrutura = []) {
     if (ativo('alarme')) {
       const cfg = alarmeDaEstrutura(est)
       const dest = medida('alarme','Alarme de incêndio',est.nome)
-      for (const [key,label] of [['central','Tipo de central'], ['centralLocal','Localização da central'], ['fonteAuxiliar','Fonte de alimentação auxiliar'], ['fonteAuxiliarLocal','Localização da fonte auxiliar']]) add(campoId(est.id,'alarme',key),label,cfg[key],dest)
-      if (cfg.central === 'enderecavel') add(campoId(est.id,'alarme','circuito'),'Tipo de circuito',cfg.circuito,dest)
+      add(campoId(est.id,'alarme','possuiCentral'),'Possui central de alarme?',cfg.possuiCentral,dest)
+      if (cfg.possuiCentral === 'sim') for (const [key,label] of [['central','Tipo de central'], ['centralLocal','Localização da central'], ['fonteAuxiliar','Fonte de alimentação auxiliar'], ['fonteAuxiliarLocal','Localização da fonte auxiliar']]) add(campoId(est.id,'alarme',key),label,cfg[key],dest)
+      if (cfg.possuiCentral === 'sim' && cfg.central === 'enderecavel') add(campoId(est.id,'alarme','circuito'),'Tipo de circuito',cfg.circuito,dest)
       if (cfg.subcentral) add(campoId(est.id,'alarme','subcentralQtd'),'Quantidade de subcentrais',cfg.subcentralQtd,dest,inteiro)
       add(campoId(est.id,'alarme','avisadores'),'Tipos de avisador',avisadoresAtivos(cfg),dest)
       // Quantidades em branco adotam o mínimo normativo no cálculo existente.

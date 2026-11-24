@@ -29,7 +29,8 @@ export const TIPOS_DETECTOR = [
 
 // ── Valores do projeto guardados na estrutura/pavimento (com defaults) ────
 export function alarmeDaEstrutura(est) {
-  return {
+  const cfg = {
+    possuiCentral: '', // '' (não respondeu) | 'sim' | 'nao'
     central: '', centralLocal: '', circuito: '', monitoramentoRemoto: false,
     preAlarme: false, subcentral: false, subcentralQtd: '',
     painelRepetidor: false, painelSinoptico: false,
@@ -38,6 +39,8 @@ export function alarmeDaEstrutura(est) {
     tipoAvisador: '', avisadores: undefined, semFio: false,
     ...(est?.alarme || {}),
   }
+  // Projetos de antes da pergunta: quem já escolheu um tipo de central tem central.
+  return { ...cfg, possuiCentral: cfg.possuiCentral || (cfg.central ? 'sim' : '') }
 }
 export function deteccaoDaEstrutura(est) {
   return { tiposDetector: undefined, ...(est?.deteccao || {}) }

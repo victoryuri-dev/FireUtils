@@ -45,50 +45,55 @@ function blocosEstrutura(norma, { est, pavs: pavsBrutos }) {
   const nrm = norma.NORMA
   const blocos = [{ tipo: 'titulo2', texto: est.nome || 'Edificação' }]
 
-  const tipo = c.tipos.find(t => t.key === cfg.central)?.label
-  const local = cfg.centralLocal
-  const partes = []
-  partes.push(tipo && local
-    ? `A central de alarme é do tipo ${tipo.toLowerCase()} e fica instalada em ${local} — área de fácil acesso, com vigilância humana constante e fácil visualização`
-    : 'A central de alarme ainda não teve tipo e local definidos, e ficará, em conformidade com a norma, em área de fácil acesso, com vigilância humana constante e fácil visualização')
-  if (cfg.centralLocal && !cfg.monitoramentoRemoto) partes.push(`fora do período de vigilância, recomenda-se o monitoramento local ou remoto da central (${cita(norma, 'central_local')})`)
-  let txt = partes.join(', ') + '.'
-  if (cfg.central === 'enderecavel' && cfg.circuito) {
-    txt += ` O sistema utiliza circuito Classe ${cfg.circuito} conforme a NBR 17240.`
-  }
-  const extras = []
-  if (cfg.painelRepetidor) extras.push('painel repetidor')
-  if (cfg.painelSinoptico) extras.push('painel sinóptico com o esquema ilustrativo de localização dos acionadores')
-  if (extras.length) txt += ` Dispõe de ${extras.join(' e ')}.`
-  if (cfg.preAlarme) {
-    txt += ` Por tratar-se de local de grande concentração de pessoas, o alarme geral é precedido de pré-alarme na sala de segurança, junto à central, com temporizador de no máximo ${c.pre_alarme_retardo_max_min} ${Number(c.pre_alarme_retardo_max_min) === 1 ? 'minuto' : 'minutos'} para o acionamento posterior do alarme geral, na existência de brigada de incêndio na edificação; o alarme geral permanece obrigatório para toda a edificação (${cita(norma, 'pre_alarme')}).`
-  }
-  if (cfg.subcentral && c.subcentral_retardo_max_min != null) {
-    const qtd = cfg.subcentralQtd || '1'
-    txt += ` Há ${qtd} ${Number(qtd) === 1 ? 'subcentral interligada' : 'subcentrais interligadas'} à central supervisionadora, com emissão simultânea de sinal de alarme; o alarme geral para toda a edificação soa caso, em ${c.subcentral_retardo_max_min} minutos, não sejam tomadas medidas junto à central supervisionadora (${cita(norma, 'subcentral')}).`
-  }
-  blocos.push({ tipo: 'paragrafo', texto: txt })
+  if (cfg.possuiCentral === 'nao') {
+    blocos.push({ tipo: 'paragrafo', texto: 'A edificação não possui central de alarme de incêndio.' })
+  } else {
+    const tipo = c.tipos.find(t => t.key === cfg.central)?.label
+    const local = cfg.centralLocal
+    const partes = []
+    partes.push(tipo && local
+      ? `A central de alarme é do tipo ${tipo.toLowerCase()} e fica instalada em ${local} — área de fácil acesso, com vigilância humana constante e fácil visualização`
+      : 'A central de alarme ainda não teve tipo e local definidos, e ficará, em conformidade com a norma, em área de fácil acesso, com vigilância humana constante e fácil visualização')
+    if (cfg.centralLocal && !cfg.monitoramentoRemoto) partes.push(`fora do período de vigilância, recomenda-se o monitoramento local ou remoto da central (${cita(norma, 'central_local')})`)
+    let txt = partes.join(', ') + '.'
+    if (cfg.central === 'enderecavel' && cfg.circuito) {
+      txt += ` O sistema utiliza circuito Classe ${cfg.circuito} conforme a NBR 17240.`
+    }
+    const extras = []
+    if (cfg.painelRepetidor) extras.push('painel repetidor')
+    if (cfg.painelSinoptico) extras.push('painel sinóptico com o esquema ilustrativo de localização dos acionadores')
+    if (extras.length) txt += ` Dispõe de ${extras.join(' e ')}.`
+    if (cfg.preAlarme) {
+      txt += ` Por tratar-se de local de grande concentração de pessoas, o alarme geral é precedido de pré-alarme na sala de segurança, junto à central, com temporizador de no máximo ${c.pre_alarme_retardo_max_min} ${Number(c.pre_alarme_retardo_max_min) === 1 ? 'minuto' : 'minutos'} para o acionamento posterior do alarme geral, na existência de brigada de incêndio na edificação; o alarme geral permanece obrigatório para toda a edificação (${cita(norma, 'pre_alarme')}).`
+    }
+    if (cfg.subcentral && c.subcentral_retardo_max_min != null) {
+      const qtd = cfg.subcentralQtd || '1'
+      txt += ` Há ${qtd} ${Number(qtd) === 1 ? 'subcentral interligada' : 'subcentrais interligadas'} à central supervisionadora, com emissão simultânea de sinal de alarme; o alarme geral para toda a edificação soa caso, em ${c.subcentral_retardo_max_min} minutos, não sejam tomadas medidas junto à central supervisionadora (${cita(norma, 'subcentral')}).`
+    }
+    blocos.push({ tipo: 'paragrafo', texto: txt })
 
-  // Indicação de funcionamento/alarme nos acionadores — só o que se aplica ao
-  // tipo de central efetivamente adotado nesta estrutura, não os dois modos.
-  if (cfg.central === 'enderecavel') {
+    // Indicação de funcionamento/alarme nos acionadores — só o que se aplica ao
+    // tipo de central efetivamente adotado nesta estrutura, não os dois modos.
+    if (cfg.central === 'enderecavel') {
+      blocos.push({
+        tipo: 'paragrafo',
+        texto: `Pela central ser do tipo endereçável, a indicação de funcionamento e de alarme nos acionadores manuais é dispensada, uma vez que a central supervisiona de forma constante e periódica os equipamentos periféricos${cfg.preAlarme ? '; havendo pré-alarme, o LED de alarme nos acionadores é obrigatório' : ''} (${cita(norma, 'leds_acionadores')}).`,
+      })
+    } else if (cfg.central === 'convencional') {
+      blocos.push({
+        tipo: 'paragrafo',
+        texto: `Os acionadores manuais contêm a indicação de funcionamento (cor verde) e de alarme (cor vermelha)${cfg.preAlarme ? ', e, havendo pré-alarme, o LED de alarme é obrigatório' : ''} (${cita(norma, 'leds_acionadores')}).`,
+      })
+    }
+
+    // Alimentação: autonomia sempre narrada pelo mínimo normativo (não é campo do formulário)
+    const fonte = cfg.fonteAuxiliar
     blocos.push({
       tipo: 'paragrafo',
-      texto: `Pela central ser do tipo endereçável, a indicação de funcionamento e de alarme nos acionadores manuais é dispensada, uma vez que a central supervisiona de forma constante e periódica os equipamentos periféricos${cfg.preAlarme ? '; havendo pré-alarme, o LED de alarme nos acionadores é obrigatório' : ''} (${cita(norma, 'leds_acionadores')}).`,
+      texto: `A alimentação é feita pela ${a.principal} (fonte principal) e por ${fonte ? fonte : 'fonte auxiliar (a definir)'} (fonte auxiliar)${cfg.fonteAuxiliarLocal?.trim() ? `, localizada em ${cfg.fonteAuxiliarLocal.trim()}` : ''}, com autonomia mínima de ${a.autonomia_supervisao_h} horas em regime de supervisão e de ${a.autonomia_alarme_min} minutos em regime de alarme, conforme a ${nrm.sigla} (${cita(norma, 'alimentacao')}).`,
     })
-  } else if (cfg.central === 'convencional') {
-    blocos.push({
-      tipo: 'paragrafo',
-      texto: `Os acionadores manuais contêm a indicação de funcionamento (cor verde) e de alarme (cor vermelha)${cfg.preAlarme ? ', e, havendo pré-alarme, o LED de alarme é obrigatório' : ''} (${cita(norma, 'leds_acionadores')}).`,
-    })
-  }
 
-  // Alimentação: autonomia sempre narrada pelo mínimo normativo (não é campo do formulário)
-  const fonte = cfg.fonteAuxiliar
-  blocos.push({
-    tipo: 'paragrafo',
-    texto: `A alimentação é feita pela ${a.principal} (fonte principal) e por ${fonte ? fonte : 'fonte auxiliar (a definir)'} (fonte auxiliar)${cfg.fonteAuxiliarLocal?.trim() ? `, localizada em ${cfg.fonteAuxiliarLocal.trim()}` : ''}, com autonomia mínima de ${a.autonomia_supervisao_h} horas em regime de supervisão e de ${a.autonomia_alarme_min} minutos em regime de alarme, conforme a ${nrm.sigla} (${cita(norma, 'alimentacao')}).`,
-  })
+  }
 
   // Tabela por pavimento
   // Colunas de avisador só para os tipos usados na estrutura.

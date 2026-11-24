@@ -60,8 +60,14 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
 
   const local = cfg.centralLocal ? { label: cfg.centralLocal } : null
 
+  const respondeu = cfg.possuiCentral === 'sim' || cfg.possuiCentral === 'nao'
+  const semCentral = cfg.possuiCentral === 'nao'
   const status = !exigido
     ? statusEstrutura('concluido', 'Não exigida')
+    : !respondeu
+    ? statusEstrutura('pendente', 'Configuração pendente')
+    : semCentral
+    ? statusEstrutura('andamento', 'Revisar e concluir')
     : !cfg.central || !cfg.centralLocal || !cfg.fonteAuxiliar
     ? (cfg.central || cfg.centralLocal || cfg.fonteAuxiliar ? statusEstrutura('andamento', 'Em andamento') : statusEstrutura('pendente', 'Configuração pendente'))
     : statusEstrutura('andamento', 'Revisar e concluir')
@@ -82,7 +88,17 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
       ) : (
       <>
       <div className="flex flex-col gap-3">
+        {/* Primeiro: a estrutura tem central de alarme? Só depois o resto. */}
+        <Card titulo={<>Esta estrutura possui central de alarme? <Obrigatorio id={`${estrutura.id}.alarme.possuiCentral`}/></>} icone={SISTEMA_ICON.alarme}>
+          <div className="flex gap-2">
+            <BotaoOpcao ativo={cfg.possuiCentral === 'sim'} onClick={() => setCfg({ possuiCentral: 'sim' })}>Sim</BotaoOpcao>
+            <BotaoOpcao ativo={cfg.possuiCentral === 'nao'} onClick={() => setCfg({ possuiCentral: 'nao' })}>Não</BotaoOpcao>
+          </div>
+        </Card>
+
+        {respondeu && <>
         {/* Central */}
+        {!semCentral && <>
         <Card titulo="Central de Alarme" icone={SISTEMA_ICON.alarme}>
           <div className="grid grid-cols-2 gap-3 mb-3.5 items-start">
             <div className="py-3 px-3.5 border border-solid border-border rounded-md bg-surface-2">
@@ -159,6 +175,8 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
           </div>
         </Card>
 
+        </>}
+
         {/* Acionadores e avisadores */}
         <Card titulo="Acionadores manuais e avisadores" icone="alarmeMedida">
           <div className="text-[13px] text-ink font-medium mb-1">Tipos de avisador utilizados <Obrigatorio id={`${estrutura.id}.alarme.avisadores`}/></div>
@@ -220,6 +238,7 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
             instalados de {fmtNum(acion.altura_min_m)} m a {fmtNum(acion.altura_max_m)} m do piso acabado (item {itens.acionador_altura}).
           </div>
         </Card>
+        </>}
       </div>
 
       <NotasDaNorma especificas={especificas} gerais={gerais} sigla={nrm.sigla}/>
