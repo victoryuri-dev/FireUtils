@@ -56,13 +56,10 @@ function textoDesativadaManualmente(medida, motivo) {
 // todos já têm área informada — `r.dentroDoLimite`) — cita a área
 // considerada e a área máxima de cada pavimento, sem repetir a tabela.
 function blocosDentroDoLimite(r) {
-  if (r.linhas.length === 1) {
-    const l = r.linhas[0]
-    return [{ tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada (${m2(l.area)}) está dentro da área máxima de compartimentação permitida (${fmtArea(l.valor)}) para a divisão ${l.pavimento.divisao} no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento.` }]
-  }
-  // Uma linha por pavimento, em tabela — num texto corrido ficava ilegível.
+  // Sempre em tabela (uma linha por pavimento), mesmo com um só pavimento.
+  const unico = r.linhas.length === 1
   return [
-    { tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada de todos os pavimentos está dentro da área máxima de compartimentação permitida no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento. Área considerada e área máxima por pavimento:` },
+    { tipo: 'paragrafo', texto: `Compartimentação horizontal dispensada: a área de compartimentação considerada ${unico ? 'do pavimento' : 'de todos os pavimentos'} está dentro da área máxima de compartimentação permitida no Tipo ${r.tipo} — ${r.tipoNome} (Anexo B, NT 09 CBMMA), de modo que a edificação se enquadra em um único compartimento. Área considerada e área máxima${unico ? '' : ' por pavimento'}:` },
     {
       tipo: 'tabela',
       colunas: ['Pavimento', 'Área de compartimentação', 'Área máxima permitida'],
