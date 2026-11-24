@@ -710,16 +710,14 @@ export default function DashboardPage({ onGoConfig, onNavigate }) {
 
         <section className="dashboard-information-grid">
           <article ref={identRef} className="dashboard-panel dashboard-identification anim-entra">
-            <div className="dashboard-section-heading"><div><h2>Identificação do projeto</h2><p>Dados administrativos e responsáveis</p></div><Icon name="info" size={15}/></div>
+            <div className="dashboard-section-heading"><div><h2>Identificação do projeto</h2><p>Dados do imóvel e do responsável pelo uso</p></div><Icon name="info" size={15}/></div>
             <dl>
               <div><dt>Nome do projeto</dt><dd>{state.nome || 'Não informado'}</dd></div>
               <div><dt>Localização</dt><dd>{address || 'Não informada'}</dd></div>
               <div><dt>Proprietário</dt><dd>{state.propNome || 'Não informado'}</dd></div>
               <div><dt>Responsável pelo uso</dt><dd>{state.respRazaoSocial || 'Não informado'}</dd></div>
-              {state.tipoProjeto === 'dimensionamento' ? <div><dt>Modalidade</dt><dd>Apenas dimensionamento</dd></div> : <>
-                <div><dt>Responsável técnico</dt><dd>{state.rtNome || 'Não informado'}</dd></div>
-                <div><dt>Registro / ART</dt><dd>{[state.rtConselho, state.artNumero].filter(Boolean).join(' · ') || 'Não informado'}</dd></div>
-              </>}
+              <div><dt>CNPJ</dt><dd>{state.respCNPJ || 'Não informado'}</dd></div>
+              {state.tipoProjeto === 'dimensionamento' && <div><dt>Modalidade</dt><dd>Apenas dimensionamento</dd></div>}
             </dl>
             <button type="button" className="dashboard-text-button" onClick={onGoConfig}>Editar identificação <Icon name="right" size={13}/></button>
           </article>
