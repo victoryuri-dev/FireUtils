@@ -12,7 +12,7 @@ import {
 } from './deteccao_alarme_comum'
 import { blocoObservacao } from '../../utils/observacoes'
 
-function blocosConcepcao(norma) {
+function blocosConcepcao(norma, comCentral = true) {
   const c = norma.CENTRAL, ac = norma.ACIONADOR, f = norma.FIACAO
   const paragrafos = []
 
@@ -20,10 +20,12 @@ function blocosConcepcao(norma) {
     tipo: 'paragrafo',
     texto: `O projeto contém os elementos necessários ao funcionamento do sistema e ao seu completo entendimento, com os procedimentos de elaboração do Projeto Técnico da NT 01 (${cita(norma, 'projeto')}).`,
   })
-  paragrafos.push({
-    tipo: 'paragrafo',
-    texto: `A central de alarme possui dispositivo de teste dos indicadores luminosos e dos sinalizadores acústicos (${cita(norma, 'teste_indicadores')}) e é instalada em local com constante vigilância humana e de fácil visualização (${cita(norma, 'vigilancia')}). Aciona o alarme geral da edificação, que é audível em toda a edificação${c.alarme_sem_interferir_comunicacao_verbal ? ', sem interferir na comunicação verbal' : ''} (${cita(norma, 'alarme_geral')}), e contém painel ou esquema ilustrativo indicando a localização dos acionadores manuais e detectores (${cita(norma, 'painel_esquema')}).`,
-  })
+  if (comCentral) {
+    paragrafos.push({
+      tipo: 'paragrafo',
+      texto: `A central de alarme possui dispositivo de teste dos indicadores luminosos e dos sinalizadores acústicos (${cita(norma, 'teste_indicadores')}) e é instalada em local com constante vigilância humana e de fácil visualização (${cita(norma, 'vigilancia')}). Aciona o alarme geral da edificação, que é audível em toda a edificação${c.alarme_sem_interferir_comunicacao_verbal ? ', sem interferir na comunicação verbal' : ''} (${cita(norma, 'alarme_geral')}), e contém painel ou esquema ilustrativo indicando a localização dos acionadores manuais e detectores (${cita(norma, 'painel_esquema')}).`,
+    })
+  }
   paragrafos.push({
     tipo: 'paragrafo',
     texto: `Os acionadores manuais são instalados a uma altura de ${fmt(ac.altura_min_m)} m a ${fmt(ac.altura_max_m)} m do piso acabado até a base inferior do componente${ac.cor ? `, na cor ${ac.cor}` : ''} (${cita(norma, 'acionador_altura')}), de modo que a distância máxima a ser percorrida por uma pessoa, em qualquer ponto da área protegida, até o acionador mais próximo não seja superior a ${ac.distancia_max_m} m (${cita(norma, 'acionador_distancia')}), preferencialmente junto aos hidrantes.`,
@@ -45,9 +47,8 @@ function blocosEstrutura(norma, { est, pavs: pavsBrutos }) {
   const nrm = norma.NORMA
   const blocos = [{ tipo: 'titulo2', texto: est.nome || 'Edificação' }]
 
-  if (cfg.possuiCentral === 'nao') {
-    blocos.push({ tipo: 'paragrafo', texto: 'A edificação não possui central de alarme de incêndio.' })
-  } else {
+  // Sem central de alarme na estrutura, nada sobre central/alimentação aparece.
+  if (cfg.possuiCentral !== 'nao') {
     const tipo = c.tipos.find(t => t.key === cfg.central)?.label
     const local = cfg.centralLocal
     const partes = []
@@ -147,7 +148,8 @@ export function textoMemorialAlarmeIncendio(state, sistemas, porEstrutura) {
   const lista = estruturasDaMedida(state, porEstrutura, 'alarme')
 
   const blocos = [
-    ...blocosConcepcao(norma),
+    // O parágrafo da central só entra se alguma estrutura tiver central.
+    ...blocosConcepcao(norma, lista.length === 0 || lista.some(item => alarmeDaEstrutura(item.est).possuiCentral !== 'nao')),
     ...(lista.length > 0
       ? [{ tipo: 'titulo2', texto: 'Dimensionamento por edificação' }, ...lista.flatMap(item => [...blocosEstrutura(norma, item), ...blocoObservacao(item.est, 'alarme')])]
       : [{ tipo: 'paragrafo', texto: 'Nenhuma edificação com o sistema de alarme exigido ou adotado até o momento.' }]),
