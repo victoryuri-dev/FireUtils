@@ -453,6 +453,8 @@ const INITIAL_STATE = {
   propNome: '', propDocumento: '', propTelefone: '', propEmail: '',
   respRazaoSocial: '', respFantasia: '', respCNPJ: '', respTelefone: '', respEmail: '',
   cnaePrincipal: '', cnaePrincipalDesc: '',
+  // Memorial: tabela de medidas com uma coluna por estrutura ('estruturas') ou uma tabela geral ('geral').
+  medidasTabelaModo: 'estruturas',
   // Anexo B (Etapa 4): divisões que o RT tirou da classificação e CNAE principal escolhido ('' = automático).
   anexoBClassificacao: { divisoesOcultas: [], cnaePrincipal: '', cnaeAvulso: { cnae: '', desc: '' } },
   rtNome: '', rtCpf: '', rtConselhoTipo: '', rtConselho: '', rtEspecialidade: 'Engenharia Civil',

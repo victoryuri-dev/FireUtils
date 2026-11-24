@@ -601,6 +601,36 @@ function ClassificacaoAnexoB() {
   )
 }
 
+// ── Tabela de medidas de segurança no memorial ───────────────────────
+// Com mais de uma estrutura: identificar cada uma (uma coluna por estrutura) ou
+// uma tabela geral única com todas as medidas aplicadas no projeto.
+function TabelaMedidasMemorial() {
+  const { state, dispatch } = useProjeto()
+  const modo = state.medidasTabelaModo === 'geral' ? 'geral' : 'estruturas'
+  const escolher = valor => dispatch({ type: 'SET_FIELD', field: 'medidasTabelaModo', value: valor })
+  const opcoes = [
+    { k: 'estruturas', t: 'Identificar todas as estruturas', s: 'Uma coluna por estrutura, mostrando quais medidas cada uma adota.' },
+    { k: 'geral', t: 'Tabela geral única', s: 'Uma só tabela com a listagem de todas as medidas de segurança aplicadas no projeto.' },
+  ]
+  return (
+    <section className="bg-surface border border-solid border-border rounded-lg p-4 mb-6">
+      <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ink mb-3.5">
+        Medidas de segurança no memorial
+        <InfoTip side="bottom" align="start" text="Define como a tabela 'Medidas de Segurança Contra Incêndio e Emergência do Projeto' sai no memorial descritivo."/>
+      </h3>
+      <div className="grid grid-cols-2 gap-3 max-[720px]:grid-cols-1" role="radiogroup" aria-label="Formato da tabela de medidas">
+        {opcoes.map(o => (
+          <button key={o.k} type="button" role="radio" aria-checked={modo === o.k} onClick={() => escolher(o.k)}
+            className={`text-left border border-solid rounded-md py-3 px-3.5 cursor-pointer transition-colors ${modo === o.k ? 'border-red-border bg-red-dim' : 'border-border bg-bg hover:border-ink-hint'}`}>
+            <div className={`text-[13px] font-medium ${modo === o.k ? 'text-red' : 'text-ink-muted'}`}>{o.t}</div>
+            <div className="text-[11px] text-ink-faint mt-0.5">{o.s}</div>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ── Step 4 principal ──────────────────────────────────────────────────
 export default function Step4({ step, totalSteps }) {
   const { state }    = useProjeto()
@@ -638,6 +668,8 @@ export default function Step4({ step, totalSteps }) {
       }
 
       {state.pavimentos.length > 0 && documentosDoEstado(state.uf, state.tipoProjeto).some(d => d.tipo === 'anexo-b') && <ClassificacaoAnexoB/>}
+
+      {state.estruturas.length > 1 && documentosDoEstado(state.uf, state.tipoProjeto).some(d => d.tipo === 'memorial-texto') && <TabelaMedidasMemorial/>}
 
       {state.tipoProjeto !== 'dimensionamento' && <ExtensaoConfig ponto="classificacao"/>}
 

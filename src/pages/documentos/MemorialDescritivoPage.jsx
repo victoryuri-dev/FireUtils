@@ -392,6 +392,8 @@ function MedidasAplicadas({ state, sistemas, porEstrutura }) {
   const riscosAtivosGlobal = RISCOS_ESPECIAIS
     .filter(r => porEstrutura.some(pe => !!riscosPorEstrutura[pe.estrutura.id]?.[r.key]))
   const multiplasEstruturas = porEstrutura.length > 1
+  // Etapa 4: tabela de medidas com uma coluna por estrutura ou uma tabela geral única.
+  const tabelaGeral = multiplasEstruturas && state.medidasTabelaModo === 'geral'
   // Isenta por desativação manual SEM justificativa (opção do RT em
   // Configuração): a célula fica vazia, nem "X" nem "-".
   const semMotivo = (estId, key) => !!state.semMotivoIsencaoPorEstrutura?.[estId]?.[key] && state.sistemasPorEstrutura?.[estId]?.[key] === false
@@ -399,9 +401,11 @@ function MedidasAplicadas({ state, sistemas, porEstrutura }) {
     const e = estadoMedidaSistema(pe.sistemas, key)
     return e === 'isenta' && semMotivo(pe.estrutura.id, key) ? 'none' : e
   }
-  const temIsenta = multiplasEstruturas
+  // Tabela geral: a medida só fica sem "-" quando nenhuma estrutura isenta tem justificativa.
+  const semMotivoGeral = key => porEstrutura.filter(pe => estadoMedidaSistema(pe.sistemas, key) === 'isenta').every(pe => semMotivo(pe.estrutura.id, key))
+  const temIsenta = multiplasEstruturas && !tabelaGeral
     ? medidas.some(m => porEstrutura.some(pe => estadoCelula(pe, m.key) === 'isenta'))
-    : medidas.some(m => estadoMedidaSistema(sistemas, m.key) === 'isenta' && !semMotivo(porEstrutura[0]?.estrutura.id, m.key))
+    : medidas.some(m => estadoMedidaSistema(sistemas, m.key) === 'isenta' && !semMotivoGeral(m.key))
   // Estrutura unica: reaproveita o riscos dessa unica estrutura pra manter o
   // rotulo "Outros: <descricao>" embutido, como antes.
   const unicaEst = porEstrutura[0]?.estrutura
@@ -418,7 +422,7 @@ function MedidasAplicadas({ state, sistemas, porEstrutura }) {
     <div className={FOLHA}>
       <Titulo nivel={1} numero={String(SECAO_MEDIDAS_APLICADAS)}>Medidas de Segurança Contra Incêndio e Emergência do Projeto</Titulo>
 
-      {multiplasEstruturas ? (
+      {multiplasEstruturas && !tabelaGeral ? (
         <table className={TABELA}>
           <thead>
             <tr className={TABELA_THEAD}>
@@ -457,7 +461,7 @@ function MedidasAplicadas({ state, sistemas, porEstrutura }) {
               <tr key={m.key} className={zebra(i)}>
                 <td className={TABELA_TD}>{m.label}</td>
                 <td className={`${TABELA_TD} text-center text-[16px] font-bold leading-none`}>
-                  {estadoMedidaSistema(sistemas, m.key) === 'isenta' ? (semMotivo(porEstrutura[0]?.estrutura.id, m.key) ? '' : '-') : 'X'}
+                  {estadoMedidaSistema(sistemas, m.key) === 'isenta' ? (semMotivoGeral(m.key) ? '' : '-') : 'X'}
                 </td>
               </tr>
             ))}
