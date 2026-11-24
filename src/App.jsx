@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import {
-  Routes, Route, Navigate, Outlet,
+  Routes, Route, Navigate, Outlet, NavLink,
   useNavigate, useParams, useLocation,
 } from 'react-router-dom'
 import { ProjetoProvider, useProjeto, newIds } from './context/ProjetoContext'
@@ -108,7 +108,7 @@ function HeaderNotes({ notes, dispatch, open, onToggle, onClose }) {
 }
 
 // ── AppHeader ─────────────────────────────────────────────────────────
-function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
+function AppHeader({ onGoProjetos, isProjectPage }) {
   const { user, signOut } = useAuth()
   const { perfil } = usePerfil()
   const { state, dispatch, syncStatus } = useProjeto()
@@ -148,14 +148,19 @@ function AppHeader({ onGoProjetos, isProjectPage, showProjectsLink = false }) {
         </nav>
       )}
 
-      {showProjectsLink && (
-        <button
-          type="button"
-          onClick={onGoProjetos}
-          className="absolute left-1/2 -translate-x-1/2 text-[12px] font-medium text-ink-muted hover:text-ink transition-colors"
-        >
-          Meus projetos
-        </button>
+      {/* Navegação entre as áreas da conta (fora de um projeto aberto): no centro do cabeçalho. */}
+      {!isProjectPage && (
+        <nav aria-label="Navegação principal" className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+          {[['/projetos', 'Meus projetos'], ['/assinaturas', 'Assinaturas'], ['/perfil', 'Perfil']].map(([to, rotulo]) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => `px-3 h-8 inline-flex items-center rounded-md text-[13px] font-medium transition-colors ${isActive ? 'text-ink bg-surface-2' : 'text-ink-muted hover:text-ink hover:bg-surface-2'}`}
+            >
+              {rotulo}
+            </NavLink>
+          ))}
+        </nav>
       )}
 
       {/* Direita — conta */}
@@ -364,7 +369,7 @@ function PerfilRoute() {
   const navigate = useNavigate()
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage={false} showProjectsLink/>
+      <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage={false}/>
       <PerfilPage/>
     </div>
   )
@@ -376,7 +381,7 @@ function AssinaturasRoute() {
   const navigate = useNavigate()
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage={false} showProjectsLink/>
+      <AppHeader onGoProjetos={() => navigate('/projetos')} isProjectPage={false}/>
       <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Loader size={32}/></div>}>
         <AssinaturasPage/>
       </Suspense>
