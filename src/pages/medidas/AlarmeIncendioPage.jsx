@@ -1,6 +1,5 @@
 import LinkNorma from '../../components/ui/LinkNorma'
 import Obrigatorio from '../../components/ui/Obrigatorio'
-import { useState } from 'react'
 import { useProjeto } from '../../context/ProjetoContext'
 import { useNorma } from '../../hooks/useNorma'
 import { useMedidasObrigatorias } from '../../hooks/useMedidasObrigatorias'
@@ -13,7 +12,7 @@ import { statusEstrutura } from '../../utils/statusEstrutura'
 import {
   alarmeDaEstrutura, alarmePav, resumoAlarmePavimento, notasAplicaveis, fmtNum, TIPOS_AVISADOR, avisadoresAtivos,
 } from '../../data/deteccao_alarme_calc'
-import { Card, CampoNum, CampoComSugestoes, BotaoOpcao, LinhaChave, Erro, NotasDaNorma, QuadroParametros, TH, TD, inputBase } from '../../components/deteccao/DaUi'
+import { Card, CampoNum, CampoComSugestoes, BotaoOpcao, LinhaChave, NotasDaNorma, QuadroParametros, TH, TD, inputBase } from '../../components/deteccao/DaUi'
 import ObservacoesComplementares from '../../components/ui/ObservacoesComplementares'
 
 // Conceitos de circuito da central endereçável (NBR 17240) — não variam por UF,
@@ -27,17 +26,15 @@ const CIRCUITO_TIP = {
 // Central, alimentação, acionadores manuais e avisadores (NT 19 — mesma norma
 // da Detecção, ver DeteccaoIncendioPage). Um card por estrutura; o que vem da
 // norma (mínimos, alturas, prazos) aparece como referência e pode ser
-// substituído — valores abaixo do mínimo normativo são corrigidos ao sair do campo.
+// substituído — os mínimos são só referência.
 
 function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
   const { dispatch } = useProjeto()
-  const [avisos, setAvisos] = useState({})
   const cfg = alarmeDaEstrutura(estrutura)
   const { ALIMENTACAO: alim, CENTRAL: central, ACIONADOR: acion, AVISADOR: avis, ITENS: itens, NORMA: nrm, SEM_FIO: semFio } = norma
 
   const setCfg = changes => dispatch({ type: 'SET_ESTRUTURA_FIELD', id: estrutura.id, field: 'alarme', value: { ...cfg, ...changes } })
   const setPav = (pav, changes) => dispatch({ type: 'UPDATE_PAV', id: pav.id, changes: { alarme: { ...alarmePav(pav), ...changes } } })
-  const aviso = (chave, texto) => setAvisos(a => ({ ...a, [chave]: texto }))
 
   // ── Pavimentos ──
   const tiposAvisadorAtivos = avisadoresAtivos(cfg)
@@ -48,12 +45,6 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
   const linhas = pavimentos.map(pav => ({ pav, r: resumoAlarmePavimento(pav, acion, avis, cfg) }))
   const totalAcion = linhas.reduce((s, l) => s + l.r.acionadores, 0)
   const totalAvisador = key => linhas.reduce((s, l) => s + (l.r.avisadores.find(a => a.key === key)?.qtd || 0), 0)
-  const validarAcionadores = (pav, r) => () => {
-    if (alarmePav(pav).acionadores !== '' && r.abaixoDoMinimo) {
-      setPav(pav, { acionadores: String(r.minAcionadores) })
-      aviso(`acion-${pav.id}`, `Em ${pav.label}, o mínimo é ${r.minAcionadores} acionador(es) para respeitar a distância máxima de ${acion.distancia_max_m} m (item ${itens.acionador_distancia}). O valor foi ajustado automaticamente.`)
-    }
-  }
 
   const divisoes = pavimentos.map(p => p.divisao)
   const { especificas, gerais } = notasAplicaveis(norma, divisoes)
@@ -208,7 +199,7 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
                       <td className={`${TD} text-ink whitespace-nowrap`}>{pav.label}</td>
                       <td className={TD}>
                         <div className="w-28"><CampoNum valor={p.acionadores} placeholder={String(r.minAcionadores)}
-                          onChange={v => { aviso(`acion-${pav.id}`, ''); setPav(pav, { acionadores: v }) }} onBlur={validarAcionadores(pav, r)}/></div>
+                          onChange={v => setPav(pav, { acionadores: v })}/></div>
                       </td>
                       {r.avisadores.map(a => (
                         <td key={a.key} className={TD}>
@@ -232,9 +223,8 @@ function EstruturaAlarme({ estrutura, pavimentos, norma, exigido }) {
           {tiposAvisadorAtivos.length === 0 && (
             <div className="text-[11px] text-amber mt-2">Selecione acima os tipos de avisador utilizados para informar as quantidades.</div>
           )}
-          {Object.entries(avisos).filter(([k, v]) => v && k.startsWith('acion-')).map(([k, v]) => <Erro key={k}>{v}</Erro>)}
           <div className="text-[11px] text-ink-faint leading-[1.6] mt-3">
-            Em branco vale o mínimo: ao menos um avisador de cada tipo e um acionador por pavimento (item {itens.acionador_pavimento}), e acionadores suficientes para que nenhum ponto passe de {acion.distancia_max_m} m do acionador mais próximo (item {itens.acionador_distancia});
+            Em branco vale o mínimo (é possível informar 0): ao menos um avisador de cada tipo e um acionador por pavimento (item {itens.acionador_pavimento}), e acionadores suficientes para que nenhum ponto passe de {acion.distancia_max_m} m do acionador mais próximo (item {itens.acionador_distancia});
             instalados de {fmtNum(acion.altura_min_m)} m a {fmtNum(acion.altura_max_m)} m do piso acabado (item {itens.acionador_altura}).
           </div>
         </Card>
