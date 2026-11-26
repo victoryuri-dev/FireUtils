@@ -191,9 +191,9 @@ test('Ltotal e totais do trecho são recalculados no servidor, não aceitos do c
   assert.equal(r.resultado.res.j.t3.segmentos[0].Ltotal, 26)
 })
 
-const conexaoBsp = (tipo, qtd, extra = {}) => ({ tipo, qtd, angulo_graus: null, d2_mm: null, sistema: 'bsp', ...extra })
+const conexaoBsp = (tipo, qtd, extra = {}) => ({ tipo, qtd, angulo_graus: null, d2_mm: null, ...extra })
 
-test('Leq das conexões fora de DN32-65 (sem tabela por sistema) continua no L/D genérico, e aparece no memorial', () => {
+test('Leq das conexões fora de DN32-65 (sem tabela) continua no L/D genérico, e aparece no memorial', () => {
   const entrada = entradaBase()
   entrada.trechos.t3 = [
     {
@@ -214,50 +214,42 @@ test('Leq das conexões fora de DN32-65 (sem tabela por sistema) continua no L/D
   assert.ok(Math.abs(seg0.Leq - leqEsperado) < 1e-9, `Leq: ${seg0.Leq} ≠ ${leqEsperado}`)
   assert.ok(Math.abs(seg0.Ltotal - (20 + leqEsperado)) < 1e-9)
   const nomes = seg0.acessorios.map((a) => a.nome).sort()
-  assert.deepEqual(nomes, ['Cotovelo 45° (BSP)', 'Cotovelo 90° (BSP)', 'Tê (BSP)', 'União'])
+  assert.deepEqual(nomes, ['Cotovelo 45°', 'Cotovelo 90°', 'Tê', 'União'])
 })
 
-test('DN32-65 usa a tabela sourced por sistema (bsp = NFPA 13, grooved = Victaulic 10.06), não o L/D genérico', () => {
-  const entradaComSistema = (sistema) => {
-    const entrada = entradaBase()
-    entrada.trechos.t3 = [
-      {
-        ...seg(50, 20, 0),
-        conexoes: [
-          { tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null, sistema },
-          { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null, sistema },
-          { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null, sistema },
-        ],
-      },
-    ]
-    return entrada
-  }
-
-  const rBsp = dimensionar(validarEntrada(entradaComSistema('bsp')), perfilMA())
-  assert.equal(rBsp.ok, true, rBsp.erro)
-  const leqBspEsperado = (5 + 2 + 10) * 0.3048 // NFPA 13, DN50: 90°=5ft, 45°=2ft, tê ramal=10ft
-  const legBsp = rBsp.resultado.res.j.t3.segmentos[0].Leq
-  assert.ok(Math.abs(legBsp - leqBspEsperado) < 1e-9, `Leq bsp: ${legBsp} ≠ ${leqBspEsperado}`)
-
-  const rGrooved = dimensionar(validarEntrada(entradaComSistema('grooved')), perfilMA())
-  assert.equal(rGrooved.ok, true, rGrooved.erro)
-  const leqGroovedEsperado = (3.0 + 1.1 + 8.0) * 0.3048 // Victaulic 10.06, DN50: 90°=3.0ft, 45°=1.1ft, tê ramal=8.0ft
-  const legGrooved = rGrooved.resultado.res.j.t3.segmentos[0].Leq
-  assert.ok(Math.abs(legGrooved - leqGroovedEsperado) < 1e-9, `Leq grooved: ${legGrooved} ≠ ${leqGroovedEsperado}`)
-
-  assert.ok(legGrooved < legBsp, 'grooved deve dar Leq menor que bsp no mesmo diâmetro/conexões')
-
-  const nomesGrooved = rGrooved.resultado.res.j.t3.segmentos[0].acessorios.map((a) => a.nome).sort()
-  assert.deepEqual(nomesGrooved, ['Cotovelo 45° (Grooved)', 'Cotovelo 90° (Grooved)', 'Tê (Grooved)'])
-})
-
-test('sistema ausente no payload (plugin antigo) vira bsp por padrão', () => {
+test('DN32-65 usa a tabela NFPA 13 (única), não o L/D genérico', () => {
   const entrada = entradaBase()
-  entrada.trechos.t3 = [{ ...seg(50, 20, 0), conexoes: [{ tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null }] }]
+  entrada.trechos.t3 = [
+    {
+      ...seg(50, 20, 0),
+      conexoes: [
+        { tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null },
+        { tipo: 'cotovelo', qtd: 1, angulo_graus: 45, d2_mm: null },
+        { tipo: 'tee', qtd: 1, angulo_graus: null, d2_mm: null },
+      ],
+    },
+  ]
   const r = dimensionar(validarEntrada(entrada), perfilMA())
   assert.equal(r.ok, true, r.erro)
-  const leqEsperado = 5 * 0.3048 // NFPA 13, DN50, 90° = 5ft — mesma tabela que 'bsp' explícito
-  assert.ok(Math.abs(r.resultado.res.j.t3.segmentos[0].Leq - leqEsperado) < 1e-9)
+  const leqEsperado = (5 + 2 + 10) * 0.3048 // NFPA 13, DN50: 90°=5ft, 45°=2ft, tê ramal=10ft
+  const leq = r.resultado.res.j.t3.segmentos[0].Leq
+  assert.ok(Math.abs(leq - leqEsperado) < 1e-9, `Leq: ${leq} ≠ ${leqEsperado}`)
+  const nomes = r.resultado.res.j.t3.segmentos[0].acessorios.map((a) => a.nome).sort()
+  assert.deepEqual(nomes, ['Cotovelo 45°', 'Cotovelo 90°', 'Tê'])
+})
+
+test('campo `sistema` enviado por plugin antigo é ignorado (sem erro e sem mudar o Leq)', () => {
+  const comSistema = (sistema) => {
+    const entrada = entradaBase()
+    entrada.trechos.t3 = [{ ...seg(50, 20, 0), conexoes: [{ tipo: 'cotovelo', qtd: 1, angulo_graus: 90, d2_mm: null, sistema }] }]
+    return dimensionar(validarEntrada(entrada), perfilMA())
+  }
+  const leqEsperado = 5 * 0.3048
+  for (const sistema of ['bsp', 'grooved', 'qualquer-coisa']) {
+    const r = comSistema(sistema)
+    assert.equal(r.ok, true, r.erro)
+    assert.ok(Math.abs(r.resultado.res.j.t3.segmentos[0].Leq - leqEsperado) < 1e-9)
+  }
 })
 
 test('material do trecho muda o C de Hazen-Williams usado nesse segmento', () => {
