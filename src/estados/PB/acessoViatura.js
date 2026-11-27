@@ -45,7 +45,12 @@ export function decidirAcessoViaturaPB(av = {}, temRecalqueProjeto, P) {
     else { obrigatorio = true; foraDoFormulario = true }
   }
 
-  // Via de acesso (vale quando obrigatória).
+  // Facultativo (linhas 1 e 2): o RT escolhe se aplica o acesso mesmo assim
+  // (av.facultativoAplicavel). Aplicado, a via segue as mesmas exigências
+  // do obrigatório.
+  const aplica = obrigatorio === true || (obrigatorio === false && av.facultativoAplicavel === true)
+
+  // Via de acesso (vale quando o acesso é obrigatório ou aplicado).
   const V = P.via
   const largura = numOr(av.larguraVia, V.larguraMin)
   const alturaLivre = numOr(av.alturaLivre, V.alturaLivreMin)
@@ -56,18 +61,18 @@ export function decidirAcessoViaturaPB(av = {}, temRecalqueProjeto, P) {
   const portaoOk = !!av.temPortao && numOr(av.portaoLargura, P.portao.larguraMin) >= P.portao.larguraMin && numOr(av.portaoAltura, P.portao.alturaMin) >= P.portao.alturaMin
 
   return {
-    temRecalque, edificacao, recalque, caso, obrigatorio, foraDoFormulario,
+    temRecalque, edificacao, recalque, caso, obrigatorio, foraDoFormulario, aplica,
     via: {
       // a)–f): largura ≥ 6, altura livre ≥ 4,5, suporta 25.000 kgf (resposta
       // do RT) e portão (se houver) nas dimensões mínimas. A desobstrução é
       // condição da norma, não pergunta — não entra na decisão.
-      atende: obrigatorio === true && viaPadrao && alturaLivre >= V.alturaLivreMin && av.cargaConfirmada === true && (!av.temPortao || portaoOk),
-      reduzida: obrigatorio === true && viaReduzida,
+      atende: aplica && viaPadrao && alturaLivre >= V.alturaLivreMin && av.cargaConfirmada === true && (!av.temPortao || portaoOk),
+      reduzida: aplica && viaReduzida,
       exigeRetorno,
     },
     portaoOk,
     // Faixa de estacionamento: compensação obrigatória quando o RT adota via
     // com menos de 6 m (até o mínimo de 5 m); com 6 m ou mais, não se aplica.
-    faixa: obrigatorio === true && viaReduzida,
+    faixa: aplica && viaReduzida,
   }
 }

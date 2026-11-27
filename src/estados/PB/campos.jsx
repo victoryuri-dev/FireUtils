@@ -517,10 +517,20 @@ export function CamposAcessoViaturaPB() {
               <span className="text-xs"><strong>Linha {r.caso} do formulário:</strong> {LINHA_AV[r.caso]}</span>
             </div>
           )}
+          {/* Facultativo: o RT decide se aplica o acesso de viatura. */}
+          {r?.obrigatorio === false && (
+            <div className="flex flex-col gap-2">
+              <Rotulo>Acesso de viatura facultativo — será aplicado no projeto?</Rotulo>
+              <div className="flex gap-2">
+                <BotaoOpcao ativo={av.facultativoAplicavel === true} onClick={() => setAv({ facultativoAplicavel: true })}>Aplicável</BotaoOpcao>
+                <BotaoOpcao ativo={av.facultativoAplicavel === false} onClick={() => setAv({ facultativoAplicavel: false })}>Não aplicável</BotaoOpcao>
+              </div>
+            </div>
+          )}
         </div>
       </FormSection>
 
-      {r?.obrigatorio && (
+      {r?.aplica && (
         <FormSection title="Via de acesso">
           <div className="flex flex-col gap-3">
             <div className="g2">
@@ -550,7 +560,7 @@ export function CamposAcessoViaturaPB() {
         </FormSection>
       )}
 
-      {r?.obrigatorio && (
+      {r?.aplica && (
         <FormSection title="Há portão de acesso?" extra={
           <div className="flex items-center gap-2">
             <span className={`text-xs ${av.temPortao === true ? 'text-ink font-medium' : 'text-ink-faint'}`}>{av.temPortao === true ? 'Sim' : 'Não'}</span>

@@ -778,3 +778,13 @@ test('20. isolamento de risco: α da Tabela A-1, D = α × menor dimensão + β,
   const vazio = secao(gerar(projeto({ memorialPB })), '20.')     // medida não marcada
   assert.equal(valorCampo(vazio, 'Distância Mínima para isolamento entre as edificações:'), '')
 })
+
+test('6. acesso de viatura facultativo: o RT escolhe se aplica; aplicado, a via entra no formulário', () => {
+  const sec = av => secao(gerar(projeto({ sistemasPorEstrutura: { e1: { acesso_viatura: true } }, memorialPB: { acessoViatura: av } })), '6.')
+  const via = s => s.linhas.filter(l => l.tipo === 'checks').find(l => l.itens[0].label.startsWith('Vias de acesso')).itens[0].x
+  const base = { distanciaEdificacao: '15', cargaConfirmada: true }       // linha 1: facultativo
+  assert.equal(via(sec(base)), false)                                     // sem escolha: não aplica
+  assert.equal(via(sec({ ...base, facultativoAplicavel: false })), false)
+  assert.equal(via(sec({ ...base, facultativoAplicavel: true })), true)   // aplicado: via de 6 m padrão atende
+  assert.ok(marcados(sec({ ...base, facultativoAplicavel: true }))[0].startsWith('Locais sem hidrante de recalque'))
+})
