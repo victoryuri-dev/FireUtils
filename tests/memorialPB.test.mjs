@@ -785,6 +785,11 @@ test('6. acesso de viatura facultativo: o RT escolhe se aplica; aplicado, a via 
   const base = { distanciaEdificacao: '15', cargaConfirmada: true }       // linha 1: facultativo
   assert.equal(via(sec(base)), false)                                     // sem escolha: não aplica
   assert.equal(via(sec({ ...base, facultativoAplicavel: false })), false)
+  const nao = sec({ ...base, facultativoAplicavel: false })
+  assert.equal(nao.linhas.find(l => l.tipo === 'exigivel').exigivel, false)   // não aplicável → NÃO EXIGÍVEL, sem marcações
+  assert.deepEqual(marcados(nao), [])
+  assert.equal(sec(base).linhas.find(l => l.tipo === 'exigivel').exigivel, true)   // sem escolha: segue exigível
+  assert.equal(sec({ ...base, facultativoAplicavel: true }).linhas.find(l => l.tipo === 'exigivel').exigivel, true)
   assert.equal(via(sec({ ...base, facultativoAplicavel: true })), true)   // aplicado: via de 6 m padrão atende
   assert.ok(marcados(sec({ ...base, facultativoAplicavel: true }))[0].startsWith('Locais sem hidrante de recalque'))
 })

@@ -319,7 +319,9 @@ function secaoAcessoViatura(state, F, ctx) {
     faixa: 'ESPECIFICAÇÃO DOS PREVENTIVOS DA EDIFICAÇÃO',
     titulo: '6. ACESSO DE VIATURA', nota: '(Conforme NT CBMPB nº14/2023)',
     linhas: [
-      { tipo: 'exigivel', exigivel: exigibilidade(ctx, 'acesso_viatura') },
+      // Facultativo e o RT escolheu "Não aplicável": NÃO EXIGÍVEL (e, pela regra
+      // geral, sem marcações abaixo). Sem escolha, segue exigível.
+      { tipo: 'exigivel', exigivel: r?.obrigatorio === false && state.memorialPB?.acessoViatura?.facultativoAplicavel === false ? false : exigibilidade(ctx, 'acesso_viatura') },
       linha(1, 'Locais sem hidrante de recalque e que possuam todas edificações com distância INFERIOR a 20 m em relação a entrada da circulação comum e a via pública, a contar do meio fio (Não se faz necessário ter o acesso de viatura, tornando-se um item facultativo). Distância: ______', r?.edificacao),
       linha(2, 'O hidrante de recalque tem caminhamento INFERIOR ou igual a 20 m entre o registro de qualquer hidrante de recalque e a via pública, a contar do meio fio. Distância exata: ______\nA edificação tem caminhamento INFERIOR ou igual a 50 m medidos entre a entrada da circulação comum e a via pública, a contar do meio fio. Distância exata: ______\n(Não se faz necessário ter o acesso de viatura, tornando-se um item facultativo).', r?.recalque, r?.edificacao),
       linha(3, 'Locais sem hidrante de recalque e que possuam qualquer edificação com distância SUPERIOR a 20 m em relação a entrada da circulação comum e a via pública, a contar do meio fio. (O acesso de viatura é obrigatório).'),
